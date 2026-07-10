@@ -672,6 +672,12 @@
         }
       }
     );
+    inputElement.addEventListener(
+  "input",
+  function() {
+    inputElement.value = inputElement.value.toUpperCase();
+  }
+);
 
     connectToTrimble();
   </script>
