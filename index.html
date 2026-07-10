@@ -2,6 +2,7 @@
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
+
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1.0"
@@ -69,6 +70,10 @@
       cursor: pointer;
     }
 
+    button:hover {
+      background: #004f83;
+    }
+
     button:disabled {
       cursor: not-allowed;
       background: #9ba3a8;
@@ -77,6 +82,7 @@
     #result {
       margin-top: 16px;
       padding: 14px;
+      min-height: 70px;
       background: white;
       border: 1px solid #d8dadd;
       border-radius: 6px;
@@ -110,11 +116,15 @@
       <input
         id="cast-unit-mark"
         type="text"
-        placeholder="Bijvoorbeeld W123"
+        placeholder="Bijvoorbeeld L23"
         autocomplete="off"
       >
 
-      <button id="search-button" type="button" disabled>
+      <button
+        id="search-button"
+        type="button"
+        disabled
+      >
         Zoeken
       </button>
     </div>
@@ -124,45 +134,51 @@
     Nog geen object gezocht.
   </section>
 
-  <script type="module">
-    import * as WorkspaceAPI
-      from "https://cdn.jsdelivr.net/npm/trimble-connect-workspace-api@0.3.34/+esm";
+  <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
 
-    const statusElement = document.getElementById("status");
-    const inputElement = document.getElementById("cast-unit-mark");
-    const searchButton = document.getElementById("search-button");
-    const resultElement = document.getElementById("result");
+  <script>
+    let API;
 
-    let api = null;
+    const statusElement =
+      document.getElementById("status");
 
-    async function startExtension() {
-      if (window.parent === window) {
-        statusElement.textContent =
-          "Testpagina geopend buiten Trimble Connect.";
+    const inputElement =
+      document.getElementById("cast-unit-mark");
 
-        resultElement.textContent =
-          "De interface werkt. De verbinding kan pas getest worden wanneer de extensie in Trimble Connect geopend wordt.";
+    const searchButton =
+      document.getElementById("search-button");
 
-        return;
-      }
+    const resultElement =
+      document.getElementById("result");
 
+    async function connectToTrimble() {
       try {
-        api = await WorkspaceAPI.connect(
+        API = await TrimbleConnectWorkspace.connect(
           window.parent,
-          (event, data) => {
-            console.log("Trimble Connect-event:", event, data);
+          function (event, data) {
+            console.log(
+              "Trimble Connect-event:",
+              event,
+              data
+            );
           }
         );
 
-        const project = await api.project.getProject();
+        const project =
+          await API.project.getProject();
 
         statusElement.textContent =
-          `Verbonden met project: ${project.name || project.id}`;
+          "Verbonden met project: " +
+          (project.name || project.id);
 
         statusElement.classList.add("success");
+
         searchButton.disabled = false;
       } catch (error) {
-        console.error(error);
+        console.error(
+          "Verbinding mislukt:",
+          error
+        );
 
         statusElement.textContent =
           "Verbinding met Trimble Connect mislukt.";
@@ -171,29 +187,71 @@
       }
     }
 
-    function searchCastUnit() {
-      const castUnitMark = inputElement.value.trim();
+    async function zoekCastUnit() {
+      const mark =
+        inputElement.value.trim();
 
-      if (!castUnitMark) {
+      if (!mark) {
         resultElement.textContent =
           "Vul eerst een Cast Unit Mark in.";
 
         return;
       }
 
+      if (!API) {
+        resultElement.textContent =
+          "Er is nog geen verbinding met Trimble Connect.";
+
+        return;
+      }
+
+      searchButton.disabled = true;
+
       resultElement.textContent =
-        `In de volgende stap zoeken we naar: ${castUnitMark}`;
+        "Zoeken naar " + mark + "...";
+
+      try {
+        /*
+         * In deze eerste test controleren we of de
+         * extensie correct reageert.
+         *
+         * De echte modelzoekactie voegen we toe nadat
+         * we de exacte IFC-propertynaam hebben vastgesteld.
+         */
+
+        resultElement.textContent =
+          "De extensie werkt correct." +
+          "\nIngegeven Cast Unit Mark: " + mark +
+          "\n\nVolgende stap: de exacte propertynaam uit het IFC-model uitlezen.";
+
+      } catch (error) {
+        console.error(
+          "Fout tijdens zoeken:",
+          error
+        );
+
+        resultElement.textContent =
+          "Er ging iets fout tijdens het zoeken.";
+      } finally {
+        searchButton.disabled = false;
+      }
     }
 
-    searchButton.addEventListener("click", searchCastUnit);
+    searchButton.addEventListener(
+      "click",
+      zoekCastUnit
+    );
 
-    inputElement.addEventListener("keydown", event => {
-      if (event.key === "Enter") {
-        searchButton.click();
+    inputElement.addEventListener(
+      "keydown",
+      function (event) {
+        if (event.key === "Enter") {
+          zoekCastUnit();
+        }
       }
-    });
+    );
 
-    startExtension();
+    connectToTrimble();
   </script>
 </body>
 </html>
