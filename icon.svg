@@ -1,14 +1,34 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="10" fill="#0063a3"/>
-  <path
-    d="M13 18h38v8H36v25h-8V26H13z"
-    fill="white"
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="64"
+     height="64"
+     viewBox="0 0 64 64">
+
+  <rect
+    x="0"
+    y="0"
+    width="64"
+    height="64"
+    rx="10"
+    fill="#0063a3"
   />
-  <circle cx="47" cy="46" r="9" fill="white"/>
+
   <path
-    d="M43 46h8M47 42v8"
+    d="M14 17 H50 V25 H36 V49 H28 V25 H14 Z"
+    fill="#ffffff"
+  />
+
+  <circle
+    cx="47"
+    cy="46"
+    r="9"
+    fill="#ffffff"
+  />
+
+  <path
+    d="M43 46 H51 M47 42 V50"
     stroke="#0063a3"
     stroke-width="3"
     stroke-linecap="round"
   />
+
 </svg>
