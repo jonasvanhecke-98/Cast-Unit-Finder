@@ -532,7 +532,7 @@
 
     async function searchCastUnit() {
       const mark =
-        inputElement.value.trim();
+        inputElement.value.trim().toUpperCase();
 
       if (!mark) {
         resultElement.textContent =
