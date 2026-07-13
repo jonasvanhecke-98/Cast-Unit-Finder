@@ -1,7 +1,7 @@
 {
   "title": "Cast Unit Finder",
-  "description": "Zoek betonelementen op Cast Unit Mark.",
-  "icon": "https://jonasvanhecke-98.github.io/Cast-Unit-Finder/icon.svg",
+  "description": "Zoek modelobjecten op Cast Unit Mark en andere parameters.",
+  "icon": "https://jonasvanhecke-98.github.io/Cast-Unit-Finder/icon.png",
   "url": "https://jonasvanhecke-98.github.io/Cast-Unit-Finder/index.html",
   "enabled": true,
   "extensionType": [
