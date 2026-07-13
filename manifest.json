@@ -2,7 +2,7 @@
   "title": "Cast Unit Finder",
   "description": "Zoek betonelementen op Cast Unit Mark.",
   "icon": "https://jonasvanhecke-98.github.io/Cast-Unit-Finder/icon.svg",
-  "url": "https://jonasvanhecke-98.github.io/Cast-Unit-Finder/?v=14",
+  "url": "https://jonasvanhecke-98.github.io/Cast-Unit-Finder/?v=15",
   "enabled": true,
   "extensionType": [
     "3dviewer"
