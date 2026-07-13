@@ -64,18 +64,12 @@
       padding: 10px;
       border: 1px solid #aeb2b7;
       border-radius: 4px;
-      font-size: 16px;
+      font-size: 15px;
+      background: white;
     }
 
     #cast-unit-mark {
       text-transform: uppercase;
-    }
-
-    .button-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-top: 10px;
     }
 
     button {
@@ -105,6 +99,24 @@
       background: #d4d7d9;
     }
 
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .single-button {
+      margin-top: 10px;
+    }
+
+    .small-info {
+      margin: 0 0 10px;
+      font-size: 12px;
+      line-height: 1.4;
+      color: #666;
+    }
+
     #result {
       margin-top: 14px;
       padding: 14px;
@@ -117,21 +129,88 @@
     }
 
     .result-title {
-      margin-bottom: 8px;
-      font-size: 20px;
+      margin-bottom: 10px;
+      font-size: 19px;
       font-weight: bold;
     }
 
-    .result-row {
-      margin-bottom: 7px;
-      padding-bottom: 7px;
-      border-bottom: 1px solid #eceeef;
-    }
-
     .result-info {
-      margin-top: 10px;
+      margin-top: 12px;
       font-size: 12px;
       color: #666;
+    }
+
+    .result-weight {
+      margin-bottom: 7px;
+      font-size: 15px;
+    }
+
+    .search-result {
+      margin-bottom: 8px;
+      overflow: hidden;
+      background: white;
+      border: 1px solid #d8dadd;
+      border-radius: 5px;
+    }
+
+    .search-result[open] {
+      border-color: #0063a3;
+    }
+
+    .search-result-summary {
+      padding: 11px 12px;
+      font-weight: bold;
+      cursor: pointer;
+      user-select: none;
+      background: #f6f7f8;
+    }
+
+    .search-result-summary:hover {
+      background: #e9f2f8;
+    }
+
+    .search-result-details {
+      padding: 10px 12px;
+      border-top: 1px solid #d8dadd;
+    }
+
+    .match-info {
+      margin-bottom: 10px;
+      padding: 8px;
+      font-size: 12px;
+      background: #f4f5f6;
+      border-radius: 4px;
+    }
+
+    .altez-title {
+      margin-bottom: 8px;
+      font-size: 12px;
+      font-weight: bold;
+      color: #555;
+    }
+
+    .altez-property {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 10px;
+      padding: 7px 0;
+      border-top: 1px solid #eceeef;
+      font-size: 12px;
+    }
+
+    .altez-property-name {
+      overflow-wrap: anywhere;
+      color: #555;
+    }
+
+    .altez-property-value {
+      overflow-wrap: anywhere;
+      font-weight: bold;
+    }
+
+    .no-altez-properties {
+      font-size: 12px;
+      color: #777;
     }
 
     .success {
@@ -140,13 +219,6 @@
 
     .error {
       color: #b42318 !important;
-    }
-
-    .small-info {
-      margin: 0 0 10px;
-      font-size: 12px;
-      line-height: 1.4;
-      color: #666;
     }
   </style>
 </head>
@@ -176,9 +248,9 @@
 
     <button
       id="mark-search-button"
+      class="single-button"
       type="button"
       disabled
-      style="margin-top: 10px;"
     >
       Zoek Cast Unit Mark
     </button>
@@ -199,16 +271,16 @@
     <input
       id="general-search"
       type="text"
-      placeholder="Bijvoorbeeld beton, L26, HEA240..."
+      placeholder="Bijvoorbeeld beton, profiel, fase..."
       autocomplete="off"
       spellcheck="false"
     >
 
     <button
       id="general-search-button"
+      class="single-button"
       type="button"
       disabled
-      style="margin-top: 10px;"
     >
       Algemeen zoeken
     </button>
@@ -281,40 +353,6 @@
         .toLocaleUpperCase("nl-BE");
     }
 
-    async function connectToTrimble() {
-      try {
-        API = await TrimbleConnectWorkspace.connect(
-          window.parent,
-          function(event, data) {
-            console.log(
-              "Trimble Connect-event:",
-              event,
-              data
-            );
-          }
-        );
-
-        const project =
-          await API.project.getProject();
-
-        statusElement.textContent =
-          "Verbonden met project: " +
-          (project.name || project.id);
-
-        statusElement.classList.add("success");
-
-        markSearchButton.disabled = false;
-        generalSearchButton.disabled = false;
-      } catch (error) {
-        console.error(error);
-
-        statusElement.textContent =
-          "Verbinding met Trimble Connect mislukt.";
-
-        statusElement.classList.add("error");
-      }
-    }
-
     function haalObjecten(model) {
       return Array.isArray(model.objects)
         ? model.objects
@@ -358,8 +396,10 @@
                 haalObjecten(model)
                   .map(haalRuntimeId)
                   .filter(function(id) {
-                    return id !== null &&
-                           id !== undefined;
+                    return (
+                      id !== null &&
+                      id !== undefined
+                    );
                   })
             };
           })
@@ -367,6 +407,43 @@
             return model.objectRuntimeIds.length > 0;
           })
       };
+    }
+
+    async function connectToTrimble() {
+      try {
+        API = await TrimbleConnectWorkspace.connect(
+          window.parent,
+          function(event, data) {
+            console.log(
+              "Trimble Connect-event:",
+              event,
+              data
+            );
+          }
+        );
+
+        const project =
+          await API.project.getProject();
+
+        statusElement.textContent =
+          "Verbonden met project: " +
+          (project.name || project.id);
+
+        statusElement.classList.add("success");
+
+        markSearchButton.disabled = false;
+        generalSearchButton.disabled = false;
+      } catch (error) {
+        console.error(
+          "Verbinding mislukt:",
+          error
+        );
+
+        statusElement.textContent =
+          "Verbinding met Trimble Connect mislukt.";
+
+        statusElement.classList.add("error");
+      }
     }
 
     async function selecteerEnZoom(resultaten) {
@@ -388,6 +465,39 @@
       } catch (error) {
         console.warn(
           "Inzoomen is niet gelukt:",
+          error
+        );
+      }
+    }
+
+    async function selecteerEnZoomNaarEenObject(
+      modelId,
+      runtimeId
+    ) {
+      const selector = {
+        modelObjectIds: [
+          {
+            modelId: modelId,
+            objectRuntimeIds: [runtimeId]
+          }
+        ]
+      };
+
+      await API.viewer.setSelection(
+        selector,
+        "set"
+      );
+
+      try {
+        await API.viewer.setCamera(
+          selector,
+          {
+            animationTime: 400
+          }
+        );
+      } catch (error) {
+        console.warn(
+          "Inzoomen naar resultaat is niet gelukt:",
           error
         );
       }
@@ -504,7 +614,9 @@
 
         if (telObjecten(gevondenResultaten) === 0) {
           resultElement.textContent =
-            "Geen object gevonden voor " + mark + ".";
+            "Geen object gevonden voor " +
+            mark +
+            ".";
 
           return;
         }
@@ -520,8 +632,10 @@
             haalObjecten(model)
               .map(haalRuntimeId)
               .filter(function(id) {
-                return id !== null &&
-                       id !== undefined;
+                return (
+                  id !== null &&
+                  id !== undefined
+                );
               });
 
           const properties =
@@ -536,6 +650,7 @@
                 objectProperties,
                 markPropertyNames
               ),
+
               weight: zoekPropertyWaarde(
                 objectProperties,
                 weightPropertyNames
@@ -559,18 +674,23 @@
             const rij =
               document.createElement("div");
 
-            rij.className = "result-row";
+            rij.className =
+              "result-weight";
 
             if (gevondenElementen.length === 1) {
               rij.textContent =
                 "Gewicht: " +
-                formatteerGewicht(element.weight);
+                formatteerGewicht(
+                  element.weight
+                );
             } else {
               rij.textContent =
                 "Element " +
                 (index + 1) +
                 " — Gewicht: " +
-                formatteerGewicht(element.weight);
+                formatteerGewicht(
+                  element.weight
+                );
             }
 
             resultElement.appendChild(rij);
@@ -661,12 +781,285 @@
       return matches;
     }
 
+    function normaliseerPropertySetNaam(waarde) {
+      return String(waarde || "")
+        .trim()
+        .replace(/[\s-]+/g, "_")
+        .toLocaleUpperCase("nl-BE");
+    }
+
+    function haalAltezIfcProperties(
+      objectProperties
+    ) {
+      const gevondenProperties = [];
+
+      const propertySets =
+        Array.isArray(objectProperties.properties)
+          ? objectProperties.properties
+          : [];
+
+      for (const propertySet of propertySets) {
+        const setName =
+          String(propertySet.set || "").trim();
+
+        if (
+          normaliseerPropertySetNaam(setName) !==
+          "ALTEZ_IFC"
+        ) {
+          continue;
+        }
+
+        const properties =
+          Array.isArray(propertySet.properties)
+            ? propertySet.properties
+            : [];
+
+        for (const property of properties) {
+          gevondenProperties.push({
+            name: String(property.name || ""),
+            value: String(property.value ?? "")
+          });
+        }
+      }
+
+      return gevondenProperties;
+    }
+
+    function zoekEersteHerkenbareNaam(
+      objectProperties,
+      index
+    ) {
+      const mogelijkeNamen = [
+        "Assembly/Cast unit Mark",
+        "Cast unit Mark",
+        "Name",
+        "Naam",
+        "Mark",
+        "Position"
+      ];
+
+      const propertySets =
+        Array.isArray(objectProperties.properties)
+          ? objectProperties.properties
+          : [];
+
+      for (const gewensteNaam of mogelijkeNamen) {
+        for (const propertySet of propertySets) {
+          const properties =
+            Array.isArray(propertySet.properties)
+              ? propertySet.properties
+              : [];
+
+          for (const property of properties) {
+            if (
+              normaliseerTekst(property.name) ===
+              normaliseerTekst(gewensteNaam)
+            ) {
+              const waarde =
+                String(property.value ?? "").trim();
+
+              if (waarde) {
+                return waarde;
+              }
+            }
+          }
+        }
+      }
+
+      return "Element " + (index + 1);
+    }
+
+    function maakAltezPropertyRij(property) {
+      const rij =
+        document.createElement("div");
+
+      rij.className =
+        "altez-property";
+
+      const naam =
+        document.createElement("div");
+
+      naam.className =
+        "altez-property-name";
+
+      naam.textContent =
+        property.name || "Naamloos";
+
+      const waarde =
+        document.createElement("div");
+
+      waarde.className =
+        "altez-property-value";
+
+      waarde.textContent =
+        property.value || "—";
+
+      rij.appendChild(naam);
+      rij.appendChild(waarde);
+
+      return rij;
+    }
+
+    function toonAlgemeneZoekresultaten(
+      zoektekstOrigineel,
+      gevondenDetails
+    ) {
+      resultElement.innerHTML = "";
+
+      const titel =
+        document.createElement("div");
+
+      titel.className = "result-title";
+
+      titel.textContent =
+        "Zoekresultaten: " +
+        zoektekstOrigineel;
+
+      resultElement.appendChild(titel);
+
+      gevondenDetails.forEach(
+        function(detail, index) {
+          const detailsElement =
+            document.createElement("details");
+
+          detailsElement.className =
+            "search-result";
+
+          const summary =
+            document.createElement("summary");
+
+          summary.className =
+            "search-result-summary";
+
+          const elementNaam =
+            zoekEersteHerkenbareNaam(
+              detail.objectProperties,
+              index
+            );
+
+          summary.textContent =
+            (index + 1) +
+            ". " +
+            elementNaam;
+
+          const inhoud =
+            document.createElement("div");
+
+          inhoud.className =
+            "search-result-details";
+
+          if (
+            Array.isArray(detail.matches) &&
+            detail.matches.length > 0
+          ) {
+            const matchInfo =
+              document.createElement("div");
+
+            matchInfo.className =
+              "match-info";
+
+            const eersteMatch =
+              detail.matches[0];
+
+            matchInfo.textContent =
+              "Gevonden in: " +
+              (
+                eersteMatch.setName
+                  ? eersteMatch.setName + " → "
+                  : ""
+              ) +
+              eersteMatch.propertyName +
+              "\nWaarde: " +
+              eersteMatch.value;
+
+            inhoud.appendChild(matchInfo);
+          }
+
+          const altezProperties =
+            haalAltezIfcProperties(
+              detail.objectProperties
+            );
+
+          if (altezProperties.length > 0) {
+            const altezTitel =
+              document.createElement("div");
+
+            altezTitel.className =
+              "altez-title";
+
+            altezTitel.textContent =
+              "ALTEZ_IFC";
+
+            inhoud.appendChild(altezTitel);
+
+            altezProperties.forEach(
+              function(property) {
+                inhoud.appendChild(
+                  maakAltezPropertyRij(property)
+                );
+              }
+            );
+          } else {
+            const geenProperties =
+              document.createElement("div");
+
+            geenProperties.className =
+              "no-altez-properties";
+
+            geenProperties.textContent =
+              "Voor dit object werden geen ALTEZ_IFC-parameters gevonden.";
+
+            inhoud.appendChild(
+              geenProperties
+            );
+          }
+
+          summary.addEventListener(
+            "click",
+            async function() {
+              try {
+                await selecteerEnZoomNaarEenObject(
+                  detail.modelId,
+                  detail.runtimeId
+                );
+              } catch (error) {
+                console.error(
+                  "Resultaat selecteren mislukt:",
+                  error
+                );
+              }
+            }
+          );
+
+          detailsElement.appendChild(summary);
+          detailsElement.appendChild(inhoud);
+
+          resultElement.appendChild(
+            detailsElement
+          );
+        }
+      );
+
+      const info =
+        document.createElement("div");
+
+      info.className = "result-info";
+
+      info.textContent =
+        gevondenDetails.length +
+        " object(en) gevonden. Klik op een resultaat om het object te selecteren en de ALTEZ_IFC-details te bekijken.";
+
+      resultElement.appendChild(info);
+    }
+
     async function algemeenZoeken() {
       const zoektekstOrigineel =
         generalInput.value.trim();
 
       const zoektekst =
-        normaliseerTekst(zoektekstOrigineel);
+        normaliseerTekst(
+          zoektekstOrigineel
+        );
 
       if (!zoektekst) {
         resultElement.textContent =
@@ -685,20 +1078,16 @@
         "\"...\n\nDit kan bij een groot model even duren.";
 
       try {
-        /*
-         * Zonder selector vraagt getObjects alle objecten
-         * van de geladen modellen op.
-         */
         const alleObjecten =
           await API.viewer.getObjects();
 
-        const gevondenPerModel = [];
         const gevondenDetails = [];
 
-        for (let modelIndex = 0;
-             modelIndex < alleObjecten.length;
-             modelIndex++) {
-
+        for (
+          let modelIndex = 0;
+          modelIndex < alleObjecten.length;
+          modelIndex++
+        ) {
           const model =
             alleObjecten[modelIndex];
 
@@ -706,19 +1095,23 @@
             haalObjecten(model)
               .map(haalRuntimeId)
               .filter(function(id) {
-                return id !== null &&
-                       id !== undefined;
+                return (
+                  id !== null &&
+                  id !== undefined
+                );
               });
 
           const groepen =
-            verdeelInGroepen(runtimeIds, 300);
+            verdeelInGroepen(
+              runtimeIds,
+              300
+            );
 
-          const gevondenRuntimeIds = [];
-
-          for (let groepIndex = 0;
-               groepIndex < groepen.length;
-               groepIndex++) {
-
+          for (
+            let groepIndex = 0;
+            groepIndex < groepen.length;
+            groepIndex++
+          ) {
             resultElement.textContent =
               "Model " +
               (modelIndex + 1) +
@@ -736,37 +1129,40 @@
                 groepen[groepIndex]
               );
 
-            for (const objectProperties of properties) {
+            for (
+              const objectProperties
+              of properties
+            ) {
               const matches =
                 zoekMatchesInObject(
                   objectProperties,
                   zoektekst
                 );
 
-              if (matches.length > 0) {
-                gevondenRuntimeIds.push(
-                  objectProperties.id
-                );
-
-                gevondenDetails.push({
-                  modelId: model.modelId,
-                  runtimeId: objectProperties.id,
-                  matches: matches
-                });
+              if (matches.length === 0) {
+                continue;
               }
-            }
-          }
 
-          if (gevondenRuntimeIds.length > 0) {
-            gevondenPerModel.push({
-              modelId: model.modelId,
-              objects:
-                gevondenRuntimeIds.map(
-                  function(id) {
-                    return { id: id };
-                  }
-                )
-            });
+              const runtimeId =
+                objectProperties.id ??
+                objectProperties.runtimeId ??
+                objectProperties.objectRuntimeId;
+
+              if (
+                runtimeId === null ||
+                runtimeId === undefined
+              ) {
+                continue;
+              }
+
+              gevondenDetails.push({
+                modelId: model.modelId,
+                runtimeId: runtimeId,
+                objectProperties:
+                  objectProperties,
+                matches: matches
+              });
+            }
           }
         }
 
@@ -779,68 +1175,10 @@
           return;
         }
 
-        await selecteerEnZoom(
-          gevondenPerModel
+        toonAlgemeneZoekresultaten(
+          zoektekstOrigineel,
+          gevondenDetails
         );
-
-        resultElement.innerHTML = "";
-
-        const titel =
-          document.createElement("div");
-
-        titel.className = "result-title";
-        titel.textContent =
-          "Zoekresultaten: " +
-          zoektekstOrigineel;
-
-        resultElement.appendChild(titel);
-
-        gevondenDetails
-          .slice(0, 50)
-          .forEach(
-            function(detail, index) {
-              const rij =
-                document.createElement("div");
-
-              rij.className = "result-row";
-
-              const eersteMatch =
-                detail.matches[0];
-
-              const propertyPad =
-                eersteMatch.setName
-                  ? eersteMatch.setName +
-                    " → " +
-                    eersteMatch.propertyName
-                  : eersteMatch.propertyName;
-
-              rij.textContent =
-                "Element " +
-                (index + 1) +
-                "\n" +
-                propertyPad +
-                ": " +
-                eersteMatch.value;
-
-              resultElement.appendChild(rij);
-            }
-          );
-
-        const info =
-          document.createElement("div");
-
-        info.className = "result-info";
-
-        info.textContent =
-          gevondenDetails.length +
-          " object(en) gevonden." +
-          (
-            gevondenDetails.length > 50
-              ? " Alleen de eerste 50 resultaten worden in de extensie getoond."
-              : ""
-          );
-
-        resultElement.appendChild(info);
 
         clearButton.disabled = false;
       } catch (error) {
@@ -868,25 +1206,31 @@
       clearButton.disabled = true;
 
       try {
-        await API.viewer.setSelection(
-          {
-            modelObjectIds: []
-          },
-          "set"
-        );
+        if (API) {
+          await API.viewer.setSelection(
+            {
+              modelObjectIds: []
+            },
+            "set"
+          );
+        }
       } catch (error) {
         console.warn(
           "Selectie wissen is niet gelukt:",
           error
         );
       }
+
+      markInput.focus();
     }
 
     markInput.addEventListener(
       "input",
       function() {
         markInput.value =
-          normaliseerMark(markInput.value);
+          normaliseerMark(
+            markInput.value
+          );
       }
     );
 
