@@ -110,6 +110,27 @@
       margin-top: 10px;
     }
 
+    .cast-unit-card {
+      border-left: 5px solid #0063a3;
+    }
+
+    .inline-result {
+      margin-top: 14px;
+      overflow: hidden;
+      background: #f8fafb;
+      border: 1px solid #d8dadd;
+      border-radius: 6px;
+    }
+
+    .inline-result-header {
+      padding: 9px 12px;
+      font-size: 13px;
+      font-weight: bold;
+      color: #33424d;
+      background: #eaf1f5;
+      border-bottom: 1px solid #d8dadd;
+    }
+
     .small-info {
       margin: 0 0 10px;
       font-size: 12px;
@@ -117,13 +138,29 @@
       color: #666;
     }
 
-    #result {
+    .result-panel {
       margin-top: 14px;
-      padding: 14px;
-      min-height: 80px;
+      overflow: hidden;
       background: white;
       border: 1px solid #d8dadd;
-      border-radius: 6px;
+      border-radius: 7px;
+    }
+
+    .general-result-panel {
+      border-left: 5px solid #5f6b73;
+    }
+
+    .result-panel-header {
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: bold;
+      background: #eef1f3;
+      border-bottom: 1px solid #d8dadd;
+    }
+
+    .result-content {
+      padding: 14px;
+      min-height: 80px;
       font-size: 14px;
       white-space: pre-line;
     }
@@ -240,7 +277,7 @@
     Verbinding met Trimble Connect controleren...
   </p>
 
-  <section class="panel">
+  <section class="panel cast-unit-card">
     <h2>Zoeken op Cast Unit Mark</h2>
 
     <label for="cast-unit-mark">
@@ -264,6 +301,16 @@
     >
       Zoek Cast Unit Mark
     </button>
+
+    <div class="inline-result">
+      <div class="inline-result-header">
+        Resultaat
+      </div>
+
+      <div id="cast-result" class="result-content">
+        Nog geen Cast Unit Mark gezocht.
+      </div>
+    </div>
   </section>
 
   <section class="panel">
@@ -307,8 +354,14 @@
     </button>
   </div>
 
-  <section id="result">
-    Nog niets gezocht.
+  <section class="result-panel general-result-panel">
+    <div class="result-panel-header">
+      Resultaat algemeen zoeken
+    </div>
+
+    <div id="general-result" class="result-content">
+      Nog geen algemene zoekopdracht uitgevoerd.
+    </div>
   </section>
 
   <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
@@ -334,8 +387,11 @@
     const clearButton =
       document.getElementById("clear-button");
 
-    const resultElement =
-      document.getElementById("result");
+    const castResultElement =
+      document.getElementById("cast-result");
+
+    const generalResultElement =
+      document.getElementById("general-result");
 
     const markPropertyNames = [
       "Tekla Assembly.Assembly/Cast unit Mark",
@@ -587,7 +643,7 @@
       markInput.value = mark;
 
       if (!mark) {
-        resultElement.textContent =
+        castResultElement.textContent =
           "Vul eerst een Cast Unit Mark in.";
 
         return;
@@ -596,7 +652,7 @@
       markSearchButton.disabled = true;
       generalSearchButton.disabled = true;
 
-      resultElement.textContent =
+      castResultElement.textContent =
         "Zoeken naar Cast Unit Mark " +
         mark +
         "...";
@@ -623,7 +679,7 @@
         }
 
         if (telObjecten(gevondenResultaten) === 0) {
-          resultElement.textContent =
+          castResultElement.textContent =
             "Geen object gevonden voor " +
             mark +
             ".";
@@ -669,7 +725,7 @@
           }
         }
 
-        resultElement.innerHTML = "";
+        castResultElement.innerHTML = "";
 
         const titel =
           document.createElement("div");
@@ -677,7 +733,7 @@
         titel.className = "result-title";
         titel.textContent = mark;
 
-        resultElement.appendChild(titel);
+        castResultElement.appendChild(titel);
 
         gevondenElementen.forEach(
           function(element, index) {
@@ -703,7 +759,7 @@
                 );
             }
 
-            resultElement.appendChild(rij);
+            castResultElement.appendChild(rij);
           }
         );
 
@@ -717,7 +773,7 @@
           " object(en) gevonden via " +
           gebruikteProperty;
 
-        resultElement.appendChild(info);
+        castResultElement.appendChild(info);
 
         clearButton.disabled = false;
       } catch (error) {
@@ -726,7 +782,7 @@
           error
         );
 
-        resultElement.textContent =
+        castResultElement.textContent =
           "Er ging iets fout tijdens het zoeken.";
       } finally {
         markSearchButton.disabled = false;
@@ -840,10 +896,9 @@ function zoekEersteHerkenbareNaam(
   index
 ) {
   const mogelijkeNamen = [
-    "Product Name",
-    "Product name",
     "Assembly/Cast unit Mark",
     "Cast unit Mark",
+    "Product Name",
     "Name",
     "Naam",
     "Mark",
@@ -916,7 +971,7 @@ function zoekEersteHerkenbareNaam(
       zoektekstOrigineel,
       gevondenDetails
     ) {
-      resultElement.innerHTML = "";
+      generalResultElement.innerHTML = "";
 
       const titel =
         document.createElement("div");
@@ -926,31 +981,27 @@ function zoekEersteHerkenbareNaam(
         "Zoekresultaten: " +
         zoektekstOrigineel;
 
-      resultElement.appendChild(titel);
+      generalResultElement.appendChild(titel);
 
       /*
-       * Eenvoudige groepering:
-       * alle resultaten met exact dezelfde zichtbare naam
-       * worden samengevoegd tot één groep.
+       * Groepeer op exact dezelfde zichtbare naam.
        */
       const groepen = new Map();
 
       gevondenDetails.forEach(
         function(detail, index) {
-          const zichtbareNaam =
+          const naam =
             zoekEersteHerkenbareNaam(
               detail.objectProperties,
               index
             );
 
           const sleutel =
-            normaliseerTekst(
-              zichtbareNaam
-            );
+            normaliseerTekst(naam);
 
           if (!groepen.has(sleutel)) {
             groepen.set(sleutel, {
-              naam: zichtbareNaam,
+              naam: naam,
               elementen: []
             });
           }
@@ -1083,10 +1134,6 @@ function zoekEersteHerkenbareNaam(
             }
           );
 
-          /*
-           * Klik op de groepsnaam:
-           * selecteer alle elementen binnen die groep.
-           */
           summary.addEventListener(
             "click",
             async function() {
@@ -1096,22 +1143,13 @@ function zoekEersteHerkenbareNaam(
 
                 groep.elementen.forEach(
                   function(detail) {
-                    if (
-                      !perModel.has(
-                        detail.modelId
-                      )
-                    ) {
-                      perModel.set(
-                        detail.modelId,
-                        []
-                      );
+                    if (!perModel.has(detail.modelId)) {
+                      perModel.set(detail.modelId, []);
                     }
 
                     perModel
                       .get(detail.modelId)
-                      .push(
-                        detail.runtimeId
-                      );
+                      .push(detail.runtimeId);
                   }
                 );
 
@@ -1125,9 +1163,7 @@ function zoekEersteHerkenbareNaam(
                         objects:
                           entry[1].map(
                             function(id) {
-                              return {
-                                id: id
-                              };
+                              return { id: id };
                             }
                           )
                       };
@@ -1154,7 +1190,7 @@ function zoekEersteHerkenbareNaam(
             inhoud
           );
 
-          resultElement.appendChild(
+          generalResultElement.appendChild(
             detailsElement
           );
         }
@@ -1170,9 +1206,9 @@ function zoekEersteHerkenbareNaam(
         gevondenDetails.length +
         " object(en) verdeeld over " +
         groepen.size +
-        " gemeenschappelijke zoekresultaten.";
+        " groep(en).";
 
-      resultElement.appendChild(
+      generalResultElement.appendChild(
         info
       );
     }
@@ -1187,7 +1223,7 @@ function zoekEersteHerkenbareNaam(
         );
 
       if (!zoektekst) {
-        resultElement.textContent =
+        generalResultElement.textContent =
           "Vul eerst een algemene zoektekst in.";
 
         return;
@@ -1197,7 +1233,7 @@ function zoekEersteHerkenbareNaam(
       generalSearchButton.disabled = true;
       clearButton.disabled = true;
 
-      resultElement.textContent =
+      generalResultElement.textContent =
         "Alle modelparameters doorzoeken naar \"" +
         zoektekstOrigineel +
         "\"...\n\nDit kan bij een groot model even duren.";
@@ -1237,7 +1273,7 @@ function zoekEersteHerkenbareNaam(
             groepIndex < groepen.length;
             groepIndex++
           ) {
-            resultElement.textContent =
+            generalResultElement.textContent =
               "Model " +
               (modelIndex + 1) +
               " van " +
@@ -1292,7 +1328,7 @@ function zoekEersteHerkenbareNaam(
         }
 
         if (gevondenDetails.length === 0) {
-          resultElement.textContent =
+          generalResultElement.textContent =
             "Geen parameterwaarde gevonden die \"" +
             zoektekstOrigineel +
             "\" bevat.";
@@ -1312,7 +1348,7 @@ function zoekEersteHerkenbareNaam(
           error
         );
 
-        resultElement.textContent =
+        generalResultElement.textContent =
           "De algemene zoekactie is mislukt." +
           "\nBekijk eventueel F12 → Console.";
       } finally {
@@ -1325,8 +1361,11 @@ function zoekEersteHerkenbareNaam(
       markInput.value = "";
       generalInput.value = "";
 
-      resultElement.textContent =
-        "Nog niets gezocht.";
+      castResultElement.textContent =
+        "Nog geen Cast Unit Mark gezocht.";
+
+      generalResultElement.textContent =
+        "Nog geen algemene zoekopdracht uitgevoerd.";
 
       clearButton.disabled = true;
 
