@@ -835,6 +835,14 @@
       return gevondenProperties;
     }
 
+function verwijderZevencijferigeCode(waarde) {
+  return String(waarde || "")
+    .replace(/\b\d{7}\b/g, "")
+    .replace(/\s*[-_/]\s*$/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function zoekEersteHerkenbareNaam(
   objectProperties,
   index
@@ -963,15 +971,19 @@ function groepeerZoekresultaten(
         document.createElement("div");
 
       titel.className = "result-title";
-
       titel.textContent =
         "Zoekresultaten: " +
         zoektekstOrigineel;
 
       resultElement.appendChild(titel);
 
-      gevondenDetails.forEach(
-        function(detail, index) {
+      const groepen =
+        groepeerZoekresultaten(
+          gevondenDetails
+        );
+
+      groepen.forEach(
+        function(groep) {
           const detailsElement =
             document.createElement("details");
 
@@ -984,16 +996,11 @@ function groepeerZoekresultaten(
           summary.className =
             "search-result-summary";
 
-          const elementNaam =
-            zoekEersteHerkenbareNaam(
-              detail.objectProperties,
-              index
-            );
-
           summary.textContent =
-            (index + 1) +
-            ". " +
-            elementNaam;
+            groep.naam +
+            " — " +
+            groep.elementen.length +
+            " element(en)";
 
           const inhoud =
             document.createElement("div");
@@ -1001,101 +1008,163 @@ function groepeerZoekresultaten(
           inhoud.className =
             "search-result-details";
 
-          if (
-            Array.isArray(detail.matches) &&
-            detail.matches.length > 0
-          ) {
-            const matchInfo =
-              document.createElement("div");
+          groep.elementen.forEach(
+            function(detail, elementIndex) {
+              const elementBlok =
+                document.createElement("div");
 
-            matchInfo.className =
-              "match-info";
+              elementBlok.className =
+                "match-info";
 
-            const eersteMatch =
-              detail.matches[0];
+              const elementTitel =
+                document.createElement("div");
 
-            matchInfo.textContent =
-              "Gevonden in: " +
-              (
-                eersteMatch.setName
-                  ? eersteMatch.setName + " → "
-                  : ""
-              ) +
-              eersteMatch.propertyName +
-              "\nWaarde: " +
-              eersteMatch.value;
+              elementTitel.style.fontWeight =
+                "bold";
 
-            inhoud.appendChild(matchInfo);
-          }
+              elementTitel.style.marginBottom =
+                "8px";
 
-          const altezProperties =
-            haalAltezIfcProperties(
-              detail.objectProperties
-            );
+              elementTitel.textContent =
+                "Element " +
+                (elementIndex + 1);
 
-          if (altezProperties.length > 0) {
-            const altezTitel =
-              document.createElement("div");
+              elementBlok.appendChild(
+                elementTitel
+              );
 
-            altezTitel.className =
-              "altez-title";
+              if (
+                Array.isArray(detail.matches) &&
+                detail.matches.length > 0
+              ) {
+                detail.matches.forEach(
+                  function(match) {
+                    const matchTekst =
+                      document.createElement("div");
 
-            altezTitel.textContent =
-              "ALTEZ_IFC";
+                    matchTekst.style.marginBottom =
+                      "6px";
 
-            inhoud.appendChild(altezTitel);
+                    matchTekst.textContent =
+                      "Gevonden in: " +
+                      (
+                        match.setName
+                          ? match.setName + " → "
+                          : ""
+                      ) +
+                      match.propertyName +
+                      "\nWaarde: " +
+                      match.value;
 
-            altezProperties.forEach(
-              function(property) {
-                inhoud.appendChild(
-                  maakAltezPropertyRij(property)
+                    elementBlok.appendChild(
+                      matchTekst
+                    );
+                  }
                 );
               }
-            );
-          } else {
-            const geenProperties =
-              document.createElement("div");
 
-            geenProperties.className =
-              "no-altez-properties";
+              const selecteerKnop =
+                document.createElement("button");
 
-            geenProperties.textContent =
-              "Voor dit object werden geen ALTEZ_IFC-parameters gevonden.";
+              selecteerKnop.type =
+                "button";
 
-            inhoud.appendChild(
-              geenProperties
-            );
-          }
+              selecteerKnop.textContent =
+                "Selecteer dit element";
 
-          /*
-           * De native <details>-toggle is betrouwbaarder dan alleen
-           * een click-handler op <summary>. Zodra een resultaat wordt
-           * opengeklapt, selecteren en zoomen we naar dat object.
-           */
+              selecteerKnop.style.marginTop =
+                "10px";
+
+              selecteerKnop.addEventListener(
+                "click",
+                async function(event) {
+                  event.stopPropagation();
+
+                  try {
+                    await selecteerEnZoomNaarEenObject(
+                      detail.modelId,
+                      detail.runtimeId
+                    );
+                  } catch (error) {
+                    console.error(
+                      "Element selecteren mislukt:",
+                      error
+                    );
+                  }
+                }
+              );
+
+              elementBlok.appendChild(
+                selecteerKnop
+              );
+
+              inhoud.appendChild(
+                elementBlok
+              );
+            }
+          );
+
           let selectieBezig = false;
 
-          async function activeerZoekresultaat() {
+          async function selecteerGroep() {
             if (selectieBezig) {
               return;
             }
 
             selectieBezig = true;
-            summary.classList.add("is-active");
 
             try {
-              await selecteerEnZoomNaarEenObject(
-                detail.modelId,
-                Number(detail.runtimeId)
+              const perModel =
+                new Map();
+
+              groep.elementen.forEach(
+                function(detail) {
+                  if (
+                    !perModel.has(
+                      detail.modelId
+                    )
+                  ) {
+                    perModel.set(
+                      detail.modelId,
+                      []
+                    );
+                  }
+
+                  perModel
+                    .get(detail.modelId)
+                    .push(
+                      detail.runtimeId
+                    );
+                }
+              );
+
+              const resultaten =
+                Array.from(
+                  perModel.entries()
+                ).map(
+                  function(entry) {
+                    return {
+                      modelId: entry[0],
+                      objects:
+                        entry[1].map(
+                          function(id) {
+                            return {
+                              id: id
+                            };
+                          }
+                        )
+                    };
+                  }
+                );
+
+              await selecteerEnZoom(
+                resultaten
               );
             } catch (error) {
               console.error(
-                "Resultaat selecteren mislukt:",
+                "Groep selecteren mislukt:",
                 error
               );
-
-              summary.classList.add("selection-error");
-              summary.title =
-                "Selecteren of inzoomen is mislukt. Bekijk de browserconsole.";
             } finally {
               selectieBezig = false;
             }
@@ -1104,11 +1173,7 @@ function groepeerZoekresultaten(
           summary.addEventListener(
             "click",
             function() {
-              /*
-               * Selecteer onmiddellijk bij een klik. De <details>-regel
-               * wordt daarnaast door de browser zelf open- of dichtgeklapt.
-               */
-              activeerZoekresultaat();
+              selecteerGroep();
             }
           );
 
@@ -1116,13 +1181,18 @@ function groepeerZoekresultaten(
             "toggle",
             function() {
               if (detailsElement.open) {
-                activeerZoekresultaat();
+                selecteerGroep();
               }
             }
           );
 
-          detailsElement.appendChild(summary);
-          detailsElement.appendChild(inhoud);
+          detailsElement.appendChild(
+            summary
+          );
+
+          detailsElement.appendChild(
+            inhoud
+          );
 
           resultElement.appendChild(
             detailsElement
@@ -1133,13 +1203,18 @@ function groepeerZoekresultaten(
       const info =
         document.createElement("div");
 
-      info.className = "result-info";
+      info.className =
+        "result-info";
 
       info.textContent =
         gevondenDetails.length +
-        " object(en) gevonden. Klik op een resultaat om het object te selecteren en de ALTEZ_IFC-details te bekijken.";
+        " object(en) verdeeld over " +
+        groepen.length +
+        " groep(en). Codes van exact zeven cijfers zijn uit Product Name verwijderd.";
 
-      resultElement.appendChild(info);
+      resultElement.appendChild(
+        info
+      );
     }
 
     async function algemeenZoeken() {
