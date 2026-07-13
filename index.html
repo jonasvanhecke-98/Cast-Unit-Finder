@@ -867,19 +867,11 @@ function zoekEersteHerkenbareNaam(
           normaliseerTekst(property.name) ===
           normaliseerTekst(gewensteNaam)
         ) {
-          const origineleWaarde =
+          const waarde =
             String(property.value ?? "").trim();
 
-          if (origineleWaarde) {
-            const opgeschoondeWaarde =
-              verwijderZevencijferigeCode(
-                origineleWaarde
-              );
-
-            return (
-              opgeschoondeWaarde ||
-              origineleWaarde
-            );
+          if (waarde) {
+            return waarde;
           }
         }
       }
@@ -888,40 +880,7 @@ function zoekEersteHerkenbareNaam(
 
   return "Element " + (index + 1);
 }
-function groepeerZoekresultaten(
-  gevondenDetails
-) {
-  const groepen = new Map();
 
-  gevondenDetails.forEach(
-    function(detail, index) {
-      const groepsnaam =
-        zoekEersteHerkenbareNaam(
-          detail.objectProperties,
-          index
-        );
-
-      const sleutel =
-        normaliseerTekst(groepsnaam);
-
-      if (!groepen.has(sleutel)) {
-        groepen.set(sleutel, {
-          naam: groepsnaam,
-          elementen: []
-        });
-      }
-
-      groepen
-        .get(sleutel)
-        .elementen
-        .push(detail);
-    }
-  );
-
-  return Array.from(
-    groepen.values()
-  );
-}
     function maakAltezPropertyRij(property) {
       const rij =
         document.createElement("div");
@@ -970,27 +929,28 @@ function groepeerZoekresultaten(
       resultElement.appendChild(titel);
 
       /*
-       * Groepeer resultaten op exact dezelfde zichtbare naam.
-       * Voorbeeld:
-       * DCA_W-Gevel met prefabbeton+ISO 28 280
-       * verschijnt dan maar één keer met het aantal elementen.
+       * Eenvoudige groepering:
+       * alle resultaten met exact dezelfde zichtbare naam
+       * worden samengevoegd tot één groep.
        */
       const groepen = new Map();
 
       gevondenDetails.forEach(
         function(detail, index) {
-          const naam =
+          const zichtbareNaam =
             zoekEersteHerkenbareNaam(
               detail.objectProperties,
               index
             );
 
           const sleutel =
-            normaliseerTekst(naam);
+            normaliseerTekst(
+              zichtbareNaam
+            );
 
           if (!groepen.has(sleutel)) {
             groepen.set(sleutel, {
-              naam: naam,
+              naam: zichtbareNaam,
               elementen: []
             });
           }
@@ -1002,7 +962,7 @@ function groepeerZoekresultaten(
         }
       );
 
-      Array.from(groepen.values()).forEach(
+      groepen.forEach(
         function(groep) {
           const detailsElement =
             document.createElement("details");
@@ -1060,13 +1020,13 @@ function groepeerZoekresultaten(
                 const eersteMatch =
                   detail.matches[0];
 
-                const matchTekst =
+                const matchInfo =
                   document.createElement("div");
 
-                matchTekst.style.marginBottom =
+                matchInfo.style.marginBottom =
                   "8px";
 
-                matchTekst.textContent =
+                matchInfo.textContent =
                   "Gevonden in: " +
                   (
                     eersteMatch.setName
@@ -1078,7 +1038,7 @@ function groepeerZoekresultaten(
                   eersteMatch.value;
 
                 elementBlok.appendChild(
-                  matchTekst
+                  matchInfo
                 );
               }
 
@@ -1125,7 +1085,7 @@ function groepeerZoekresultaten(
 
           /*
            * Klik op de groepsnaam:
-           * selecteer en zoom naar alle elementen in die groep.
+           * selecteer alle elementen binnen die groep.
            */
           summary.addEventListener(
             "click",
@@ -1210,7 +1170,7 @@ function groepeerZoekresultaten(
         gevondenDetails.length +
         " object(en) verdeeld over " +
         groepen.size +
-        " groep(en).";
+        " gemeenschappelijke zoekresultaten.";
 
       resultElement.appendChild(
         info
