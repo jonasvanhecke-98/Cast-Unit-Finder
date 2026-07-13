@@ -28,6 +28,11 @@
       font-size: 21px;
     }
 
+    h2 {
+      margin: 0 0 12px;
+      font-size: 16px;
+    }
+
     #status {
       margin: 0 0 16px;
       font-size: 13px;
@@ -35,6 +40,7 @@
     }
 
     .panel {
+      margin-bottom: 14px;
       padding: 15px;
       background: white;
       border: 1px solid #d8dadd;
@@ -58,7 +64,11 @@
       padding: 10px;
       border: 1px solid #aeb2b7;
       border-radius: 4px;
-      font-size: 15px;
+      font-size: 16px;
+    }
+
+    #cast-unit-mark {
+      text-transform: uppercase;
     }
 
     .button-row {
@@ -106,14 +116,22 @@
       white-space: pre-line;
     }
 
-    .result-mark {
-      margin-bottom: 6px;
-      font-size: 22px;
+    .result-title {
+      margin-bottom: 8px;
+      font-size: 20px;
       font-weight: bold;
     }
 
-    .result-weight {
-      font-size: 17px;
+    .result-row {
+      margin-bottom: 7px;
+      padding-bottom: 7px;
+      border-bottom: 1px solid #eceeef;
+    }
+
+    .result-info {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #666;
     }
 
     .success {
@@ -123,17 +141,26 @@
     .error {
       color: #b42318 !important;
     }
+
+    .small-info {
+      margin: 0 0 10px;
+      font-size: 12px;
+      line-height: 1.4;
+      color: #666;
+    }
   </style>
 </head>
 
 <body>
-  <h1>Cast Unit Finder</h1>
+  <h1>Modelzoeker</h1>
 
   <p id="status">
     Verbinding met Trimble Connect controleren...
   </p>
 
   <section class="panel">
+    <h2>Zoeken op Cast Unit Mark</h2>
+
     <label for="cast-unit-mark">
       Assembly/Cast unit Mark
     </label>
@@ -141,32 +168,65 @@
     <input
       id="cast-unit-mark"
       type="text"
-      placeholder="Bijvoorbeeld K22"
+      placeholder="Bijvoorbeeld K10"
       autocomplete="off"
+      autocapitalize="characters"
+      spellcheck="false"
     >
 
-    <div class="button-row">
-      <button
-        id="search-button"
-        type="button"
-        disabled
-      >
-        Zoeken
-      </button>
-
-      <button
-        id="clear-button"
-        class="secondary"
-        type="button"
-        disabled
-      >
-        Wissen
-      </button>
-    </div>
+    <button
+      id="mark-search-button"
+      type="button"
+      disabled
+      style="margin-top: 10px;"
+    >
+      Zoek Cast Unit Mark
+    </button>
   </section>
 
+  <section class="panel">
+    <h2>Algemeen zoeken</h2>
+
+    <p class="small-info">
+      Zoekt de ingegeven tekst in alle parameterwaarden van alle geladen
+      modelobjecten.
+    </p>
+
+    <label for="general-search">
+      Zoektekst
+    </label>
+
+    <input
+      id="general-search"
+      type="text"
+      placeholder="Bijvoorbeeld beton, L26, HEA240..."
+      autocomplete="off"
+      spellcheck="false"
+    >
+
+    <button
+      id="general-search-button"
+      type="button"
+      disabled
+      style="margin-top: 10px;"
+    >
+      Algemeen zoeken
+    </button>
+  </section>
+
+  <div class="button-row">
+    <button
+      id="clear-button"
+      class="secondary"
+      type="button"
+      disabled
+    >
+      Wissen
+    </button>
+  </div>
+
   <section id="result">
-    Nog geen element gezocht.
+    Nog niets gezocht.
   </section>
 
   <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
@@ -177,11 +237,17 @@
     const statusElement =
       document.getElementById("status");
 
-    const inputElement =
+    const markInput =
       document.getElementById("cast-unit-mark");
 
-    const searchButton =
-      document.getElementById("search-button");
+    const generalInput =
+      document.getElementById("general-search");
+
+    const markSearchButton =
+      document.getElementById("mark-search-button");
+
+    const generalSearchButton =
+      document.getElementById("general-search-button");
 
     const clearButton =
       document.getElementById("clear-button");
@@ -189,15 +255,6 @@
     const resultElement =
       document.getElementById("result");
 
-    /*
-     * Eigenschappen uit de Tekla Assembly-propertyset.
-     *
-     * De eerste naam is de verwachte officiële combinatie:
-     * propertyset.propertynaam
-     *
-     * De andere namen zijn reserves voor eventuele verschillen
-     * in de interne IFC-propertynamen.
-     */
     const markPropertyNames = [
       "Tekla Assembly.Assembly/Cast unit Mark",
       "Assembly/Cast unit Mark",
@@ -211,6 +268,18 @@
       "Tekla Assembly.Cast unit weight",
       "Cast unit weight"
     ];
+
+    function normaliseerTekst(waarde) {
+      return String(waarde ?? "")
+        .trim()
+        .toLocaleLowerCase("nl-BE");
+    }
+
+    function normaliseerMark(waarde) {
+      return String(waarde ?? "")
+        .trim()
+        .toLocaleUpperCase("nl-BE");
+    }
 
     async function connectToTrimble() {
       try {
@@ -234,18 +303,35 @@
 
         statusElement.classList.add("success");
 
-        searchButton.disabled = false;
+        markSearchButton.disabled = false;
+        generalSearchButton.disabled = false;
       } catch (error) {
-        console.error(
-          "Verbinding mislukt:",
-          error
-        );
+        console.error(error);
 
         statusElement.textContent =
           "Verbinding met Trimble Connect mislukt.";
 
         statusElement.classList.add("error");
       }
+    }
+
+    function haalObjecten(model) {
+      return Array.isArray(model.objects)
+        ? model.objects
+        : [];
+    }
+
+    function haalRuntimeId(object) {
+      if (typeof object === "number") {
+        return object;
+      }
+
+      return (
+        object.id ??
+        object.runtimeId ??
+        object.objectRuntimeId ??
+        null
+      );
     }
 
     function telObjecten(resultaten) {
@@ -255,12 +341,7 @@
 
       return resultaten.reduce(
         function(totaal, model) {
-          const objecten =
-            Array.isArray(model.objects)
-              ? model.objects
-              : [];
-
-          return totaal + objecten.length;
+          return totaal + haalObjecten(model).length;
         },
         0
       );
@@ -273,57 +354,43 @@
             return {
               modelId: model.modelId,
 
-              objectRuntimeIds: model.objects
-                .map(function(object) {
-                  return object.id;
-                })
-                .filter(function(id) {
-                  return (
-                    id !== null &&
-                    id !== undefined
-                  );
-                })
+              objectRuntimeIds:
+                haalObjecten(model)
+                  .map(haalRuntimeId)
+                  .filter(function(id) {
+                    return id !== null &&
+                           id !== undefined;
+                  })
             };
           })
           .filter(function(model) {
-            return (
-              model.objectRuntimeIds.length > 0
-            );
+            return model.objectRuntimeIds.length > 0;
           })
       };
     }
 
-    async function zoekObjecten(mark) {
-      for (
-        const propertyName
-        of markPropertyNames
-      ) {
-        console.log(
-          "Zoeken met property:",
-          propertyName
+    async function selecteerEnZoom(resultaten) {
+      const selector =
+        maakSelector(resultaten);
+
+      await API.viewer.setSelection(
+        selector,
+        "set"
+      );
+
+      try {
+        await API.viewer.setCamera(
+          selector,
+          {
+            animationTime: 500
+          }
         );
-
-        const resultaten =
-          await API.viewer.getObjects({
-            parameter: {
-              properties: {
-                [propertyName]: mark
-              }
-            }
-          });
-
-        if (telObjecten(resultaten) > 0) {
-          return {
-            resultaten: resultaten,
-            propertyName: propertyName
-          };
-        }
+      } catch (error) {
+        console.warn(
+          "Inzoomen is niet gelukt:",
+          error
+        );
       }
-
-      return {
-        resultaten: [],
-        propertyName: ""
-      };
     }
 
     function zoekPropertyWaarde(
@@ -335,54 +402,6 @@
           ? objectProperties.properties
           : [];
 
-      /*
-       * Eerst zoeken we specifiek binnen
-       * de propertyset Tekla Assembly.
-       */
-      for (const propertySet of propertySets) {
-        const setName =
-          String(propertySet.set || "").trim();
-
-        const properties =
-          Array.isArray(propertySet.properties)
-            ? propertySet.properties
-            : [];
-
-        if (
-          setName.toLowerCase() !==
-          "tekla assembly"
-        ) {
-          continue;
-        }
-
-        for (const property of properties) {
-          const propertyName =
-            String(property.name || "").trim();
-
-          const volledigeNaam =
-            setName + "." + propertyName;
-
-          const gevonden =
-            gewensteNamen.some(
-              function(gewensteNaam) {
-                return (
-                  gewensteNaam.toLowerCase() ===
-                    propertyName.toLowerCase() ||
-                  gewensteNaam.toLowerCase() ===
-                    volledigeNaam.toLowerCase()
-                );
-              }
-            );
-
-          if (gevonden) {
-            return property.value;
-          }
-        }
-      }
-
-      /*
-       * Reserve: zoek in alle propertysets.
-       */
       for (const propertySet of propertySets) {
         const setName =
           String(propertySet.set || "").trim();
@@ -397,16 +416,18 @@
             String(property.name || "").trim();
 
           const volledigeNaam =
-            setName + "." + propertyName;
+            setName
+              ? setName + "." + propertyName
+              : propertyName;
 
           const gevonden =
             gewensteNamen.some(
               function(gewensteNaam) {
                 return (
-                  gewensteNaam.toLowerCase() ===
-                    propertyName.toLowerCase() ||
-                  gewensteNaam.toLowerCase() ===
-                    volledigeNaam.toLowerCase()
+                  normaliseerTekst(gewensteNaam) ===
+                    normaliseerTekst(propertyName) ||
+                  normaliseerTekst(gewensteNaam) ===
+                    normaliseerTekst(volledigeNaam)
                 );
               }
             );
@@ -420,119 +441,30 @@
       return null;
     }
 
-    async function leesGewichten(resultaten) {
-      const elementen = [];
-
-      for (const model of resultaten) {
-        const runtimeIds =
-          model.objects.map(
-            function(object) {
-              return object.id;
-            }
-          );
-
-        const properties =
-          await API.viewer.getObjectProperties(
-            model.modelId,
-            runtimeIds
-          );
-
-        for (const objectProperties of properties) {
-          const mark =
-            zoekPropertyWaarde(
-              objectProperties,
-              markPropertyNames
-            );
-
-          const weight =
-            zoekPropertyWaarde(
-              objectProperties,
-              weightPropertyNames
-            );
-
-          elementen.push({
-            modelId: model.modelId,
-            runtimeId: objectProperties.id,
-            mark: mark,
-            weight: weight
-          });
-        }
-      }
-
-      return elementen;
-    }
-
-    function formatteerWaarde(waarde) {
+    function formatteerGewicht(waarde) {
       if (
         waarde === null ||
         waarde === undefined ||
         waarde === ""
       ) {
-        return "Niet gevonden";
+        return "niet gevonden";
       }
 
-      return String(waarde);
+      const tekst =
+        String(waarde).trim();
+
+      if (/(kg|ton|tonne|t)$/i.test(tekst)) {
+        return tekst;
+      }
+
+      return tekst + " t";
     }
 
-    function toonResultaten(
-      zoekMark,
-      elementen,
-      propertyName
-    ) {
-      resultElement.innerHTML = "";
-
-      const titel =
-        document.createElement("div");
-
-      titel.className = "result-mark";
-      titel.textContent = zoekMark;
-
-      resultElement.appendChild(titel);
-
-      elementen.forEach(
-        function(element, index) {
-          const gewicht =
-            document.createElement("div");
-
-          gewicht.className =
-            "result-weight";
-
-          const voorvoegsel =
-            elementen.length > 1
-              ? "Element " +
-                (index + 1) +
-                ": "
-              : "";
-
-          gewicht.textContent =
-            voorvoegsel +
-            "Gewicht: " +
-            formatteerWaarde(element.weight);
-
-          resultElement.appendChild(
-            gewicht
-          );
-        }
-      );
-
-      const info =
-        document.createElement("div");
-
-      info.style.marginTop = "12px";
-      info.style.fontSize = "12px";
-      info.style.color = "#666";
-
-      info.textContent =
-        elementen.length +
-        " object(en) gevonden via " +
-        propertyName;
-
-      resultElement.appendChild(info);
-    }
-
-    async function searchCastUnit() {
+    async function zoekCastUnitMark() {
       const mark =
-        inputElement.value.trim().toUpperCase();
+        normaliseerMark(markInput.value);
+
+      markInput.value = mark;
 
       if (!mark) {
         resultElement.textContent =
@@ -541,96 +473,397 @@
         return;
       }
 
-      if (!API) {
-        resultElement.textContent =
-          "Er is nog geen verbinding met Trimble Connect.";
-
-        return;
-      }
-
-      searchButton.disabled = true;
-      clearButton.disabled = true;
+      markSearchButton.disabled = true;
+      generalSearchButton.disabled = true;
 
       resultElement.textContent =
-        "Zoeken naar " + mark + "...";
+        "Zoeken naar Cast Unit Mark " +
+        mark +
+        "...";
 
       try {
-        const zoekResultaat =
-          await zoekObjecten(mark);
+        let gevondenResultaten = [];
+        let gebruikteProperty = "";
 
-        const totaal =
-          telObjecten(
-            zoekResultaat.resultaten
-          );
+        for (const propertyName of markPropertyNames) {
+          const resultaten =
+            await API.viewer.getObjects({
+              parameter: {
+                properties: {
+                  [propertyName]: mark
+                }
+              }
+            });
 
-        if (totaal === 0) {
+          if (telObjecten(resultaten) > 0) {
+            gevondenResultaten = resultaten;
+            gebruikteProperty = propertyName;
+            break;
+          }
+        }
+
+        if (telObjecten(gevondenResultaten) === 0) {
           resultElement.textContent =
-            "Geen object gevonden voor " +
-            mark +
-            "." +
-            "\n\nGezocht op:" +
-            "\nTekla Assembly → Assembly/Cast unit Mark";
+            "Geen object gevonden voor " + mark + ".";
 
           return;
         }
 
-        const selector =
-          maakSelector(
-            zoekResultaat.resultaten
-          );
-
-        /*
-         * Selecteer de gevonden objecten.
-         */
-        await API.viewer.setSelection(
-          selector,
-          "set"
+        await selecteerEnZoom(
+          gevondenResultaten
         );
 
-        /*
-         * Zoom naar de gevonden objecten.
-         */
-        await API.viewer.setCamera(
-          selector,
-          {
-            animationTime: 500
+        const gevondenElementen = [];
+
+        for (const model of gevondenResultaten) {
+          const runtimeIds =
+            haalObjecten(model)
+              .map(haalRuntimeId)
+              .filter(function(id) {
+                return id !== null &&
+                       id !== undefined;
+              });
+
+          const properties =
+            await API.viewer.getObjectProperties(
+              model.modelId,
+              runtimeIds
+            );
+
+          for (const objectProperties of properties) {
+            gevondenElementen.push({
+              mark: zoekPropertyWaarde(
+                objectProperties,
+                markPropertyNames
+              ),
+              weight: zoekPropertyWaarde(
+                objectProperties,
+                weightPropertyNames
+              )
+            });
+          }
+        }
+
+        resultElement.innerHTML = "";
+
+        const titel =
+          document.createElement("div");
+
+        titel.className = "result-title";
+        titel.textContent = mark;
+
+        resultElement.appendChild(titel);
+
+        gevondenElementen.forEach(
+          function(element, index) {
+            const rij =
+              document.createElement("div");
+
+            rij.className = "result-row";
+
+            if (gevondenElementen.length === 1) {
+              rij.textContent =
+                "Gewicht: " +
+                formatteerGewicht(element.weight);
+            } else {
+              rij.textContent =
+                "Element " +
+                (index + 1) +
+                " — Gewicht: " +
+                formatteerGewicht(element.weight);
+            }
+
+            resultElement.appendChild(rij);
           }
         );
 
-        /*
-         * Lees Cast Unit Mark en gewicht uit.
-         */
-        const elementen =
-          await leesGewichten(
-            zoekResultaat.resultaten
-          );
+        const info =
+          document.createElement("div");
 
-        toonResultaten(
-          mark,
-          elementen,
-          zoekResultaat.propertyName
-        );
+        info.className = "result-info";
+
+        info.textContent =
+          gevondenElementen.length +
+          " object(en) gevonden via " +
+          gebruikteProperty;
+
+        resultElement.appendChild(info);
 
         clearButton.disabled = false;
       } catch (error) {
         console.error(
-          "Zoeken mislukt:",
+          "Zoeken op Cast Unit Mark mislukt:",
           error
         );
 
         resultElement.textContent =
-          "Er ging iets fout tijdens het zoeken." +
-          "\n\nOpen eventueel F12 → Console om de fout te bekijken.";
+          "Er ging iets fout tijdens het zoeken.";
       } finally {
-        searchButton.disabled = false;
+        markSearchButton.disabled = false;
+        generalSearchButton.disabled = false;
       }
     }
 
-    async function clearResult() {
-      inputElement.value = "";
+    function verdeelInGroepen(array, grootte) {
+      const groepen = [];
+
+      for (
+        let index = 0;
+        index < array.length;
+        index += grootte
+      ) {
+        groepen.push(
+          array.slice(index, index + grootte)
+        );
+      }
+
+      return groepen;
+    }
+
+    function zoekMatchesInObject(
+      objectProperties,
+      zoektekst
+    ) {
+      const matches = [];
+
+      const propertySets =
+        Array.isArray(objectProperties.properties)
+          ? objectProperties.properties
+          : [];
+
+      for (const propertySet of propertySets) {
+        const setName =
+          String(propertySet.set || "").trim();
+
+        const properties =
+          Array.isArray(propertySet.properties)
+            ? propertySet.properties
+            : [];
+
+        for (const property of properties) {
+          const waarde =
+            String(property.value ?? "");
+
+          if (
+            normaliseerTekst(waarde)
+              .includes(zoektekst)
+          ) {
+            matches.push({
+              setName: setName,
+              propertyName:
+                String(property.name || ""),
+              value: waarde
+            });
+          }
+        }
+      }
+
+      return matches;
+    }
+
+    async function algemeenZoeken() {
+      const zoektekstOrigineel =
+        generalInput.value.trim();
+
+      const zoektekst =
+        normaliseerTekst(zoektekstOrigineel);
+
+      if (!zoektekst) {
+        resultElement.textContent =
+          "Vul eerst een algemene zoektekst in.";
+
+        return;
+      }
+
+      markSearchButton.disabled = true;
+      generalSearchButton.disabled = true;
+      clearButton.disabled = true;
 
       resultElement.textContent =
-        "Nog geen element gezocht.";
+        "Alle modelparameters doorzoeken naar \"" +
+        zoektekstOrigineel +
+        "\"...\n\nDit kan bij een groot model even duren.";
+
+      try {
+        /*
+         * Zonder selector vraagt getObjects alle objecten
+         * van de geladen modellen op.
+         */
+        const alleObjecten =
+          await API.viewer.getObjects();
+
+        const gevondenPerModel = [];
+        const gevondenDetails = [];
+
+        for (let modelIndex = 0;
+             modelIndex < alleObjecten.length;
+             modelIndex++) {
+
+          const model =
+            alleObjecten[modelIndex];
+
+          const runtimeIds =
+            haalObjecten(model)
+              .map(haalRuntimeId)
+              .filter(function(id) {
+                return id !== null &&
+                       id !== undefined;
+              });
+
+          const groepen =
+            verdeelInGroepen(runtimeIds, 300);
+
+          const gevondenRuntimeIds = [];
+
+          for (let groepIndex = 0;
+               groepIndex < groepen.length;
+               groepIndex++) {
+
+            resultElement.textContent =
+              "Model " +
+              (modelIndex + 1) +
+              " van " +
+              alleObjecten.length +
+              " doorzoeken...\n" +
+              "Deel " +
+              (groepIndex + 1) +
+              " van " +
+              groepen.length;
+
+            const properties =
+              await API.viewer.getObjectProperties(
+                model.modelId,
+                groepen[groepIndex]
+              );
+
+            for (const objectProperties of properties) {
+              const matches =
+                zoekMatchesInObject(
+                  objectProperties,
+                  zoektekst
+                );
+
+              if (matches.length > 0) {
+                gevondenRuntimeIds.push(
+                  objectProperties.id
+                );
+
+                gevondenDetails.push({
+                  modelId: model.modelId,
+                  runtimeId: objectProperties.id,
+                  matches: matches
+                });
+              }
+            }
+          }
+
+          if (gevondenRuntimeIds.length > 0) {
+            gevondenPerModel.push({
+              modelId: model.modelId,
+              objects:
+                gevondenRuntimeIds.map(
+                  function(id) {
+                    return { id: id };
+                  }
+                )
+            });
+          }
+        }
+
+        if (gevondenDetails.length === 0) {
+          resultElement.textContent =
+            "Geen parameterwaarde gevonden die \"" +
+            zoektekstOrigineel +
+            "\" bevat.";
+
+          return;
+        }
+
+        await selecteerEnZoom(
+          gevondenPerModel
+        );
+
+        resultElement.innerHTML = "";
+
+        const titel =
+          document.createElement("div");
+
+        titel.className = "result-title";
+        titel.textContent =
+          "Zoekresultaten: " +
+          zoektekstOrigineel;
+
+        resultElement.appendChild(titel);
+
+        gevondenDetails
+          .slice(0, 50)
+          .forEach(
+            function(detail, index) {
+              const rij =
+                document.createElement("div");
+
+              rij.className = "result-row";
+
+              const eersteMatch =
+                detail.matches[0];
+
+              const propertyPad =
+                eersteMatch.setName
+                  ? eersteMatch.setName +
+                    " → " +
+                    eersteMatch.propertyName
+                  : eersteMatch.propertyName;
+
+              rij.textContent =
+                "Element " +
+                (index + 1) +
+                "\n" +
+                propertyPad +
+                ": " +
+                eersteMatch.value;
+
+              resultElement.appendChild(rij);
+            }
+          );
+
+        const info =
+          document.createElement("div");
+
+        info.className = "result-info";
+
+        info.textContent =
+          gevondenDetails.length +
+          " object(en) gevonden." +
+          (
+            gevondenDetails.length > 50
+              ? " Alleen de eerste 50 resultaten worden in de extensie getoond."
+              : ""
+          );
+
+        resultElement.appendChild(info);
+
+        clearButton.disabled = false;
+      } catch (error) {
+        console.error(
+          "Algemeen zoeken mislukt:",
+          error
+        );
+
+        resultElement.textContent =
+          "De algemene zoekactie is mislukt." +
+          "\nBekijk eventueel F12 → Console.";
+      } finally {
+        markSearchButton.disabled = false;
+        generalSearchButton.disabled = false;
+      }
+    }
+
+    async function wisResultaten() {
+      markInput.value = "";
+      generalInput.value = "";
+
+      resultElement.textContent =
+        "Nog niets gezocht.";
 
       clearButton.disabled = true;
 
@@ -647,37 +880,54 @@
           error
         );
       }
-
-      inputElement.focus();
     }
 
-    searchButton.addEventListener(
-      "click",
-      searchCastUnit
+    markInput.addEventListener(
+      "input",
+      function() {
+        markInput.value =
+          normaliseerMark(markInput.value);
+      }
     );
 
-    clearButton.addEventListener(
-      "click",
-      clearResult
-    );
-
-    inputElement.addEventListener(
+    markInput.addEventListener(
       "keydown",
       function(event) {
         if (
           event.key === "Enter" &&
-          !searchButton.disabled
+          !markSearchButton.disabled
         ) {
-          searchCastUnit();
+          zoekCastUnitMark();
         }
       }
     );
-    inputElement.addEventListener(
-  "input",
-  function() {
-    inputElement.value = inputElement.value.toUpperCase();
-  }
-);
+
+    generalInput.addEventListener(
+      "keydown",
+      function(event) {
+        if (
+          event.key === "Enter" &&
+          !generalSearchButton.disabled
+        ) {
+          algemeenZoeken();
+        }
+      }
+    );
+
+    markSearchButton.addEventListener(
+      "click",
+      zoekCastUnitMark
+    );
+
+    generalSearchButton.addEventListener(
+      "click",
+      algemeenZoeken
+    );
+
+    clearButton.addEventListener(
+      "click",
+      wisResultaten
+    );
 
     connectToTrimble();
   </script>
