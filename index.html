@@ -8,7 +8,7 @@
     content="width=device-width, initial-scale=1.0"
   >
 
-  <title>Cast Unit Finder</title>
+  <title>Altez Zoekmachine</title>
 
   <style>
     * {
@@ -45,6 +45,14 @@
       background: white;
       border: 1px solid #d8dadd;
       border-radius: 6px;
+    }
+
+    .general-search-card {
+      border-left: 5px solid #5f6b73;
+    }
+
+    .cast-unit-card {
+      border-left: 5px solid #0063a3;
     }
 
     label {
@@ -99,19 +107,12 @@
       background: #d4d7d9;
     }
 
-    .button-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-top: 10px;
-    }
-
     .single-button {
       margin-top: 10px;
     }
 
-    .cast-unit-card {
-      border-left: 5px solid #0063a3;
+    .clear-panel {
+      margin-bottom: 14px;
     }
 
     .inline-result {
@@ -131,31 +132,19 @@
       border-bottom: 1px solid #d8dadd;
     }
 
+    .general-result-header {
+      background: #eef1f3;
+    }
+
+    .cast-result-header {
+      background: #eaf1f5;
+    }
+
     .small-info {
       margin: 0 0 10px;
       font-size: 12px;
       line-height: 1.4;
       color: #666;
-    }
-
-    .result-panel {
-      margin-top: 14px;
-      overflow: hidden;
-      background: white;
-      border: 1px solid #d8dadd;
-      border-radius: 7px;
-    }
-
-    .general-result-panel {
-      border-left: 5px solid #5f6b73;
-    }
-
-    .result-panel-header {
-      padding: 10px 14px;
-      font-size: 14px;
-      font-weight: bold;
-      background: #eef1f3;
-      border-bottom: 1px solid #d8dadd;
     }
 
     .result-content {
@@ -223,41 +212,10 @@
 
     .match-info {
       margin-bottom: 10px;
-      padding: 8px;
+      padding: 10px;
       font-size: 12px;
       background: #f4f5f6;
       border-radius: 4px;
-    }
-
-    .altez-title {
-      margin-bottom: 8px;
-      font-size: 12px;
-      font-weight: bold;
-      color: #555;
-    }
-
-    .altez-property {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: 10px;
-      padding: 7px 0;
-      border-top: 1px solid #eceeef;
-      font-size: 12px;
-    }
-
-    .altez-property-name {
-      overflow-wrap: anywhere;
-      color: #555;
-    }
-
-    .altez-property-value {
-      overflow-wrap: anywhere;
-      font-weight: bold;
-    }
-
-    .no-altez-properties {
-      font-size: 12px;
-      color: #777;
     }
 
     .success {
@@ -271,12 +229,55 @@
 </head>
 
 <body>
-  <h1>Modelzoeker</h1>
+  <h1>Altez Zoekmachine</h1>
 
   <p id="status">
     Verbinding met Trimble Connect controleren...
   </p>
 
+  <!-- ALGEMEEN ZOEKEN BOVENAAN -->
+  <section class="panel general-search-card">
+    <h2>Algemeen zoeken</h2>
+
+    <p class="small-info">
+      Zoekt de ingegeven tekst in alle parameterwaarden van alle geladen
+      modelobjecten. Objecten met dezelfde herkenbare naam worden automatisch
+      gegroepeerd.
+    </p>
+
+    <label for="general-search">
+      Zoektekst
+    </label>
+
+    <input
+      id="general-search"
+      type="text"
+      placeholder="Bijvoorbeeld beton, profiel, fase..."
+      autocomplete="off"
+      spellcheck="false"
+    >
+
+    <button
+      id="general-search-button"
+      class="single-button"
+      type="button"
+      disabled
+    >
+      Algemeen zoeken
+    </button>
+
+    <div class="inline-result">
+      <div class="inline-result-header general-result-header">
+        Resultaat algemeen zoeken
+      </div>
+
+      <div id="general-result" class="result-content">
+        Nog geen algemene zoekopdracht uitgevoerd.
+      </div>
+    </div>
+  </section>
+
+  <!-- CAST UNIT MARK DAARONDER -->
   <section class="panel cast-unit-card">
     <h2>Zoeken op Cast Unit Mark</h2>
 
@@ -303,8 +304,8 @@
     </button>
 
     <div class="inline-result">
-      <div class="inline-result-header">
-        Resultaat
+      <div class="inline-result-header cast-result-header">
+        Resultaat Cast Unit Mark
       </div>
 
       <div id="cast-result" class="result-content">
@@ -313,56 +314,16 @@
     </div>
   </section>
 
-  <section class="panel">
-    <h2>Algemeen zoeken</h2>
-
-    <p class="small-info">
-      Zoekt de ingegeven tekst in alle parameterwaarden van alle geladen
-      modelobjecten.
-    </p>
-
-    <label for="general-search">
-      Zoektekst
-    </label>
-
-    <input
-      id="general-search"
-      type="text"
-      placeholder="Bijvoorbeeld beton, profiel, fase..."
-      autocomplete="off"
-      spellcheck="false"
-    >
-
-    <button
-      id="general-search-button"
-      class="single-button"
-      type="button"
-      disabled
-    >
-      Algemeen zoeken
-    </button>
-  </section>
-
-  <div class="button-row">
+  <div class="clear-panel">
     <button
       id="clear-button"
       class="secondary"
       type="button"
       disabled
     >
-      Wissen
+      Alles wissen
     </button>
   </div>
-
-  <section class="result-panel general-result-panel">
-    <div class="result-panel-header">
-      Resultaat algemeen zoeken
-    </div>
-
-    <div id="general-result" class="result-content">
-      Nog geen algemene zoekopdracht uitgevoerd.
-    </div>
-  </section>
 
   <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
 
@@ -847,124 +808,53 @@
       return matches;
     }
 
-    function normaliseerPropertySetNaam(waarde) {
-      return String(waarde || "")
-        .trim()
-        .replace(/[\s-]+/g, "_")
-        .toLocaleUpperCase("nl-BE");
-    }
-
-    function haalAltezIfcProperties(
-      objectProperties
+    function zoekEersteHerkenbareNaam(
+      objectProperties,
+      index
     ) {
-      const gevondenProperties = [];
+      const mogelijkeNamen = [
+        "Assembly/Cast unit Mark",
+        "Cast unit Mark",
+        "Product Name",
+        "Product name",
+        "ProductName",
+        "Name",
+        "Naam",
+        "Mark",
+        "Position",
+        "Material",
+        "Layer"
+      ];
 
       const propertySets =
         Array.isArray(objectProperties.properties)
           ? objectProperties.properties
           : [];
 
-      for (const propertySet of propertySets) {
-        const setName =
-          String(propertySet.set || "").trim();
+      for (const gewensteNaam of mogelijkeNamen) {
+        for (const propertySet of propertySets) {
+          const properties =
+            Array.isArray(propertySet.properties)
+              ? propertySet.properties
+              : [];
 
-        if (
-          normaliseerPropertySetNaam(setName) !==
-          "ALTEZ_IFC"
-        ) {
-          continue;
-        }
+          for (const property of properties) {
+            if (
+              normaliseerTekst(property.name) ===
+              normaliseerTekst(gewensteNaam)
+            ) {
+              const waarde =
+                String(property.value ?? "").trim();
 
-        const properties =
-          Array.isArray(propertySet.properties)
-            ? propertySet.properties
-            : [];
-
-        for (const property of properties) {
-          gevondenProperties.push({
-            name: String(property.name || ""),
-            value: String(property.value ?? "")
-          });
-        }
-      }
-
-      return gevondenProperties;
-    }
-
-function zoekEersteHerkenbareNaam(
-  objectProperties,
-  index
-) {
-  const mogelijkeNamen = [
-    "Assembly/Cast unit Mark",
-    "Cast unit Mark",
-    "Product Name",
-    "Name",
-    "Naam",
-    "Mark",
-    "Position"
-  ];
-
-  const propertySets =
-    Array.isArray(objectProperties.properties)
-      ? objectProperties.properties
-      : [];
-
-  for (const gewensteNaam of mogelijkeNamen) {
-    for (const propertySet of propertySets) {
-      const properties =
-        Array.isArray(propertySet.properties)
-          ? propertySet.properties
-          : [];
-
-      for (const property of properties) {
-        if (
-          normaliseerTekst(property.name) ===
-          normaliseerTekst(gewensteNaam)
-        ) {
-          const waarde =
-            String(property.value ?? "").trim();
-
-          if (waarde) {
-            return waarde;
+              if (waarde) {
+                return waarde;
+              }
+            }
           }
         }
       }
-    }
-  }
 
-  return "Element " + (index + 1);
-}
-
-    function maakAltezPropertyRij(property) {
-      const rij =
-        document.createElement("div");
-
-      rij.className =
-        "altez-property";
-
-      const naam =
-        document.createElement("div");
-
-      naam.className =
-        "altez-property-name";
-
-      naam.textContent =
-        property.name || "Naamloos";
-
-      const waarde =
-        document.createElement("div");
-
-      waarde.className =
-        "altez-property-value";
-
-      waarde.textContent =
-        property.value || "—";
-
-      rij.appendChild(naam);
-      rij.appendChild(waarde);
-
-      return rij;
+      return "Element " + (index + 1);
     }
 
     function toonAlgemeneZoekresultaten(
@@ -983,9 +873,6 @@ function zoekEersteHerkenbareNaam(
 
       generalResultElement.appendChild(titel);
 
-      /*
-       * Groepeer op exact dezelfde zichtbare naam.
-       */
       const groepen = new Map();
 
       gevondenDetails.forEach(
@@ -1068,28 +955,29 @@ function zoekEersteHerkenbareNaam(
                 Array.isArray(detail.matches) &&
                 detail.matches.length > 0
               ) {
-                const eersteMatch =
-                  detail.matches[0];
+                detail.matches.forEach(
+                  function(match) {
+                    const matchInfo =
+                      document.createElement("div");
 
-                const matchInfo =
-                  document.createElement("div");
+                    matchInfo.style.marginBottom =
+                      "7px";
 
-                matchInfo.style.marginBottom =
-                  "8px";
+                    matchInfo.textContent =
+                      "Gevonden in: " +
+                      (
+                        match.setName
+                          ? match.setName + " → "
+                          : ""
+                      ) +
+                      match.propertyName +
+                      "\nWaarde: " +
+                      match.value;
 
-                matchInfo.textContent =
-                  "Gevonden in: " +
-                  (
-                    eersteMatch.setName
-                      ? eersteMatch.setName + " → "
-                      : ""
-                  ) +
-                  eersteMatch.propertyName +
-                  "\nWaarde: " +
-                  eersteMatch.value;
-
-                elementBlok.appendChild(
-                  matchInfo
+                    elementBlok.appendChild(
+                      matchInfo
+                    );
+                  }
                 );
               }
 
@@ -1385,7 +1273,7 @@ function zoekEersteHerkenbareNaam(
         );
       }
 
-      markInput.focus();
+      generalInput.focus();
     }
 
     markInput.addEventListener(
