@@ -8,3153 +8,1794 @@
     content="width=device-width, initial-scale=1.0"
   >
 
-  <title>IFC Calculatietool</title>
+  <title>Altez Zoekmachine</title>
 
   <style>
-    :root {
-      font-family: Arial, Helvetica, sans-serif;
-      color: #1d2d38;
-      background: #eef1f3;
-    }
-
     * {
       box-sizing: border-box;
     }
 
-    [hidden] {
-      display: none !important;
-    }
-
     body {
       margin: 0;
-      min-width: 280px;
-    }
-
-    button,
-    input {
-      font: inherit;
-    }
-
-    .app {
-      padding: 14px;
-    }
-
-    .header {
-      margin-bottom: 18px;
-    }
-
-    .eyebrow {
-      margin: 0 0 8px;
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 0.14em;
+      padding: 16px;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #252525;
+      background: #f3f4f5;
     }
 
     h1 {
-      margin: 0;
-      font-size: 24px;
-      line-height: 1.15;
+      margin: 0 0 8px;
+      font-size: 21px;
     }
 
-    .intro {
-      margin: 12px 0 0;
-      color: #52636e;
-      line-height: 1.5;
-    }
-
-    .panel {
-      padding: 16px;
-      border: 1px solid #d6dee3;
-      border-radius: 10px;
-      background: #ffffff;
-    }
-
-    .status {
-      margin-bottom: 14px;
-      padding: 12px 14px;
-      border-radius: 7px;
-      background: #edf2f5;
-      line-height: 1.45;
-    }
-
-    .status.success {
-      background: #e6f4ea;
-      color: #176b35;
-    }
-
-    .status.warning {
-      background: #fff5d6;
-      color: #715500;
-    }
-
-    .status.error {
-      background: #fdeaea;
-      color: #981b1b;
-    }
-
-    .main-button {
-      width: 100%;
-      padding: 11px 15px;
-      border: 0;
-      border-radius: 7px;
-      background: #263b4a;
-      color: #ffffff;
-      cursor: pointer;
-      font-weight: 700;
-    }
-
-    .main-button:hover {
-      background: #192c39;
-    }
-
-    .main-button:disabled {
-      cursor: wait;
-      opacity: 0.55;
-    }
-
-    .secondary-button {
-      width: 100%;
-      padding: 9px 12px;
-      border: 1px solid #cbd5db;
-      border-radius: 7px;
-      background: #ffffff;
-      color: #263b4a;
-      cursor: pointer;
-      font-weight: 700;
-    }
-
-    .secondary-button:hover {
-      background: #f0f4f6;
-    }
-
-    .card {
-      margin-top: 16px;
-      padding: 15px;
-      border: 1px solid #dce3e7;
-      border-radius: 8px;
-      background: #f8fafb;
-    }
-
-    .card h2 {
-      margin: 0;
-      font-size: 17px;
-    }
-
-    .model-name {
-      margin: 12px 0;
-      padding: 11px 12px;
-      border: 1px solid #d9e1e5;
-      border-radius: 7px;
-      background: #ffffff;
-      font-weight: 700;
-      overflow-wrap: anywhere;
-    }
-
-    .muted {
-      margin: 6px 0 0;
-      color: #687985;
-      font-size: 13px;
-      line-height: 1.45;
-    }
-
-    .progress {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin: 13px 0;
-      padding: 12px;
-      border-radius: 7px;
-      background: #edf2f5;
-      font-size: 13px;
-    }
-
-    .spinner {
-      width: 18px;
-      height: 18px;
-      flex: 0 0 auto;
-      border: 2px solid #c5d0d6;
-      border-top-color: #263b4a;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-      margin-top: 14px;
-    }
-
-    .summary-box {
-      padding: 12px;
-      border: 1px solid #dce3e7;
-      border-radius: 7px;
-      background: #ffffff;
-    }
-
-    .summary-box span {
-      display: block;
-      color: #687985;
-      font-size: 11px;
-      text-transform: uppercase;
-    }
-
-    .summary-box strong {
-      display: block;
-      margin-top: 4px;
-      font-size: 19px;
-    }
-
-    .toolbar {
-      display: grid;
-      gap: 8px;
-      margin-top: 14px;
-    }
-
-    .search-input {
-      width: 100%;
-      padding: 10px 11px;
-      border: 1px solid #cbd5db;
-      border-radius: 7px;
-      background: #ffffff;
-    }
-
-    .groups-list {
-      display: grid;
-      gap: 10px;
-      margin-top: 14px;
-    }
-
-    .product-group {
-      border: 1px solid #dce3e7;
-      border-radius: 8px;
-      background: #ffffff;
-      overflow: hidden;
-    }
-
-    .product-header {
-      display: grid;
-      grid-template-columns: 34px minmax(0, 1fr) auto;
-      align-items: center;
-      gap: 10px;
-      padding: 12px;
-      cursor: pointer;
-      user-select: none;
-    }
-
-    .product-header:hover {
-      background: #f4f7f8;
-    }
-
-    .product-header.selected-result {
-      background: #e7f1f8;
-      border-left: 4px solid #263b4a;
-      padding-left: 8px;
-    }
-
-    .product-icon {
-      display: grid;
-      place-items: center;
-      width: 34px;
-      height: 34px;
-      border-radius: 7px;
-      background: #e8eef1;
-      font-size: 15px;
-      font-weight: 800;
-    }
-
-    .product-title {
-      min-width: 0;
-    }
-
-    .product-title h3 {
-      margin: 0 0 4px;
-      font-size: 15px;
-      overflow-wrap: anywhere;
-    }
-
-    .product-title p {
-      margin: 0;
-      color: #687985;
-      font-size: 11px;
-    }
-
-    .product-count {
-      font-size: 18px;
-    }
-
-    .subgroups {
-      padding: 0 12px 12px;
-      border-top: 1px solid #e2e7ea;
-    }
-
-    .subgroup {
-      margin-top: 9px;
-      padding: 11px;
-      border: 1px solid #dfe6ea;
-      border-radius: 7px;
-      background: #f8fafb;
-      cursor: pointer;
-    }
-
-    .subgroup:hover {
-      border-color: #8299a8;
-      background: #f1f6f8;
-    }
-
-    .subgroup.selected-result {
-      border-color: #263b4a;
-      background: #e7f1f8;
-    }
-
-    .subgroup-top {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: flex-start;
-    }
-
-    .subgroup-name {
-      min-width: 0;
-    }
-
-    .subgroup-name strong {
-      display: block;
-      overflow-wrap: anywhere;
-    }
-
-    .subgroup-description {
-      margin-top: 4px;
-      color: #687985;
-      font-size: 11px;
-      line-height: 1.4;
-    }
-
-    .subgroup-count {
-      flex: 0 0 auto;
+    h2 {
+      margin: 0 0 12px;
       font-size: 16px;
     }
 
-    .select-hint {
-      margin-top: 7px;
-      color: #263b4a;
-      font-size: 10px;
-      font-weight: 700;
-    }
-
-    .chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
-      margin-top: 9px;
-    }
-
-    .chip {
-      padding: 4px 7px;
-      border-radius: 999px;
-      background: #e8eef1;
-      color: #405461;
-      font-size: 10px;
-      overflow-wrap: anywhere;
-    }
-
-    .chip.material {
-      background: #e9f3e9;
-      color: #28613a;
-    }
-
-    .chip.layer {
-      background: #e9eef8;
-      color: #314f7b;
-    }
-
-    .chip.type {
-      background: #f6eddd;
-      color: #72511d;
-    }
-
-    .chip.class {
-      background: #eeeeee;
-      color: #555555;
-    }
-
-    .selection-message {
-      margin-top: 14px;
-      padding: 11px 12px;
-      border-radius: 7px;
-      background: #e7f1f8;
-      color: #23485e;
+    #status {
+      margin: 0 0 16px;
       font-size: 13px;
-      line-height: 1.4;
+      color: #555;
     }
 
-    .details-block {
-      margin-top: 14px;
+    .panel {
+      margin-bottom: 14px;
+      padding: 15px;
+      background: white;
+      border: 1px solid #d8dadd;
+      border-radius: 6px;
     }
 
-    .details-block summary,
-    .debug summary {
+    .general-search-card {
+      border-left: 5px solid #5f6b73;
+    }
+
+    .cast-unit-card {
+      border-left: 5px solid #0063a3;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 7px;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    input,
+    button {
+      width: 100%;
+      font: inherit;
+    }
+
+    input {
+      padding: 10px;
+      border: 1px solid #aeb2b7;
+      border-radius: 4px;
+      font-size: 15px;
+      background: white;
+    }
+
+    #cast-unit-mark {
+      text-transform: uppercase;
+    }
+
+    button {
+      padding: 10px 12px;
+      border: 0;
+      border-radius: 4px;
+      color: white;
+      background: #0063a3;
       cursor: pointer;
-      font-weight: 700;
     }
 
-    .property-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 15px;
-      padding: 8px 0;
-      border-bottom: 1px solid #e2e7ea;
+    button:hover {
+      background: #004f83;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      background: #9ba3a8;
+    }
+
+    .secondary {
+      color: #252525;
+      background: #e4e6e8;
+    }
+
+    .secondary:hover {
+      background: #d4d7d9;
+    }
+
+    .single-button {
+      margin-top: 10px;
+    }
+
+    .clear-panel {
+      margin-bottom: 14px;
+    }
+
+    .inline-result {
+      margin-top: 14px;
+      overflow: hidden;
+      background: #f8fafb;
+      border: 1px solid #d8dadd;
+      border-radius: 6px;
+    }
+
+    .inline-result-header {
+      padding: 9px 12px;
       font-size: 13px;
+      font-weight: bold;
+      color: #33424d;
+      background: #eef1f3;
+      border-bottom: 1px solid #d8dadd;
     }
 
-    .property-row span {
-      overflow-wrap: anywhere;
+    .small-info {
+      margin: 0 0 10px;
+      font-size: 12px;
+      line-height: 1.4;
+      color: #666;
     }
 
-    .empty-state {
-      margin-top: 12px;
+    .result-content {
       padding: 14px;
-      border: 1px dashed #bac7ce;
-      border-radius: 7px;
-      color: #687985;
-      line-height: 1.5;
-      text-align: center;
+      min-height: 80px;
+      font-size: 14px;
+      white-space: pre-line;
     }
 
-    .debug {
-      margin-top: 18px;
+    .result-title {
+      margin-bottom: 12px;
+      font-size: 18px;
+      font-weight: bold;
     }
 
-    pre {
-      margin: 12px 0 0;
+    .result-info {
+      margin-top: 12px;
+      font-size: 12px;
+      line-height: 1.4;
+      color: #666;
+    }
+
+    .result-weight {
+      margin-bottom: 7px;
+      font-size: 14px;
+    }
+
+    .main-group {
+      margin-bottom: 10px;
+      overflow: hidden;
+      background: white;
+      border: 1px solid #c7ccd0;
+      border-radius: 6px;
+    }
+
+    .main-group[open] {
+      border-color: #0063a3;
+    }
+
+    .main-group-summary {
       padding: 12px;
-      overflow: auto;
-      border-radius: 7px;
-      background: #15212a;
-      color: #ffffff;
-      font-size: 11px;
-      white-space: pre-wrap;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      user-select: none;
+      background: #e8ecef;
+    }
+
+    .main-group-summary:hover {
+      background: #dfe8ee;
+    }
+
+    .main-group-content {
+      padding: 10px;
+      border-top: 1px solid #d8dadd;
+    }
+
+    .sub-group {
+      margin-bottom: 8px;
+      overflow: hidden;
+      border: 1px solid #d8dadd;
+      border-radius: 5px;
+    }
+
+    .sub-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .sub-group[open] {
+      border-color: #5685a3;
+    }
+
+    .sub-group-summary {
+      padding: 10px 12px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      user-select: none;
+      background: #f4f6f7;
+    }
+
+    .sub-group-summary:hover {
+      background: #e9f2f8;
+    }
+
+    .sub-group-content {
+      padding: 10px;
+      border-top: 1px solid #d8dadd;
+    }
+
+    .element-card {
+      margin-bottom: 8px;
+      padding: 10px;
+      font-size: 12px;
+      background: #f8f9fa;
+      border: 1px solid #e0e3e5;
+      border-radius: 4px;
+    }
+
+    .element-card:last-child {
+      margin-bottom: 0;
+    }
+
+    .element-title {
+      margin-bottom: 7px;
+      font-weight: bold;
+    }
+
+    .element-property {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 8px;
+      padding: 4px 0;
+      border-top: 1px solid #e4e6e8;
+    }
+
+    .element-property-name {
       overflow-wrap: anywhere;
+      color: #555;
     }
 
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
+    .element-property-value {
+      overflow-wrap: anywhere;
+      font-weight: bold;
     }
 
-    @media (max-width: 360px) {
-      .summary-grid {
-        grid-template-columns: 1fr;
-      }
+    .element-button {
+      margin-top: 9px;
+      padding: 8px 10px;
+      font-size: 12px;
+    }
 
-      .product-header {
-        grid-template-columns: 30px minmax(0, 1fr) auto;
-      }
+    .group-button {
+      margin-bottom: 10px;
+      padding: 8px 10px;
+      font-size: 12px;
+    }
 
-      .product-icon {
-        width: 30px;
-        height: 30px;
-      }
+    .success {
+      color: #19733b !important;
+    }
+
+    .error {
+      color: #b42318 !important;
     }
   </style>
 </head>
 
 <body>
-  <main class="app">
-    <header class="header">
-      <p class="eyebrow">IFC CALCULATIE</p>
+  <h1>Altez Zoekmachine</h1>
 
-      <h1>Productanalyse</h1>
+  <p id="status">
+    Verbinding met Trimble Connect controleren...
+  </p>
 
-      <p class="intro">
-        Objecten worden gegroepeerd op productnaam, type,
-        materiaal en layer. Klik op een groep om de objecten
-        in Trimble Connect te selecteren en erop in te zoomen.
-      </p>
-    </header>
+  <section class="panel general-search-card">
+    <h2>Algemeen zoeken</h2>
 
-    <section class="panel">
-      <div id="status" class="status">
-        Verbinding met Trimble Connect wordt gestart...
+    <p class="small-info">
+      Doorzoekt alle parameterwaarden en groepeert de gevonden objecten
+      grof op gemeenschappelijke eigenschappen zoals Product Name, Type,
+      Material en Layer.
+    </p>
+
+    <label for="general-search">
+      Zoektekst
+    </label>
+
+    <input
+      id="general-search"
+      type="text"
+      placeholder="Bijvoorbeeld beton, profiel, fase..."
+      autocomplete="off"
+      spellcheck="false"
+    >
+
+    <button
+      id="general-search-button"
+      class="single-button"
+      type="button"
+      disabled
+    >
+      Algemeen zoeken
+    </button>
+
+    <div class="inline-result">
+      <div class="inline-result-header">
+        Resultaat algemeen zoeken
       </div>
 
-      <button
-        id="connect-button"
-        class="main-button"
-        type="button"
-      >
-        Opnieuw verbinden
-      </button>
+      <div id="general-result" class="result-content">
+        Nog geen algemene zoekopdracht uitgevoerd.
+      </div>
+    </div>
+  </section>
 
-      <section id="model-card" class="card" hidden>
-        <h2>Geladen model</h2>
+  <section class="panel cast-unit-card">
+    <h2>Zoeken op Cast Unit Mark</h2>
 
-        <p id="model-name" class="model-name">
-          Geen geladen model gevonden.
-        </p>
+    <p class="small-info">
+      Zoekt uitsluitend op de specifieke parameter Assembly/Cast unit Mark
+      of Cast unit Mark.
+    </p>
 
-        <button
-          id="analyse-button"
-          class="main-button"
-          type="button"
-          disabled
-        >
-          Analyseer geladen model
-        </button>
-      </section>
+    <label for="cast-unit-mark">
+      Assembly/Cast unit Mark
+    </label>
 
-      <section id="analysis-card" class="card" hidden>
-        <h2>Productgroepen</h2>
+    <input
+      id="cast-unit-mark"
+      type="text"
+      placeholder="Bijvoorbeeld K10"
+      autocomplete="off"
+      autocapitalize="characters"
+      spellcheck="false"
+    >
 
-        <p id="analysis-summary" class="muted"></p>
+    <button
+      id="mark-search-button"
+      class="single-button"
+      type="button"
+      disabled
+    >
+      Zoek Cast Unit Mark
+    </button>
 
-        <div id="analysis-progress" class="progress" hidden>
-          <div class="spinner"></div>
+    <div class="inline-result">
+      <div class="inline-result-header">
+        Resultaat Cast Unit Mark
+      </div>
 
-          <span id="progress-text">
-            Objecten worden uitgelezen...
-          </span>
-        </div>
+      <div id="cast-result" class="result-content">
+        Nog geen Cast Unit Mark gezocht.
+      </div>
+    </div>
+  </section>
 
-        <div id="summary-grid" class="summary-grid" hidden>
-          <div class="summary-box">
-            <span>Objecten gevonden</span>
-            <strong id="runtime-count">0</strong>
-          </div>
+  <div class="clear-panel">
+    <button
+      id="clear-button"
+      class="secondary"
+      type="button"
+      disabled
+    >
+      Alles wissen
+    </button>
+  </div>
 
-          <div class="summary-box">
-            <span>Objecten geanalyseerd</span>
-            <strong id="property-count">0</strong>
-          </div>
-
-          <div class="summary-box">
-            <span>Productgroepen</span>
-            <strong id="group-count">0</strong>
-          </div>
-
-          <div class="summary-box">
-            <span>Subgroepen</span>
-            <strong id="subgroup-count">0</strong>
-          </div>
-        </div>
-
-        <div id="selection-message" class="selection-message" hidden></div>
-
-        <div id="toolbar" class="toolbar" hidden>
-          <input
-            id="search-input"
-            class="search-input"
-            type="search"
-            placeholder="Zoek op productnaam, materiaal, layer, type..."
-          >
-
-          <button
-            id="expand-button"
-            class="secondary-button"
-            type="button"
-          >
-            Alle productgroepen openen
-          </button>
-
-          <button
-            id="clear-selection-button"
-            class="secondary-button"
-            type="button"
-          >
-            Selectie wissen
-          </button>
-        </div>
-
-        <div id="groups-list" class="groups-list"></div>
-
-        <details
-          id="properties-details"
-          class="details-block"
-          hidden
-        >
-          <summary>Meest voorkomende eigenschappen</summary>
-          <div id="properties-list"></div>
-        </details>
-
-        <details
-          id="missing-details"
-          class="details-block"
-          hidden
-        >
-          <summary>Objecten zonder productnaam</summary>
-          <div id="missing-list"></div>
-        </details>
-      </section>
-
-      <details class="debug">
-        <summary>Technische gegevens</summary>
-        <pre id="debug-result">Nog geen gegevens.</pre>
-      </details>
-    </section>
-  </main>
-
-  <script
-    src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"
-  ></script>
+  <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
 
   <script>
+    let API;
+
     const statusElement =
       document.getElementById("status");
 
-    const connectButton =
-      document.getElementById("connect-button");
+    const markInput =
+      document.getElementById("cast-unit-mark");
 
-    const modelCard =
-      document.getElementById("model-card");
+    const generalInput =
+      document.getElementById("general-search");
 
-    const modelNameElement =
-      document.getElementById("model-name");
+    const markSearchButton =
+      document.getElementById("mark-search-button");
 
-    const analyseButton =
-      document.getElementById("analyse-button");
+    const generalSearchButton =
+      document.getElementById("general-search-button");
 
-    const analysisCard =
-      document.getElementById("analysis-card");
+    const clearButton =
+      document.getElementById("clear-button");
 
-    const analysisSummary =
-      document.getElementById("analysis-summary");
+    const castResultElement =
+      document.getElementById("cast-result");
 
-    const analysisProgress =
-      document.getElementById("analysis-progress");
+    const generalResultElement =
+      document.getElementById("general-result");
 
-    const progressText =
-      document.getElementById("progress-text");
+    const markPropertyNames = [
+      "Tekla Assembly.Assembly/Cast unit Mark",
+      "Assembly/Cast unit Mark",
+      "Tekla Assembly.Cast unit Mark",
+      "Cast unit Mark"
+    ];
 
-    const summaryGrid =
-      document.getElementById("summary-grid");
+    const weightPropertyNames = [
+      "Tekla Assembly.Assembly/Cast unit weight",
+      "Assembly/Cast unit weight",
+      "Tekla Assembly.Cast unit weight",
+      "Cast unit weight"
+    ];
 
-    const runtimeCountElement =
-      document.getElementById("runtime-count");
+    const hoofdgroepPropertyNames = [
+      "Product Name",
+      "Product name",
+      "ProductName",
+      "Product",
+      "Object Type",
+      "Object type",
+      "ObjectType",
+      "Type Name",
+      "Type name",
+      "TypeName",
+      "Type",
+      "Family and Type",
+      "Family",
+      "Classification",
+      "Class",
+      "Category",
+      "Entity",
+      "Element Type",
+      "Element type",
+      "ElementType"
+    ];
 
-    const propertyCountElement =
-      document.getElementById("property-count");
+    const subgroepPropertyNames = [
+      "Material",
+      "Material Name",
+      "Material name",
+      "MaterialName",
+      "Layer",
+      "Layer Name",
+      "Layer name",
+      "LayerName",
+      "Profile",
+      "Profile Name",
+      "Profile name",
+      "ProfileName",
+      "Predefined Type",
+      "Predefined type",
+      "PredefinedType",
+      "Description",
+      "Building Storey",
+      "Building storey",
+      "Storey",
+      "Level",
+      "Phase"
+    ];
 
-    const groupCountElement =
-      document.getElementById("group-count");
+    const zichtbareDetailPropertyNames = [
+      "Product Name",
+      "Product name",
+      "ProductName",
+      "Type",
+      "Type Name",
+      "Type name",
+      "Object Type",
+      "Object type",
+      "Material",
+      "Material Name",
+      "Material name",
+      "Layer",
+      "Layer Name",
+      "Layer name",
+      "Profile",
+      "Description",
+      "Assembly/Cast unit Mark",
+      "Cast unit Mark",
+      "Mark",
+      "Position"
+    ];
 
-    const subgroupCountElement =
-      document.getElementById("subgroup-count");
+    function normaliseerTekst(waarde) {
+      return String(waarde ?? "")
+        .trim()
+        .toLocaleLowerCase("nl-BE");
+    }
 
-    const selectionMessage =
-      document.getElementById("selection-message");
+    function normaliseerMark(waarde) {
+      return String(waarde ?? "")
+        .trim()
+        .toLocaleUpperCase("nl-BE");
+    }
 
-    const toolbar =
-      document.getElementById("toolbar");
+    function haalObjecten(model) {
+      return Array.isArray(model.objects)
+        ? model.objects
+        : [];
+    }
 
-    const searchInput =
-      document.getElementById("search-input");
-
-    const expandButton =
-      document.getElementById("expand-button");
-
-    const clearSelectionButton =
-      document.getElementById("clear-selection-button");
-
-    const groupsList =
-      document.getElementById("groups-list");
-
-    const propertiesDetails =
-      document.getElementById("properties-details");
-
-    const propertiesList =
-      document.getElementById("properties-list");
-
-    const missingDetails =
-      document.getElementById("missing-details");
-
-    const missingList =
-      document.getElementById("missing-list");
-
-    const debugResult =
-      document.getElementById("debug-result");
-
-    let workspaceApi = null;
-    let loadedModel = null;
-    let loadedModelId = null;
-    let isConnecting = false;
-    let isAnalysing = false;
-    let currentAnalysis = null;
-    let allExpanded = false;
-    let selectedResultKey = null;
-
-    connectButton.addEventListener(
-      "click",
-      connectToTrimble
-    );
-
-    analyseButton.addEventListener(
-      "click",
-      analyseLoadedModel
-    );
-
-    searchInput.addEventListener(
-      "input",
-      renderFilteredGroups
-    );
-
-    expandButton.addEventListener(
-      "click",
-      toggleAllGroups
-    );
-
-    clearSelectionButton.addEventListener(
-      "click",
-      clearViewerSelection
-    );
-
-    window.addEventListener("load", function () {
-      if (window.parent !== window) {
-        connectToTrimble();
-      } else {
-        setStatus(
-          "De website werkt. Open deze pagina als extensie in Trimble Connect.",
-          "warning"
-        );
+    function haalRuntimeId(object) {
+      if (typeof object === "number") {
+        return object;
       }
-    });
+
+      return (
+        object.id ??
+        object.runtimeId ??
+        object.objectRuntimeId ??
+        null
+      );
+    }
+
+    function telObjecten(resultaten) {
+      if (!Array.isArray(resultaten)) {
+        return 0;
+      }
+
+      return resultaten.reduce(
+        function(totaal, model) {
+          return totaal + haalObjecten(model).length;
+        },
+        0
+      );
+    }
+
+    function maakSelector(resultaten) {
+      return {
+        modelObjectIds: resultaten
+          .map(function(model) {
+            return {
+              modelId: model.modelId,
+
+              objectRuntimeIds:
+                haalObjecten(model)
+                  .map(haalRuntimeId)
+                  .filter(function(id) {
+                    return (
+                      id !== null &&
+                      id !== undefined
+                    );
+                  })
+            };
+          })
+          .filter(function(model) {
+            return model.objectRuntimeIds.length > 0;
+          })
+      };
+    }
+
+    function maakResultatenVanDetails(details) {
+      const perModel = new Map();
+
+      details.forEach(function(detail) {
+        if (!perModel.has(detail.modelId)) {
+          perModel.set(detail.modelId, []);
+        }
+
+        perModel
+          .get(detail.modelId)
+          .push(detail.runtimeId);
+      });
+
+      return Array.from(perModel.entries())
+        .map(function(entry) {
+          return {
+            modelId: entry[0],
+
+            objects: entry[1]
+              .filter(function(runtimeId, index, array) {
+                return array.indexOf(runtimeId) === index;
+              })
+              .map(function(runtimeId) {
+                return {
+                  id: runtimeId
+                };
+              })
+          };
+        });
+    }
 
     async function connectToTrimble() {
-      if (isConnecting) {
-        return;
-      }
-
-      isConnecting = true;
-      connectButton.disabled = true;
-      analyseButton.disabled = true;
-
-      resetAnalysis();
-
-      setStatus(
-        "Bezig met verbinden met Trimble Connect..."
-      );
-
       try {
-        if (!window.TrimbleConnectWorkspace) {
-          throw new Error(
-            "De Trimble Connect Workspace API kon niet worden geladen."
-          );
-        }
-
-        workspaceApi =
-          await window.TrimbleConnectWorkspace.connect(
-            window.parent,
-            handleTrimbleEvent,
-            30000
-          );
-
-        setStatus(
-          "Verbinding met Trimble Connect geslaagd.",
-          "success"
+        API = await TrimbleConnectWorkspace.connect(
+          window.parent,
+          function(event, data) {
+            console.log(
+              "Trimble Connect-event:",
+              event,
+              data
+            );
+          }
         );
 
-        await detectLoadedModel();
+        const project =
+          await API.project.getProject();
+
+        statusElement.textContent =
+          "Verbonden met project: " +
+          (project.name || project.id);
+
+        statusElement.classList.add("success");
+
+        markSearchButton.disabled = false;
+        generalSearchButton.disabled = false;
       } catch (error) {
-        workspaceApi = null;
-        loadedModel = null;
-        loadedModelId = null;
-        modelCard.hidden = true;
-
-        setStatus(
-          "Geen verbinding met Trimble Connect.",
-          "error"
+        console.error(
+          "Verbinding mislukt:",
+          error
         );
 
-        showDebug({
-          phase: "connect",
-          error: getErrorMessage(error)
-        });
-      } finally {
-        connectButton.disabled = false;
-        isConnecting = false;
+        statusElement.textContent =
+          "Verbinding met Trimble Connect mislukt.";
+
+        statusElement.classList.add("error");
       }
     }
 
-    async function detectLoadedModel() {
-      try {
-        const response =
-          await workspaceApi.viewer.getModels();
+    async function selecteerEnZoom(resultaten) {
+      const selector =
+        maakSelector(resultaten);
 
-        const models =
-          Array.isArray(response)
-            ? response
-            : [];
-
-        loadedModel =
-          models.find(isActiveModel) ||
-          models.find(isLoadedModel) ||
-          (
-            models.length === 1
-              ? models[0]
-              : null
-          );
-
-        modelCard.hidden = false;
-
-        if (!loadedModel) {
-          loadedModelId = null;
-
-          modelNameElement.textContent =
-            "Geen geladen model gevonden.";
-
-          analyseButton.disabled = true;
-
-          setStatus(
-            "Laad of toon één model in de 3D Viewer.",
-            "warning"
-          );
-
-          showDebug({
-            phase: "detect-model",
-            models
-          });
-
-          return;
-        }
-
-        loadedModelId =
-          getModelId(loadedModel);
-
-        modelNameElement.textContent =
-          getModelName(loadedModel);
-
-        analyseButton.disabled = false;
-
-        showDebug({
-          phase: "ready",
-          loadedModel,
-          loadedModelId,
-          modelCount: models.length
-        });
-      } catch (error) {
-        loadedModel = null;
-        loadedModelId = null;
-        modelCard.hidden = false;
-
-        modelNameElement.textContent =
-          "Het geladen model kon niet worden bepaald.";
-
-        analyseButton.disabled = true;
-
-        setStatus(
-          "Het geladen model kon niet worden bepaald.",
-          "error"
-        );
-
-        showDebug({
-          phase: "detect-model",
-          error: getErrorMessage(error)
-        });
-      }
-    }
-
-    async function analyseLoadedModel() {
       if (
-        !workspaceApi ||
-        !loadedModel ||
-        isAnalysing
+        !selector.modelObjectIds ||
+        selector.modelObjectIds.length === 0
       ) {
         return;
       }
 
-      isAnalysing = true;
-      analyseButton.disabled = true;
-
-      resetAnalysis();
-
-      analysisCard.hidden = false;
-      analysisProgress.hidden = false;
-      summaryGrid.hidden = false;
-
-      setStatus(
-        "Het geladen model wordt geanalyseerd..."
+      await API.viewer.setSelection(
+        selector,
+        "set"
       );
 
-      const diagnostics = {
-        phase: "start",
-        runtimeIdCount: 0,
-        propertyCount: 0,
-        failedBatches: [],
-        sampleObjects: []
-      };
-
       try {
-        const modelId =
-          getModelId(loadedModel);
-
-        loadedModelId = modelId;
-
-        if (!modelId) {
-          throw new Error(
-            "Het model-ID ontbreekt."
-          );
-        }
-
-        diagnostics.modelId = modelId;
-        diagnostics.phase = "getObjects";
-
-        progressText.textContent =
-          "Object-ID's worden opgehaald...";
-
-        const objectsResponse =
-          await workspaceApi.viewer.getObjects();
-
-        const modelGroups =
-          Array.isArray(objectsResponse)
-            ? objectsResponse
-            : [];
-
-        let matchingGroups =
-          modelGroups.filter(function (group) {
-            return sameId(
-              getGroupModelId(group),
-              modelId
-            );
-          });
-
-        if (
-          matchingGroups.length === 0 &&
-          modelGroups.length === 1
-        ) {
-          matchingGroups = [modelGroups[0]];
-        }
-
-        if (matchingGroups.length === 0) {
-          matchingGroups = modelGroups;
-        }
-
-        const runtimeIds =
-          collectRuntimeIds(matchingGroups);
-
-        const rawObjects =
-          collectRawObjects(matchingGroups);
-
-        diagnostics.runtimeIdCount =
-          runtimeIds.length;
-
-        runtimeCountElement.textContent =
-          formatNumber(
-            runtimeIds.length ||
-            rawObjects.length
-          );
-
-        const propertyObjects = [];
-
-        if (runtimeIds.length > 0) {
-          diagnostics.phase =
-            "getObjectProperties";
-
-          const batchSize = 150;
-
-          for (
-            let start = 0;
-            start < runtimeIds.length;
-            start += batchSize
-          ) {
-            const batch =
-              runtimeIds.slice(
-                start,
-                start + batchSize
-              );
-
-            const processed =
-              Math.min(
-                start + batch.length,
-                runtimeIds.length
-              );
-
-            progressText.textContent =
-              "Properties ophalen: " +
-              formatNumber(processed) +
-              " / " +
-              formatNumber(runtimeIds.length);
-
-            try {
-              const response =
-                await workspaceApi.viewer
-                  .getObjectProperties(
-                    modelId,
-                    batch
-                  );
-
-              const normalizedObjects =
-                normalizePropertyResponse(response);
-
-              normalizedObjects.forEach(
-                function (object, index) {
-                  if (
-                    getObjectRuntimeId(object) === null &&
-                    batch[index] !== undefined
-                  ) {
-                    object.__runtimeId =
-                      Number(batch[index]);
-                  }
-                }
-              );
-
-              propertyObjects.push(
-                ...normalizedObjects
-              );
-            } catch (batchError) {
-              diagnostics.failedBatches.push({
-                start,
-                size: batch.length,
-                error:
-                  getErrorMessage(batchError)
-              });
-            }
-
-            propertyCountElement.textContent =
-              formatNumber(
-                propertyObjects.length
-              );
+        await API.viewer.setCamera(
+          selector,
+          {
+            animationTime: 500
           }
-        }
-
-        let objects =
-          propertyObjects.length > 0
-            ? propertyObjects
-            : rawObjects;
-
-        if (objects.length === 0) {
-          objects =
-            runtimeIds.map(function (id) {
-              return {
-                id: id,
-                runtimeId: id
-              };
-            });
-        }
-
-        diagnostics.propertyCount =
-          propertyObjects.length;
-
-        diagnostics.phase =
-          "product-grouping";
-
-        progressText.textContent =
-          "Productnamen, materialen en layers worden onderzocht...";
-
-        const analysis =
-          buildProductAnalysis(objects);
-
-        currentAnalysis = analysis;
-
-        diagnostics.sampleObjects =
-          objects
-            .slice(0, 5)
-            .map(createSafeSample);
-
-        diagnostics.analysis = {
-          objectCount:
-            analysis.objectCount,
-          productGroupCount:
-            analysis.groups.length,
-          subgroupCount:
-            analysis.subgroupCount,
-          withoutProductName:
-            analysis.withoutProductName
-        };
-
-        renderAnalysis(analysis);
-
-        setStatus(
-          "Analyse van het geladen model voltooid.",
-          "success"
         );
-
-        showDebug(diagnostics);
       } catch (error) {
-        diagnostics.error =
-          getErrorMessage(error);
-
-        analysisSummary.textContent =
-          "De analyse kon niet volledig worden uitgevoerd.";
-
-        groupsList.innerHTML = `
-          <div class="empty-state">
-            Fout tijdens:
-            <strong>
-              ${escapeHtml(diagnostics.phase)}
-            </strong>.
-            Bekijk de technische gegevens.
-          </div>
-        `;
-
-        setStatus(
-          "De modelanalyse is mislukt.",
-          "error"
+        console.warn(
+          "Inzoomen is niet gelukt:",
+          error
         );
-
-        showDebug(diagnostics);
-      } finally {
-        analysisProgress.hidden = true;
-        analyseButton.disabled = false;
-        isAnalysing = false;
       }
     }
 
-    function buildProductAnalysis(objects) {
-      const preparedObjects =
-        objects.map(function (object, index) {
-          return prepareObject(
-            object,
-            index
-          );
-        });
-
-      const groupMap = {};
-      let withoutProductName = 0;
-
-      preparedObjects.forEach(function (object) {
-        const primaryName =
-          determinePrimaryProductName(object);
-
-        if (
-          primaryName ===
-          "Zonder productnaam"
-        ) {
-          withoutProductName += 1;
-        }
-
-        const groupKey =
-          normalizeGroupingText(
-            primaryName
-          ) || "zonder-productnaam";
-
-        if (!groupMap[groupKey]) {
-          groupMap[groupKey] = {
-            key: groupKey,
-            name: primaryName,
-            objects: [],
-            runtimeIds: [],
-            subgroups: []
-          };
-        }
-
-        groupMap[groupKey]
-          .objects
-          .push(object);
-
-        if (
-          Number.isFinite(
-            Number(object.runtimeId)
-          )
-        ) {
-          groupMap[groupKey]
-            .runtimeIds
-            .push(
-              Number(object.runtimeId)
-            );
-        }
-      });
-
-      const groups =
-        Object.values(groupMap);
-
-      let subgroupCount = 0;
-
-      groups.forEach(function (group) {
-        group.runtimeIds =
-          uniqueRuntimeIds(
-            group.runtimeIds
-          );
-
-        group.subgroups =
-          createProductSubgroups(
-            group.objects
-          );
-
-        subgroupCount +=
-          group.subgroups.length;
-      });
-
-      groups.sort(function (a, b) {
-        return (
-          b.objects.length -
-          a.objects.length
-        );
-      });
-
-      const propertyCounter = {};
-
-      preparedObjects.forEach(function (object) {
-        Object.keys(object.flatProperties)
-          .forEach(function (name) {
-            propertyCounter[name] =
-              (propertyCounter[name] || 0) + 1;
-          });
-      });
-
-      const commonProperties =
-        Object.entries(propertyCounter)
-          .sort(function (a, b) {
-            return b[1] - a[1];
-          })
-          .slice(0, 80);
-
-      return {
-        objectCount:
-          preparedObjects.length,
-        groups,
-        subgroupCount,
-        commonProperties,
-        withoutProductName
-      };
-    }
-
-    function prepareObject(object, index) {
-      const flatProperties =
-        flattenObjectProperties(object);
-
-      const runtimeId =
-        getObjectRuntimeId(object);
-
-      const productName =
-        firstUsefulText([
-          object &&
-            object.product &&
-            object.product.name,
-
-          getPropertyValue(
-            flatProperties,
-            [
-              "product name",
-              "productname",
-              "ifc product name",
-              "element name",
-              "object name",
-              "objectname",
-              "name",
-              "naam"
-            ]
-          ),
-
-          object && object.name,
-          object && object.title,
-          object && object.label
-        ]);
-
-      const typeName =
-        firstUsefulText([
-          object &&
-            object.product &&
-            object.product.objectType,
-
-          object &&
-            object.product &&
-            object.product.type,
-
-          object && object.objectType,
-          object && object.type,
-
-          getPropertyValue(
-            flatProperties,
-            [
-              "type name",
-              "typename",
-              "object type",
-              "objecttype",
-              "type",
-              "family and type",
-              "family type",
-              "family",
-              "type mark",
-              "typemark"
-            ]
-          )
-        ]);
-
-      const material =
-        firstUsefulText([
-          object && object.material,
-
-          getPropertyValue(
-            flatProperties,
-            [
-              "material",
-              "materiaal",
-              "material name",
-              "materialname",
-              "structural material",
-              "layer material",
-              "main material",
-              "primary material",
-              "ifc material"
-            ]
-          )
-        ]);
-
-      const layer =
-        firstUsefulText([
-          object && object.layer,
-          object && object.layerName,
-
-          getPropertyValue(
-            flatProperties,
-            [
-              "layer",
-              "layer name",
-              "layername",
-              "presentation layer",
-              "presentationlayer",
-              "cad layer",
-              "cadlayer",
-              "workset",
-              "category",
-              "categorie",
-              "discipline"
-            ]
-          )
-        ]);
-
-      const level =
-        getPropertyValue(
-          flatProperties,
-          [
-            "level",
-            "niveau",
-            "storey",
-            "building storey",
-            "reference level",
-            "base level",
-            "constraint level"
-          ]
-        );
-
-      const ifcClass =
-        firstUsefulText([
-          object && object.class,
-          object && object.className,
-          object && object.ifcClass,
-          object && object.entityType,
-          object &&
-            object.product &&
-            object.product.class,
-          object &&
-            object.product &&
-            object.product.ifcClass
-        ]);
-
-      const dimensions =
-        collectDimensionProperties(
-          flatProperties
-        );
-
-      return {
-        source: object,
-        index,
-        runtimeId,
-        productName,
-        typeName,
-        material,
-        layer,
-        level,
-        ifcClass,
-        dimensions,
-        flatProperties
-      };
-    }
-
-    function determinePrimaryProductName(object) {
-      const productName =
-        cleanGroupName(
-          object.productName
-        );
-
-      if (
-        productName &&
-        !isGenericValue(productName)
-      ) {
-        return productName;
-      }
-
-      const typeName =
-        cleanGroupName(
-          object.typeName
-        );
-
-      if (
-        typeName &&
-        !isGenericValue(typeName)
-      ) {
-        return typeName;
-      }
-
-      const layer =
-        cleanGroupName(
-          object.layer
-        );
-
-      if (
-        layer &&
-        !isGenericValue(layer)
-      ) {
-        return "Layer: " + layer;
-      }
-
-      const material =
-        cleanGroupName(
-          object.material
-        );
-
-      if (
-        material &&
-        !isGenericValue(material)
-      ) {
-        return "Materiaal: " + material;
-      }
-
-      return "Zonder productnaam";
-    }
-
-    function createProductSubgroups(objects) {
-      const subgroupMap = {};
-
-      objects.forEach(function (object) {
-        const subgroupKeyParts = [
-          normalizeGroupingText(
-            object.typeName
-          ),
-          normalizeGroupingText(
-            object.material
-          ),
-          normalizeGroupingText(
-            object.layer
-          )
-        ].filter(Boolean);
-
-        const subgroupKey =
-          subgroupKeyParts.join("|") ||
-          "zonder-subgroep";
-
-        if (!subgroupMap[subgroupKey]) {
-          subgroupMap[subgroupKey] = {
-            key: subgroupKey,
-            objects: [],
-            runtimeIds: [],
-            typeNames: {},
-            materials: {},
-            layers: {},
-            levels: {},
-            classes: {},
-            dimensions: {}
-          };
-        }
-
-        const subgroup =
-          subgroupMap[subgroupKey];
-
-        subgroup.objects.push(object);
-
-        if (
-          Number.isFinite(
-            Number(object.runtimeId)
-          )
-        ) {
-          subgroup.runtimeIds.push(
-            Number(object.runtimeId)
-          );
-        }
-
-        addCounterValue(
-          subgroup.typeNames,
-          object.typeName
-        );
-
-        addCounterValue(
-          subgroup.materials,
-          object.material
-        );
-
-        addCounterValue(
-          subgroup.layers,
-          object.layer
-        );
-
-        addCounterValue(
-          subgroup.levels,
-          object.level
-        );
-
-        addCounterValue(
-          subgroup.classes,
-          object.ifcClass
-        );
-
-        object.dimensions
-          .forEach(function (dimension) {
-            addCounterValue(
-              subgroup.dimensions,
-              dimension
-            );
-          });
-      });
-
-      return Object.values(subgroupMap)
-        .map(function (subgroup) {
-          const topType =
-            topCounterEntries(
-              subgroup.typeNames,
-              1
-            )[0];
-
-          const topMaterial =
-            topCounterEntries(
-              subgroup.materials,
-              1
-            )[0];
-
-          const topLayer =
-            topCounterEntries(
-              subgroup.layers,
-              1
-            )[0];
-
-          const nameParts = [];
-
-          if (topType) {
-            nameParts.push(
-              topType[0]
-            );
-          }
-
-          if (
-            topMaterial &&
-            !nameParts.includes(
-              topMaterial[0]
-            )
-          ) {
-            nameParts.push(
-              topMaterial[0]
-            );
-          }
-
-          if (
-            topLayer &&
-            !nameParts.includes(
-              topLayer[0]
-            )
-          ) {
-            nameParts.push(
-              topLayer[0]
-            );
-          }
-
-          return {
-            key: subgroup.key,
-            name:
-              nameParts.join(" · ") ||
-              "Zonder verdere onderverdeling",
-            count:
-              subgroup.objects.length,
-            runtimeIds:
-              uniqueRuntimeIds(
-                subgroup.runtimeIds
-              ),
-            topTypes:
-              topCounterEntries(
-                subgroup.typeNames,
-                3
-              ),
-            topMaterials:
-              topCounterEntries(
-                subgroup.materials,
-                3
-              ),
-            topLayers:
-              topCounterEntries(
-                subgroup.layers,
-                3
-              ),
-            topLevels:
-              topCounterEntries(
-                subgroup.levels,
-                3
-              ),
-            topClasses:
-              topCounterEntries(
-                subgroup.classes,
-                2
-              ),
-            topDimensions:
-              topCounterEntries(
-                subgroup.dimensions,
-                5
-              )
-          };
-        })
-        .sort(function (a, b) {
-          return b.count - a.count;
-        });
-    }
-
-    async function selectAndZoom(
-      runtimeIds,
-      label,
-      resultKey
+    async function selecteerEnZoomNaarEenObject(
+      modelId,
+      runtimeId
     ) {
-      if (
-        !workspaceApi ||
-        !loadedModelId
-      ) {
-        setStatus(
-          "De viewer is niet verbonden.",
-          "error"
-        );
-
-        return;
-      }
-
-      const validRuntimeIds =
-        uniqueRuntimeIds(runtimeIds);
-
-      if (
-        validRuntimeIds.length === 0
-      ) {
-        setStatus(
-          "Voor deze groep werden geen selecteerbare object-ID's gevonden.",
-          "warning"
-        );
-
-        return;
-      }
-
       const selector = {
         modelObjectIds: [
           {
-            modelId:
-              String(loadedModelId),
-            objectRuntimeIds:
-              validRuntimeIds
+            modelId: modelId,
+            objectRuntimeIds: [runtimeId]
           }
         ]
       };
 
+      await API.viewer.setSelection(
+        selector,
+        "set"
+      );
+
       try {
-        setStatus(
-          "Objecten worden geselecteerd..."
+        await API.viewer.setCamera(
+          selector,
+          {
+            animationTime: 400
+          }
         );
-
-        await workspaceApi.viewer
-          .setSelection(
-            selector,
-            "set"
-          );
-
-        try {
-          await workspaceApi.viewer
-            .setCamera(
-              selector,
-              {
-                animationTime: 500
-              }
-            );
-        } catch (cameraError) {
-          console.warn(
-            "Selectie lukte, maar zoomen niet:",
-            cameraError
-          );
-        }
-
-        selectedResultKey =
-          resultKey;
-
-        selectionMessage.hidden = false;
-
-        selectionMessage.textContent =
-          formatNumber(
-            validRuntimeIds.length
-          ) +
-          " objecten geselecteerd: " +
-          label;
-
-        setStatus(
-          "Selectie uitgevoerd.",
-          "success"
-        );
-
-        renderFilteredGroups();
       } catch (error) {
-        setStatus(
-          "De objecten konden niet worden geselecteerd.",
-          "error"
+        console.warn(
+          "Inzoomen naar resultaat is niet gelukt:",
+          error
         );
-
-        showDebug({
-          phase: "select-and-zoom",
-          label,
-          runtimeIdCount:
-            validRuntimeIds.length,
-          error:
-            getErrorMessage(error)
-        });
       }
     }
 
-    async function clearViewerSelection() {
-      if (!workspaceApi) {
+    function haalAlleProperties(objectProperties) {
+      const resultaat = [];
+
+      const propertySets =
+        Array.isArray(objectProperties.properties)
+          ? objectProperties.properties
+          : [];
+
+      for (const propertySet of propertySets) {
+        const setName =
+          String(propertySet.set || "").trim();
+
+        const properties =
+          Array.isArray(propertySet.properties)
+            ? propertySet.properties
+            : [];
+
+        for (const property of properties) {
+          const propertyName =
+            String(property.name || "").trim();
+
+          const value =
+            String(property.value ?? "").trim();
+
+          resultaat.push({
+            setName: setName,
+            propertyName: propertyName,
+            fullName:
+              setName
+                ? setName + "." + propertyName
+                : propertyName,
+            value: value
+          });
+        }
+      }
+
+      return resultaat;
+    }
+
+    function zoekPropertyWaarde(
+      objectProperties,
+      gewensteNamen
+    ) {
+      const properties =
+        haalAlleProperties(objectProperties);
+
+      for (const gewensteNaam of gewensteNamen) {
+        const gewensteNaamNormaal =
+          normaliseerTekst(gewensteNaam);
+
+        for (const property of properties) {
+          if (
+            normaliseerTekst(property.propertyName) ===
+              gewensteNaamNormaal ||
+            normaliseerTekst(property.fullName) ===
+              gewensteNaamNormaal
+          ) {
+            if (property.value) {
+              return property.value;
+            }
+          }
+        }
+      }
+
+      return null;
+    }
+
+    function zoekPropertyMetNaam(
+      objectProperties,
+      gewensteNamen
+    ) {
+      const properties =
+        haalAlleProperties(objectProperties);
+
+      for (const gewensteNaam of gewensteNamen) {
+        const gewensteNaamNormaal =
+          normaliseerTekst(gewensteNaam);
+
+        for (const property of properties) {
+          if (
+            normaliseerTekst(property.propertyName) ===
+              gewensteNaamNormaal ||
+            normaliseerTekst(property.fullName) ===
+              gewensteNaamNormaal
+          ) {
+            if (property.value) {
+              return {
+                naam: property.propertyName,
+                waarde: property.value
+              };
+            }
+          }
+        }
+      }
+
+      return null;
+    }
+
+    function formatteerGewicht(waarde) {
+      if (
+        waarde === null ||
+        waarde === undefined ||
+        waarde === ""
+      ) {
+        return "niet gevonden";
+      }
+
+      const tekst =
+        String(waarde).trim();
+
+      if (/(kg|ton|tonne|t)$/i.test(tekst)) {
+        return tekst;
+      }
+
+      return tekst + " t";
+    }
+
+    async function zoekCastUnitMark() {
+      const mark =
+        normaliseerMark(markInput.value);
+
+      markInput.value = mark;
+
+      if (!mark) {
+        castResultElement.textContent =
+          "Vul eerst een Cast Unit Mark in.";
+
         return;
       }
 
+      markSearchButton.disabled = true;
+      generalSearchButton.disabled = true;
+
+      castResultElement.textContent =
+        "Zoeken naar Cast Unit Mark " +
+        mark +
+        "...";
+
       try {
-        await workspaceApi.viewer
-          .setSelection(
+        let gevondenResultaten = [];
+        let gebruikteProperty = "";
+
+        for (const propertyName of markPropertyNames) {
+          const resultaten =
+            await API.viewer.getObjects({
+              parameter: {
+                properties: {
+                  [propertyName]: mark
+                }
+              }
+            });
+
+          if (telObjecten(resultaten) > 0) {
+            gevondenResultaten = resultaten;
+            gebruikteProperty = propertyName;
+            break;
+          }
+        }
+
+        if (telObjecten(gevondenResultaten) === 0) {
+          castResultElement.textContent =
+            "Geen object gevonden met Cast Unit Mark " +
+            mark +
+            ".";
+
+          return;
+        }
+
+        await selecteerEnZoom(
+          gevondenResultaten
+        );
+
+        const gevondenElementen = [];
+
+        for (const model of gevondenResultaten) {
+          const runtimeIds =
+            haalObjecten(model)
+              .map(haalRuntimeId)
+              .filter(function(id) {
+                return (
+                  id !== null &&
+                  id !== undefined
+                );
+              });
+
+          if (runtimeIds.length === 0) {
+            continue;
+          }
+
+          const properties =
+            await API.viewer.getObjectProperties(
+              model.modelId,
+              runtimeIds
+            );
+
+          for (const objectProperties of properties) {
+            gevondenElementen.push({
+              mark: zoekPropertyWaarde(
+                objectProperties,
+                markPropertyNames
+              ),
+
+              weight: zoekPropertyWaarde(
+                objectProperties,
+                weightPropertyNames
+              )
+            });
+          }
+        }
+
+        castResultElement.innerHTML = "";
+
+        const titel =
+          document.createElement("div");
+
+        titel.className = "result-title";
+        titel.textContent = mark;
+
+        castResultElement.appendChild(titel);
+
+        gevondenElementen.forEach(
+          function(element, index) {
+            const rij =
+              document.createElement("div");
+
+            rij.className =
+              "result-weight";
+
+            if (gevondenElementen.length === 1) {
+              rij.textContent =
+                "Gewicht: " +
+                formatteerGewicht(
+                  element.weight
+                );
+            } else {
+              rij.textContent =
+                "Element " +
+                (index + 1) +
+                " — Gewicht: " +
+                formatteerGewicht(
+                  element.weight
+                );
+            }
+
+            castResultElement.appendChild(rij);
+          }
+        );
+
+        const info =
+          document.createElement("div");
+
+        info.className = "result-info";
+
+        info.textContent =
+          gevondenElementen.length +
+          " object(en) gevonden via de specifieke parameter " +
+          gebruikteProperty +
+          ".";
+
+        castResultElement.appendChild(info);
+
+        clearButton.disabled = false;
+      } catch (error) {
+        console.error(
+          "Zoeken op Cast Unit Mark mislukt:",
+          error
+        );
+
+        castResultElement.textContent =
+          "Er ging iets fout tijdens het zoeken op Cast Unit Mark.";
+      } finally {
+        markSearchButton.disabled = false;
+        generalSearchButton.disabled = false;
+      }
+    }
+
+    function verdeelInGroepen(array, grootte) {
+      const groepen = [];
+
+      for (
+        let index = 0;
+        index < array.length;
+        index += grootte
+      ) {
+        groepen.push(
+          array.slice(index, index + grootte)
+        );
+      }
+
+      return groepen;
+    }
+
+    function zoekMatchesInObject(
+      objectProperties,
+      zoektekst
+    ) {
+      const matches = [];
+
+      const properties =
+        haalAlleProperties(objectProperties);
+
+      for (const property of properties) {
+        if (
+          normaliseerTekst(property.value)
+            .includes(zoektekst)
+        ) {
+          matches.push({
+            setName: property.setName,
+            propertyName: property.propertyName,
+            value: property.value
+          });
+        }
+      }
+
+      return matches;
+    }
+
+    function bepaalHoofdgroep(objectProperties) {
+      const gevonden =
+        zoekPropertyMetNaam(
+          objectProperties,
+          hoofdgroepPropertyNames
+        );
+
+      if (gevonden) {
+        return {
+          naam: gevonden.waarde,
+          bron: gevonden.naam
+        };
+      }
+
+      const materiaal =
+        zoekPropertyMetNaam(
+          objectProperties,
+          [
+            "Material",
+            "Material Name",
+            "Material name",
+            "MaterialName"
+          ]
+        );
+
+      if (materiaal) {
+        return {
+          naam: materiaal.waarde,
+          bron: materiaal.naam
+        };
+      }
+
+      const layer =
+        zoekPropertyMetNaam(
+          objectProperties,
+          [
+            "Layer",
+            "Layer Name",
+            "Layer name",
+            "LayerName"
+          ]
+        );
+
+      if (layer) {
+        return {
+          naam: layer.waarde,
+          bron: layer.naam
+        };
+      }
+
+      return {
+        naam: "Overige objecten",
+        bron: "Geen gemeenschappelijke hoofdparameter"
+      };
+    }
+
+    function bepaalSubgroep(
+      objectProperties,
+      hoofdgroep
+    ) {
+      const properties =
+        haalAlleProperties(objectProperties);
+
+      for (const gewensteNaam of subgroepPropertyNames) {
+        const gewensteNaamNormaal =
+          normaliseerTekst(gewensteNaam);
+
+        for (const property of properties) {
+          const naamKomtOvereen =
+            normaliseerTekst(property.propertyName) ===
+              gewensteNaamNormaal ||
+            normaliseerTekst(property.fullName) ===
+              gewensteNaamNormaal;
+
+          if (!naamKomtOvereen || !property.value) {
+            continue;
+          }
+
+          if (
+            normaliseerTekst(property.value) ===
+            normaliseerTekst(hoofdgroep.naam)
+          ) {
+            continue;
+          }
+
+          return {
+            naam: property.value,
+            bron: property.propertyName
+          };
+        }
+      }
+
+      return {
+        naam: "Niet verder onderverdeeld",
+        bron: "Geen gemeenschappelijke subparameter"
+      };
+    }
+
+    function haalZichtbareDetailProperties(
+      objectProperties
+    ) {
+      const resultaat = [];
+      const toegevoegdeNamen = new Set();
+
+      for (const gewensteNaam of zichtbareDetailPropertyNames) {
+        const gevonden =
+          zoekPropertyMetNaam(
+            objectProperties,
+            [gewensteNaam]
+          );
+
+        if (!gevonden) {
+          continue;
+        }
+
+        const sleutel =
+          normaliseerTekst(
+            gevonden.naam + "|" + gevonden.waarde
+          );
+
+        if (toegevoegdeNamen.has(sleutel)) {
+          continue;
+        }
+
+        toegevoegdeNamen.add(sleutel);
+
+        resultaat.push({
+          name: gevonden.naam,
+          value: gevonden.waarde
+        });
+
+        if (resultaat.length >= 8) {
+          break;
+        }
+      }
+
+      return resultaat;
+    }
+
+    function maakPropertyRij(property) {
+      const rij =
+        document.createElement("div");
+
+      rij.className =
+        "element-property";
+
+      const naam =
+        document.createElement("div");
+
+      naam.className =
+        "element-property-name";
+
+      naam.textContent =
+        property.name || "Naamloos";
+
+      const waarde =
+        document.createElement("div");
+
+      waarde.className =
+        "element-property-value";
+
+      waarde.textContent =
+        property.value || "—";
+
+      rij.appendChild(naam);
+      rij.appendChild(waarde);
+
+      return rij;
+    }
+
+    async function selecteerDetails(details) {
+      const resultaten =
+        maakResultatenVanDetails(details);
+
+      await selecteerEnZoom(resultaten);
+    }
+
+    function toonAlgemeneZoekresultaten(
+      zoektekstOrigineel,
+      gevondenDetails
+    ) {
+      generalResultElement.innerHTML = "";
+
+      const titel =
+        document.createElement("div");
+
+      titel.className = "result-title";
+
+      titel.textContent =
+        "Zoekresultaten: " +
+        zoektekstOrigineel;
+
+      generalResultElement.appendChild(titel);
+
+      const hoofdgroepen = new Map();
+
+      gevondenDetails.forEach(function(detail) {
+        const hoofdgroep =
+          bepaalHoofdgroep(
+            detail.objectProperties
+          );
+
+        const subgroep =
+          bepaalSubgroep(
+            detail.objectProperties,
+            hoofdgroep
+          );
+
+        const hoofdSleutel =
+          normaliseerTekst(
+            hoofdgroep.naam
+          );
+
+        const subSleutel =
+          normaliseerTekst(
+            subgroep.naam
+          );
+
+        if (!hoofdgroepen.has(hoofdSleutel)) {
+          hoofdgroepen.set(
+            hoofdSleutel,
+            {
+              naam: hoofdgroep.naam,
+              bron: hoofdgroep.bron,
+              elementen: [],
+              subgroepen: new Map()
+            }
+          );
+        }
+
+        const hoofdgroepData =
+          hoofdgroepen.get(hoofdSleutel);
+
+        hoofdgroepData.elementen.push(detail);
+
+        if (
+          !hoofdgroepData.subgroepen.has(
+            subSleutel
+          )
+        ) {
+          hoofdgroepData.subgroepen.set(
+            subSleutel,
+            {
+              naam: subgroep.naam,
+              bron: subgroep.bron,
+              elementen: []
+            }
+          );
+        }
+
+        hoofdgroepData
+          .subgroepen
+          .get(subSleutel)
+          .elementen
+          .push(detail);
+      });
+
+      const gesorteerdeHoofdgroepen =
+        Array.from(
+          hoofdgroepen.values()
+        ).sort(
+          function(a, b) {
+            return (
+              b.elementen.length -
+              a.elementen.length
+            );
+          }
+        );
+
+      gesorteerdeHoofdgroepen.forEach(
+        function(hoofdgroep) {
+          const hoofdDetails =
+            document.createElement("details");
+
+          hoofdDetails.className =
+            "main-group";
+
+          const hoofdSummary =
+            document.createElement("summary");
+
+          hoofdSummary.className =
+            "main-group-summary";
+
+          hoofdSummary.textContent =
+            hoofdgroep.naam +
+            " — " +
+            hoofdgroep.elementen.length +
+            " object(en)";
+
+          const hoofdInhoud =
+            document.createElement("div");
+
+          hoofdInhoud.className =
+            "main-group-content";
+
+          const hoofdSelecteerKnop =
+            document.createElement("button");
+
+          hoofdSelecteerKnop.type =
+            "button";
+
+          hoofdSelecteerKnop.className =
+            "group-button";
+
+          hoofdSelecteerKnop.textContent =
+            "Selecteer volledige hoofdgroep";
+
+          hoofdSelecteerKnop.addEventListener(
+            "click",
+            async function(event) {
+              event.stopPropagation();
+
+              try {
+                await selecteerDetails(
+                  hoofdgroep.elementen
+                );
+              } catch (error) {
+                console.error(
+                  "Hoofdgroep selecteren mislukt:",
+                  error
+                );
+              }
+            }
+          );
+
+          hoofdInhoud.appendChild(
+            hoofdSelecteerKnop
+          );
+
+          const gesorteerdeSubgroepen =
+            Array.from(
+              hoofdgroep.subgroepen.values()
+            ).sort(
+              function(a, b) {
+                return (
+                  b.elementen.length -
+                  a.elementen.length
+                );
+              }
+            );
+
+          gesorteerdeSubgroepen.forEach(
+            function(subgroep) {
+              const subDetails =
+                document.createElement("details");
+
+              subDetails.className =
+                "sub-group";
+
+              const subSummary =
+                document.createElement("summary");
+
+              subSummary.className =
+                "sub-group-summary";
+
+              subSummary.textContent =
+                subgroep.naam +
+                " — " +
+                subgroep.elementen.length +
+                " object(en)";
+
+              const subInhoud =
+                document.createElement("div");
+
+              subInhoud.className =
+                "sub-group-content";
+
+              const subSelecteerKnop =
+                document.createElement("button");
+
+              subSelecteerKnop.type =
+                "button";
+
+              subSelecteerKnop.className =
+                "group-button";
+
+              subSelecteerKnop.textContent =
+                "Selecteer deze subgroep";
+
+              subSelecteerKnop.addEventListener(
+                "click",
+                async function(event) {
+                  event.stopPropagation();
+
+                  try {
+                    await selecteerDetails(
+                      subgroep.elementen
+                    );
+                  } catch (error) {
+                    console.error(
+                      "Subgroep selecteren mislukt:",
+                      error
+                    );
+                  }
+                }
+              );
+
+              subInhoud.appendChild(
+                subSelecteerKnop
+              );
+
+              subgroep.elementen.forEach(
+                function(detail, index) {
+                  const elementCard =
+                    document.createElement("div");
+
+                  elementCard.className =
+                    "element-card";
+
+                  const elementTitel =
+                    document.createElement("div");
+
+                  elementTitel.className =
+                    "element-title";
+
+                  elementTitel.textContent =
+                    "Element " +
+                    (index + 1);
+
+                  elementCard.appendChild(
+                    elementTitel
+                  );
+
+                  const eigenschappen =
+                    haalZichtbareDetailProperties(
+                      detail.objectProperties
+                    );
+
+                  eigenschappen.forEach(
+                    function(property) {
+                      elementCard.appendChild(
+                        maakPropertyRij(property)
+                      );
+                    }
+                  );
+
+                  if (
+                    Array.isArray(detail.matches) &&
+                    detail.matches.length > 0
+                  ) {
+                    const match =
+                      detail.matches[0];
+
+                    elementCard.appendChild(
+                      maakPropertyRij({
+                        name:
+                          "Zoekmatch: " +
+                          (
+                            match.setName
+                              ? match.setName + " → "
+                              : ""
+                          ) +
+                          match.propertyName,
+
+                        value: match.value
+                      })
+                    );
+                  }
+
+                  const selecteerKnop =
+                    document.createElement("button");
+
+                  selecteerKnop.type =
+                    "button";
+
+                  selecteerKnop.className =
+                    "element-button";
+
+                  selecteerKnop.textContent =
+                    "Selecteer dit element";
+
+                  selecteerKnop.addEventListener(
+                    "click",
+                    async function(event) {
+                      event.stopPropagation();
+
+                      try {
+                        await selecteerEnZoomNaarEenObject(
+                          detail.modelId,
+                          detail.runtimeId
+                        );
+                      } catch (error) {
+                        console.error(
+                          "Element selecteren mislukt:",
+                          error
+                        );
+                      }
+                    }
+                  );
+
+                  elementCard.appendChild(
+                    selecteerKnop
+                  );
+
+                  subInhoud.appendChild(
+                    elementCard
+                  );
+                }
+              );
+
+              subDetails.appendChild(
+                subSummary
+              );
+
+              subDetails.appendChild(
+                subInhoud
+              );
+
+              hoofdInhoud.appendChild(
+                subDetails
+              );
+            }
+          );
+
+          hoofdDetails.appendChild(
+            hoofdSummary
+          );
+
+          hoofdDetails.appendChild(
+            hoofdInhoud
+          );
+
+          generalResultElement.appendChild(
+            hoofdDetails
+          );
+        }
+      );
+
+      let totaalSubgroepen = 0;
+
+      gesorteerdeHoofdgroepen.forEach(
+        function(hoofdgroep) {
+          totaalSubgroepen +=
+            hoofdgroep.subgroepen.size;
+        }
+      );
+
+      const info =
+        document.createElement("div");
+
+      info.className =
+        "result-info";
+
+      info.textContent =
+        gevondenDetails.length +
+        " object(en) verdeeld over " +
+        hoofdgroepen.size +
+        " grove hoofdgroep(en) en " +
+        totaalSubgroepen +
+        " subgroep(en).";
+
+      generalResultElement.appendChild(
+        info
+      );
+    }
+
+    async function algemeenZoeken() {
+      const zoektekstOrigineel =
+        generalInput.value.trim();
+
+      const zoektekst =
+        normaliseerTekst(
+          zoektekstOrigineel
+        );
+
+      if (!zoektekst) {
+        generalResultElement.textContent =
+          "Vul eerst een algemene zoektekst in.";
+
+        return;
+      }
+
+      markSearchButton.disabled = true;
+      generalSearchButton.disabled = true;
+      clearButton.disabled = true;
+
+      generalResultElement.textContent =
+        "Alle modelparameters doorzoeken naar \"" +
+        zoektekstOrigineel +
+        "\"...\n\nDe gevonden objecten worden daarna grof gegroepeerd.";
+
+      try {
+        const alleObjecten =
+          await API.viewer.getObjects();
+
+        const gevondenDetails = [];
+
+        for (
+          let modelIndex = 0;
+          modelIndex < alleObjecten.length;
+          modelIndex++
+        ) {
+          const model =
+            alleObjecten[modelIndex];
+
+          const runtimeIds =
+            haalObjecten(model)
+              .map(haalRuntimeId)
+              .filter(function(id) {
+                return (
+                  id !== null &&
+                  id !== undefined
+                );
+              });
+
+          const groepen =
+            verdeelInGroepen(
+              runtimeIds,
+              300
+            );
+
+          for (
+            let groepIndex = 0;
+            groepIndex < groepen.length;
+            groepIndex++
+          ) {
+            generalResultElement.textContent =
+              "Model " +
+              (modelIndex + 1) +
+              " van " +
+              alleObjecten.length +
+              " doorzoeken...\n" +
+              "Deel " +
+              (groepIndex + 1) +
+              " van " +
+              groepen.length;
+
+            const properties =
+              await API.viewer.getObjectProperties(
+                model.modelId,
+                groepen[groepIndex]
+              );
+
+            for (
+              const objectProperties
+              of properties
+            ) {
+              const matches =
+                zoekMatchesInObject(
+                  objectProperties,
+                  zoektekst
+                );
+
+              if (matches.length === 0) {
+                continue;
+              }
+
+              const runtimeId =
+                objectProperties.id ??
+                objectProperties.runtimeId ??
+                objectProperties.objectRuntimeId;
+
+              if (
+                runtimeId === null ||
+                runtimeId === undefined
+              ) {
+                continue;
+              }
+
+              gevondenDetails.push({
+                modelId: model.modelId,
+                runtimeId: runtimeId,
+                objectProperties:
+                  objectProperties,
+                matches: matches
+              });
+            }
+          }
+        }
+
+        if (gevondenDetails.length === 0) {
+          generalResultElement.textContent =
+            "Geen parameterwaarde gevonden die \"" +
+            zoektekstOrigineel +
+            "\" bevat.";
+
+          return;
+        }
+
+        toonAlgemeneZoekresultaten(
+          zoektekstOrigineel,
+          gevondenDetails
+        );
+
+        clearButton.disabled = false;
+      } catch (error) {
+        console.error(
+          "Algemeen zoeken mislukt:",
+          error
+        );
+
+        generalResultElement.textContent =
+          "De algemene zoekactie is mislukt." +
+          "\nBekijk eventueel F12 → Console.";
+      } finally {
+        markSearchButton.disabled = false;
+        generalSearchButton.disabled = false;
+      }
+    }
+
+    async function wisResultaten() {
+      markInput.value = "";
+      generalInput.value = "";
+
+      castResultElement.textContent =
+        "Nog geen Cast Unit Mark gezocht.";
+
+      generalResultElement.textContent =
+        "Nog geen algemene zoekopdracht uitgevoerd.";
+
+      clearButton.disabled = true;
+
+      try {
+        if (API) {
+          await API.viewer.setSelection(
             {
               modelObjectIds: []
             },
             "set"
           );
-
-        selectedResultKey = null;
-        selectionMessage.hidden = true;
-        selectionMessage.textContent = "";
-
-        renderFilteredGroups();
-
-        setStatus(
-          "Selectie gewist.",
-          "success"
-        );
+        }
       } catch (error) {
-        setStatus(
-          "De selectie kon niet worden gewist.",
-          "error"
+        console.warn(
+          "Selectie wissen is niet gelukt:",
+          error
         );
       }
+
+      generalInput.focus();
     }
 
-    function renderAnalysis(analysis) {
-      analysisSummary.textContent =
-        formatNumber(
-          analysis.objectCount
-        ) +
-        " objecten gegroepeerd op productnaam, type, materiaal en layer.";
-
-      propertyCountElement.textContent =
-        formatNumber(
-          analysis.objectCount
-        );
-
-      groupCountElement.textContent =
-        formatNumber(
-          analysis.groups.length
-        );
-
-      subgroupCountElement.textContent =
-        formatNumber(
-          analysis.subgroupCount
-        );
-
-      toolbar.hidden = false;
-
-      renderFilteredGroups();
-
-      renderCommonProperties(
-        analysis.commonProperties,
-        analysis.objectCount
-      );
-
-      renderMissingProducts(
-        analysis.withoutProductName
-      );
-    }
-
-    function renderFilteredGroups() {
-      if (!currentAnalysis) {
-        return;
-      }
-
-      const query =
-        normalizeSearchText(
-          searchInput.value
-        );
-
-      const filtered =
-        currentAnalysis.groups
-          .map(function (group) {
-            if (!query) {
-              return group;
-            }
-
-            const matchingSubgroups =
-              group.subgroups.filter(
-                function (subgroup) {
-                  const text =
-                    normalizeSearchText(
-                      [
-                        group.name,
-                        subgroup.name,
-                        subgroup.topTypes
-                          .map(function (item) {
-                            return item[0];
-                          })
-                          .join(" "),
-                        subgroup.topMaterials
-                          .map(function (item) {
-                            return item[0];
-                          })
-                          .join(" "),
-                        subgroup.topLayers
-                          .map(function (item) {
-                            return item[0];
-                          })
-                          .join(" "),
-                        subgroup.topLevels
-                          .map(function (item) {
-                            return item[0];
-                          })
-                          .join(" ")
-                      ].join(" ")
-                    );
-
-                  return text.includes(query);
-                }
-              );
-
-            if (
-              normalizeSearchText(
-                group.name
-              ).includes(query)
-            ) {
-              return group;
-            }
-
-            if (
-              matchingSubgroups.length > 0
-            ) {
-              return {
-                ...group,
-                subgroups:
-                  matchingSubgroups
-              };
-            }
-
-            return null;
-          })
-          .filter(Boolean);
-
-      if (filtered.length === 0) {
-        groupsList.innerHTML = `
-          <div class="empty-state">
-            Geen productgroepen gevonden voor deze zoekterm.
-          </div>
-        `;
-
-        return;
-      }
-
-      groupsList.innerHTML =
-        filtered
-          .map(renderProductGroup)
-          .join("");
-
-      bindProductEvents();
-    }
-
-    function renderProductGroup(group) {
-      const open =
-        allExpanded ||
-        Boolean(
-          normalizeSearchText(
-            searchInput.value
-          )
-        );
-
-      const groupResultKey =
-        "group:" + group.key;
-
-      const selectedClass =
-        selectedResultKey ===
-        groupResultKey
-          ? "selected-result"
-          : "";
-
-      return `
-        <article class="product-group">
-          <div
-            class="product-header ${selectedClass}"
-            data-action="select-group"
-            data-group-key="${escapeHtml(group.key)}"
-          >
-            <div class="product-icon">
-              P
-            </div>
-
-            <div class="product-title">
-              <h3>
-                ${escapeHtml(group.name)}
-              </h3>
-
-              <p>
-                ${formatNumber(group.subgroups.length)}
-                subgroepen · klik om
-                ${formatNumber(group.runtimeIds.length)}
-                objecten te selecteren
-              </p>
-            </div>
-
-            <strong class="product-count">
-              ${formatNumber(group.objects.length)}
-            </strong>
-          </div>
-
-          <div
-            class="subgroups"
-            ${open ? "" : "hidden"}
-          >
-            ${
-              group.subgroups
-                .map(function (subgroup) {
-                  return renderSubgroup(
-                    group,
-                    subgroup
-                  );
-                })
-                .join("")
-            }
-          </div>
-        </article>
-      `;
-    }
-
-    function renderSubgroup(
-      group,
-      subgroup
-    ) {
-      const chips = [];
-
-      subgroup.topTypes
-        .forEach(function (item) {
-          chips.push({
-            type: "type",
-            text:
-              "Type: " +
-              item[0]
-          });
-        });
-
-      subgroup.topMaterials
-        .forEach(function (item) {
-          chips.push({
-            type: "material",
-            text:
-              "Materiaal: " +
-              item[0]
-          });
-        });
-
-      subgroup.topLayers
-        .forEach(function (item) {
-          chips.push({
-            type: "layer",
-            text:
-              "Layer: " +
-              item[0]
-          });
-        });
-
-      subgroup.topLevels
-        .forEach(function (item) {
-          chips.push({
-            type: "",
-            text:
-              "Niveau: " +
-              item[0]
-          });
-        });
-
-      subgroup.topDimensions
-        .forEach(function (item) {
-          chips.push({
-            type: "",
-            text: item[0]
-          });
-        });
-
-      subgroup.topClasses
-        .forEach(function (item) {
-          chips.push({
-            type: "class",
-            text:
-              "IFC: " +
-              item[0]
-          });
-        });
-
-      const subgroupResultKey =
-        "subgroup:" +
-        group.key +
-        ":" +
-        subgroup.key;
-
-      const selectedClass =
-        selectedResultKey ===
-        subgroupResultKey
-          ? "selected-result"
-          : "";
-
-      return `
-        <div
-          class="subgroup ${selectedClass}"
-          data-action="select-subgroup"
-          data-group-key="${escapeHtml(group.key)}"
-          data-subgroup-key="${escapeHtml(subgroup.key)}"
-        >
-          <div class="subgroup-top">
-            <div class="subgroup-name">
-              <strong>
-                ${escapeHtml(subgroup.name)}
-              </strong>
-
-              <div class="subgroup-description">
-                Gegroepeerd op type, materiaal en layer.
-              </div>
-
-              <div class="select-hint">
-                Klik om te selecteren en in te zoomen
-              </div>
-            </div>
-
-            <strong class="subgroup-count">
-              ${formatNumber(subgroup.count)}
-            </strong>
-          </div>
-
-          <div class="chips">
-            ${
-              chips
-                .slice(0, 12)
-                .map(function (chip) {
-                  return `
-                    <span
-                      class="chip ${escapeHtml(chip.type)}"
-                    >
-                      ${escapeHtml(chip.text)}
-                    </span>
-                  `;
-                })
-                .join("")
-            }
-          </div>
-        </div>
-      `;
-    }
-
-    function bindProductEvents() {
-      document
-        .querySelectorAll(
-          '[data-action="select-group"]'
-        )
-        .forEach(function (header) {
-          header.addEventListener(
-            "click",
-            async function (event) {
-              event.preventDefault();
-
-              const groupKey =
-                header.dataset.groupKey;
-
-              const group =
-                findGroup(groupKey);
-
-              if (!group) {
-                return;
-              }
-
-              const subgroupsElement =
-                header.parentElement
-                  .querySelector(
-                    ".subgroups"
-                  );
-
-              subgroupsElement.hidden =
-                false;
-
-              await selectAndZoom(
-                group.runtimeIds,
-                group.name,
-                "group:" + group.key
-              );
-            }
+    markInput.addEventListener(
+      "input",
+      function() {
+        markInput.value =
+          normaliseerMark(
+            markInput.value
           );
-        });
-
-      document
-        .querySelectorAll(
-          '[data-action="select-subgroup"]'
-        )
-        .forEach(function (element) {
-          element.addEventListener(
-            "click",
-            async function (event) {
-              event.preventDefault();
-              event.stopPropagation();
-
-              const groupKey =
-                element.dataset.groupKey;
-
-              const subgroupKey =
-                element.dataset.subgroupKey;
-
-              const group =
-                findGroup(groupKey);
-
-              if (!group) {
-                return;
-              }
-
-              const subgroup =
-                group.subgroups.find(
-                  function (item) {
-                    return (
-                      item.key ===
-                      subgroupKey
-                    );
-                  }
-                );
-
-              if (!subgroup) {
-                return;
-              }
-
-              await selectAndZoom(
-                subgroup.runtimeIds,
-                group.name +
-                  " · " +
-                  subgroup.name,
-                "subgroup:" +
-                  group.key +
-                  ":" +
-                  subgroup.key
-              );
-            }
-          );
-        });
-    }
-
-    function findGroup(groupKey) {
-      if (!currentAnalysis) {
-        return null;
       }
+    );
 
-      return (
-        currentAnalysis.groups.find(
-          function (group) {
-            return (
-              group.key ===
-              groupKey
-            );
-          }
-        ) || null
-      );
-    }
-
-    function toggleAllGroups() {
-      allExpanded =
-        !allExpanded;
-
-      expandButton.textContent =
-        allExpanded
-          ? "Alle productgroepen sluiten"
-          : "Alle productgroepen openen";
-
-      document
-        .querySelectorAll(
-          ".subgroups"
-        )
-        .forEach(function (element) {
-          element.hidden =
-            !allExpanded;
-        });
-    }
-
-    function renderCommonProperties(
-      properties,
-      objectCount
-    ) {
-      if (properties.length === 0) {
-        propertiesDetails.hidden = true;
-        propertiesList.innerHTML = "";
-        return;
-      }
-
-      propertiesDetails.hidden = false;
-
-      propertiesList.innerHTML =
-        properties
-          .map(function (entry) {
-            const percentage =
-              objectCount > 0
-                ? Math.round(
-                    entry[1] /
-                    objectCount *
-                    100
-                  )
-                : 0;
-
-            return `
-              <div class="property-row">
-                <span>
-                  ${escapeHtml(entry[0])}
-                </span>
-
-                <strong>
-                  ${formatNumber(entry[1])}
-                  ·
-                  ${percentage}%
-                </strong>
-              </div>
-            `;
-          })
-          .join("");
-    }
-
-    function renderMissingProducts(count) {
-      if (!count) {
-        missingDetails.hidden = true;
-        missingList.innerHTML = "";
-        return;
-      }
-
-      missingDetails.hidden = false;
-
-      missingList.innerHTML = `
-        <div class="property-row">
-          <span>
-            Zonder productnaam, type, materiaal of layer
-          </span>
-
-          <strong>
-            ${formatNumber(count)}
-          </strong>
-        </div>
-      `;
-    }
-
-    function getObjectRuntimeId(object) {
-      if (
-        !object ||
-        typeof object !== "object"
-      ) {
-        return null;
-      }
-
-      const candidates = [
-        object.__runtimeId,
-        object.runtimeId,
-        object.objectRuntimeId,
-        object.id,
-        object.entityId,
-        object.product &&
-          object.product.runtimeId
-      ];
-
-      for (const candidate of candidates) {
-        const number =
-          Number(candidate);
-
-        if (Number.isFinite(number)) {
-          return number;
-        }
-      }
-
-      return null;
-    }
-
-    function uniqueRuntimeIds(values) {
-      return Array.from(
-        new Set(
-          values
-            .map(Number)
-            .filter(Number.isFinite)
-        )
-      );
-    }
-
-    function flattenObjectProperties(object) {
-      const result = {};
-
-      if (
-        !object ||
-        typeof object !== "object"
-      ) {
-        return result;
-      }
-
-      const containers = [
-        object.properties,
-        object.propertySets,
-        object.propertysets,
-        object.sets
-      ];
-
-      containers.forEach(function (container) {
-        flattenPropertyContainer(
-          container,
-          result,
-          ""
-        );
-      });
-
-      const directFields = [
-        "name",
-        "title",
-        "label",
-        "objectType",
-        "type",
-        "material",
-        "layer",
-        "layerName",
-        "class",
-        "className",
-        "ifcClass",
-        "entityType",
-        "description"
-      ];
-
-      directFields.forEach(function (field) {
-        const value =
-          readText(object[field]);
-
-        if (value) {
-          addFlatProperty(
-            result,
-            field,
-            value
-          );
-        }
-      });
-
-      if (
-        object.product &&
-        typeof object.product === "object"
-      ) {
-        Object.entries(object.product)
-          .forEach(function (entry) {
-            const value =
-              readText(entry[1]);
-
-            if (value) {
-              addFlatProperty(
-                result,
-                "product." + entry[0],
-                value
-              );
-            }
-          });
-      }
-
-      return result;
-    }
-
-    function flattenPropertyContainer(
-      value,
-      result,
-      prefix
-    ) {
-      if (
-        value === null ||
-        value === undefined
-      ) {
-        return;
-      }
-
-      if (Array.isArray(value)) {
-        value.forEach(function (item) {
-          flattenPropertyContainer(
-            item,
-            result,
-            prefix
-          );
-        });
-
-        return;
-      }
-
-      if (
-        typeof value !== "object"
-      ) {
-        return;
-      }
-
-      const setName =
-        firstUsefulText([
-          value.setName,
-          value.propertySetName,
-          value.groupName,
-          value.name
-        ]);
-
-      const propertyName =
-        firstUsefulText([
-          value.propertyName,
-          value.key,
-          value.label
-        ]);
-
-      const propertyValue =
-        readText(
-          value.value ??
-          value.displayValue ??
-          value.nominalValue ??
-          value.formattedValue
-        );
-
-      if (
-        propertyName &&
-        propertyValue
-      ) {
-        const completeName =
-          prefix
-            ? prefix + "." + propertyName
-            : propertyName;
-
-        addFlatProperty(
-          result,
-          completeName,
-          propertyValue
-        );
-      }
-
-      const nextPrefix =
-        (
-          setName &&
-          !propertyValue
-        )
-          ? (
-              prefix
-                ? prefix + "." + setName
-                : setName
-            )
-          : prefix;
-
-      const nestedKeys = [
-        "properties",
-        "values",
-        "items",
-        "children",
-        "propertySets",
-        "sets"
-      ];
-
-      nestedKeys.forEach(function (key) {
+    markInput.addEventListener(
+      "keydown",
+      function(event) {
         if (
-          value[key] !== undefined
+          event.key === "Enter" &&
+          !markSearchButton.disabled
         ) {
-          flattenPropertyContainer(
-            value[key],
-            result,
-            nextPrefix
-          );
+          zoekCastUnitMark();
         }
-      });
+      }
+    );
 
-      Object.entries(value)
-        .forEach(function (entry) {
-          const key = entry[0];
-          const nestedValue = entry[1];
-
-          if (
-            nestedKeys.includes(key) ||
-            [
-              "setName",
-              "propertySetName",
-              "groupName",
-              "name",
-              "propertyName",
-              "key",
-              "label",
-              "value",
-              "displayValue",
-              "nominalValue",
-              "formattedValue"
-            ].includes(key)
-          ) {
-            return;
-          }
-
-          if (
-            typeof nestedValue === "string" ||
-            typeof nestedValue === "number" ||
-            typeof nestedValue === "boolean"
-          ) {
-            addFlatProperty(
-              result,
-              prefix
-                ? prefix + "." + key
-                : key,
-              String(nestedValue)
-            );
-          }
-        });
-    }
-
-    function getPropertyValue(
-      flatProperties,
-      acceptedNames
-    ) {
-      const accepted =
-        acceptedNames.map(
-          normalizePropertyName
-        );
-
-      const entries =
-        Object.entries(flatProperties);
-
-      for (const entry of entries) {
-        const normalized =
-          normalizePropertyName(
-            entry[0]
-          );
-
+    generalInput.addEventListener(
+      "keydown",
+      function(event) {
         if (
-          accepted.includes(normalized)
+          event.key === "Enter" &&
+          !generalSearchButton.disabled
         ) {
-          return entry[1];
+          algemeenZoeken();
         }
       }
-
-      for (const entry of entries) {
-        const normalized =
-          normalizePropertyName(
-            entry[0]
-          );
-
-        const found =
-          accepted.find(function (name) {
-            return (
-              normalized.endsWith(name) ||
-              normalized.includes(name)
-            );
-          });
-
-        if (found) {
-          return entry[1];
-        }
-      }
-
-      return null;
-    }
-
-    function collectDimensionProperties(
-      flatProperties
-    ) {
-      const keywords = [
-        "length",
-        "lengte",
-        "width",
-        "breedte",
-        "height",
-        "hoogte",
-        "thickness",
-        "dikte",
-        "diameter",
-        "radius",
-        "area",
-        "oppervlakte",
-        "volume"
-      ];
-
-      return Object.entries(flatProperties)
-        .filter(function (entry) {
-          const propertyName =
-            normalizePropertyName(
-              entry[0]
-            );
-
-          return keywords.some(
-            function (keyword) {
-              return propertyName.includes(
-                normalizePropertyName(keyword)
-              );
-            }
-          );
-        })
-        .slice(0, 10)
-        .map(function (entry) {
-          return (
-            entry[0].split(".").pop() +
-            ": " +
-            entry[1]
-          );
-        });
-    }
-
-    function isGenericValue(value) {
-      const normalized =
-        normalizeGroupingText(value);
-
-      return [
-        "",
-        "object",
-        "element",
-        "modelobject",
-        "undefined",
-        "null",
-        "unknown",
-        "onbekend",
-        "naamloos",
-        "default"
-      ].includes(normalized);
-    }
-
-    function addFlatProperty(
-      result,
-      key,
-      value
-    ) {
-      const cleanKey =
-        String(key || "").trim();
-
-      const cleanValue =
-        String(value || "").trim();
-
-      if (
-        !cleanKey ||
-        !cleanValue
-      ) {
-        return;
-      }
-
-      if (!result[cleanKey]) {
-        result[cleanKey] =
-          cleanValue;
-      }
-    }
-
-    function addCounterValue(
-      counter,
-      value
-    ) {
-      const text =
-        firstUsefulText([value]);
-
-      if (!text) {
-        return;
-      }
-
-      counter[text] =
-        (counter[text] || 0) + 1;
-    }
-
-    function topCounterEntries(
-      counter,
-      limit
-    ) {
-      return Object.entries(counter)
-        .sort(function (a, b) {
-          return b[1] - a[1];
-        })
-        .slice(0, limit);
-    }
-
-    function firstUsefulText(values) {
-      for (const value of values) {
-        const text =
-          readText(value);
-
-        if (text) {
-          return text;
-        }
-      }
-
-      return null;
-    }
-
-    function readText(value) {
-      if (typeof value === "string") {
-        const text =
-          value.trim();
-
-        return text || null;
-      }
-
-      if (
-        typeof value === "number" ||
-        typeof value === "boolean"
-      ) {
-        return String(value);
-      }
-
-      if (
-        value &&
-        typeof value === "object"
-      ) {
-        const nestedValues = [
-          value.value,
-          value.displayValue,
-          value.nominalValue,
-          value.name,
-          value.label
-        ];
-
-        for (const nested of nestedValues) {
-          if (
-            nested !== undefined &&
-            nested !== value
-          ) {
-            const text =
-              readText(nested);
-
-            if (text) {
-              return text;
-            }
-          }
-        }
-      }
-
-      return null;
-    }
-
-    function cleanGroupName(value) {
-      if (!value) {
-        return null;
-      }
-
-      let text =
-        String(value).trim();
-
-      text = text
-        .replace(
-          /\b[0-9a-f]{8}-[0-9a-f-]{27,}\b/gi,
-          ""
-        )
-        .replace(
-          /\b\d{8,}\b/g,
-          ""
-        )
-        .replace(
-          /\s{2,}/g,
-          " "
-        )
-        .replace(
-          /[-_:|]+$/g,
-          ""
-        )
-        .trim();
-
-      return text || null;
-    }
-
-    function normalizePropertyName(value) {
-      return String(value || "")
-        .trim()
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(
-          /[\u0300-\u036f]/g,
-          ""
-        )
-        .replaceAll("_", " ")
-        .replaceAll("-", " ")
-        .replaceAll(".", " ")
-        .replaceAll(":", " ")
-        .replace(/\s+/g, " ");
-    }
-
-    function normalizeGroupingText(value) {
-      return String(value || "")
-        .trim()
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(
-          /[\u0300-\u036f]/g,
-          ""
-        )
-        .replace(
-          /[^a-z0-9]+/g,
-          ""
-        );
-    }
-
-    function normalizeSearchText(value) {
-      return String(value || "")
-        .trim()
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(
-          /[\u0300-\u036f]/g,
-          ""
-        )
-        .replace(
-          /[^a-z0-9]+/g,
-          " "
-        )
-        .replace(
-          /\s+/g,
-          " "
-        )
-        .trim();
-    }
-
-    function collectRawObjects(groups) {
-      const objects = [];
-
-      groups.forEach(function (group) {
-        [
-          group && group.objects,
-          group && group.entities
-        ].forEach(function (items) {
-          if (!Array.isArray(items)) {
-            return;
-          }
-
-          items.forEach(function (item) {
-            if (
-              item &&
-              typeof item === "object"
-            ) {
-              objects.push(item);
-            }
-          });
-        });
-      });
-
-      return objects;
-    }
-
-    function normalizePropertyResponse(response) {
-      if (Array.isArray(response)) {
-        return response;
-      }
-
-      if (
-        response &&
-        Array.isArray(response.objects)
-      ) {
-        return response.objects;
-      }
-
-      if (
-        response &&
-        Array.isArray(response.data)
-      ) {
-        return response.data;
-      }
-
-      if (
-        response &&
-        Array.isArray(response.properties)
-      ) {
-        return response.properties;
-      }
-
-      return [];
-    }
-
-    function collectRuntimeIds(groups) {
-      const result = [];
-
-      groups.forEach(function (group) {
-        result.push(
-          ...getRuntimeIds(group)
-        );
-      });
-
-      return uniqueRuntimeIds(result);
-    }
-
-    function getRuntimeIds(group) {
-      const candidates = [
-        group && group.objectRuntimeIds,
-        group && group.runtimeIds,
-        group && group.objects,
-        group && group.entities,
-        group && group.objectIds
-      ];
-
-      for (const candidate of candidates) {
-        if (!Array.isArray(candidate)) {
-          continue;
-        }
-
-        const ids =
-          candidate
-            .map(function (item) {
-              if (
-                typeof item === "number" ||
-                typeof item === "string"
-              ) {
-                return Number(item);
-              }
-
-              if (
-                item &&
-                typeof item === "object"
-              ) {
-                return Number(
-                  item.id ??
-                  item.runtimeId ??
-                  item.objectRuntimeId ??
-                  item.objectId
-                );
-              }
-
-              return NaN;
-            })
-            .filter(Number.isFinite);
-
-        if (ids.length > 0) {
-          return ids;
-        }
-      }
-
-      return [];
-    }
-
-    function isActiveModel(model) {
-      const state =
-        normalizeSearchText(
-          model &&
-          (
-            model.state ||
-            model.status ||
-            model.loadState
-          )
-        );
-
-      return Boolean(
-        model &&
-        (
-          model.active === true ||
-          model.isActive === true ||
-          model.selected === true ||
-          state.includes("active")
-        )
-      );
-    }
-
-    function isLoadedModel(model) {
-      const state =
-        normalizeSearchText(
-          model &&
-          (
-            model.state ||
-            model.status ||
-            model.loadState
-          )
-        );
-
-      return Boolean(
-        model &&
-        (
-          model.visible === true ||
-          model.isVisible === true ||
-          model.loaded === true ||
-          model.isLoaded === true ||
-          state.includes("visible") ||
-          state.includes("loaded")
-        )
-      );
-    }
-
-    function getModelName(model) {
-      return (
-        model &&
-        (
-          model.name ||
-          model.title ||
-          model.fileName ||
-          (
-            model.file &&
-            model.file.name
-          )
-        )
-      ) || "Naamloos model";
-    }
-
-    function getModelId(model) {
-      return (
-        model &&
-        (
-          model.id ||
-          model.modelId ||
-          model.fileId ||
-          (
-            model.file &&
-            model.file.id
-          )
-        )
-      ) || "";
-    }
-
-    function getGroupModelId(group) {
-      return (
-        group &&
-        (
-          group.modelId ||
-          (
-            group.model &&
-            group.model.id
-          ) ||
-          group.fileId ||
-          group.id
-        )
-      ) || "";
-    }
-
-    function sameId(first, second) {
-      return (
-        first !== undefined &&
-        first !== null &&
-        second !== undefined &&
-        second !== null &&
-        String(first) === String(second)
-      );
-    }
-
-    function createSafeSample(object) {
-      return {
-        runtimeId:
-          getObjectRuntimeId(object),
-
-        product:
-          object && object.product
-            ? {
-                name:
-                  object.product.name,
-
-                objectType:
-                  object.product.objectType,
-
-                type:
-                  object.product.type
-              }
-            : null,
-
-        name:
-          object && object.name,
-
-        objectType:
-          object && object.objectType,
-
-        material:
-          object && object.material,
-
-        layer:
-          object &&
-          (
-            object.layer ||
-            object.layerName
-          ),
-
-        class:
-          object && object.class,
-
-        propertySetCount:
-          object &&
-          Array.isArray(object.properties)
-            ? object.properties.length
-            : 0
-      };
-    }
-
-    function handleTrimbleEvent(event) {
-      const eventName =
-        String(event || "")
-          .toLowerCase();
-
-      if (
-        eventName.includes("modelstate") ||
-        eventName.includes("modelchanged")
-      ) {
-        detectLoadedModel();
-      }
-
-      if (
-        eventName ===
-          "extension.sessioninvalid" ||
-        eventName ===
-          "embed.session.invalid"
-      ) {
-        workspaceApi = null;
-        loadedModel = null;
-        loadedModelId = null;
-        analyseButton.disabled = true;
-
-        setStatus(
-          "De Trimble Connect-sessie is niet meer geldig.",
-          "error"
-        );
-      }
-    }
-
-    function resetAnalysis() {
-      currentAnalysis = null;
-      allExpanded = false;
-      selectedResultKey = null;
-
-      analysisCard.hidden = true;
-      analysisProgress.hidden = true;
-      summaryGrid.hidden = true;
-      toolbar.hidden = true;
-      selectionMessage.hidden = true;
-
-      analysisSummary.textContent = "";
-      selectionMessage.textContent = "";
-      groupsList.innerHTML = "";
-      propertiesList.innerHTML = "";
-      missingList.innerHTML = "";
-
-      propertiesDetails.hidden = true;
-      missingDetails.hidden = true;
-
-      runtimeCountElement.textContent = "0";
-      propertyCountElement.textContent = "0";
-      groupCountElement.textContent = "0";
-      subgroupCountElement.textContent = "0";
-
-      searchInput.value = "";
-
-      expandButton.textContent =
-        "Alle productgroepen openen";
-    }
-
-    function setStatus(message, type) {
-      statusElement.textContent = message;
-      statusElement.className = "status";
-
-      if (type) {
-        statusElement.classList.add(type);
-      }
-    }
-
-    function showDebug(data) {
-      debugResult.textContent =
-        JSON.stringify(
-          data,
-          null,
-          2
-        );
-    }
-
-    function getErrorMessage(error) {
-      if (error instanceof Error) {
-        return error.message;
-      }
-
-      return String(error);
-    }
-
-    function formatNumber(value) {
-      return Number(value || 0)
-        .toLocaleString("nl-BE");
-    }
-
-    function escapeHtml(value) {
-      return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
+    );
+
+    markSearchButton.addEventListener(
+      "click",
+      zoekCastUnitMark
+    );
+
+    generalSearchButton.addEventListener(
+      "click",
+      algemeenZoeken
+    );
+
+    clearButton.addEventListener(
+      "click",
+      wisResultaten
+    );
+
+    connectToTrimble();
   </script>
 </body>
 </html>
