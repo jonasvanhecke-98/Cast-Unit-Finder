@@ -169,6 +169,16 @@
       background: #e9f2f8;
     }
 
+    .search-result-summary.is-active {
+      color: #ffffff;
+      background: #0063a3;
+    }
+
+    .search-result-summary.selection-error {
+      color: #ffffff;
+      background: #b42318;
+    }
+
     .search-result-details {
       padding: 10px 12px;
       border-top: 1px solid #d8dadd;
@@ -1014,19 +1024,56 @@
             );
           }
 
+          /*
+           * De native <details>-toggle is betrouwbaarder dan alleen
+           * een click-handler op <summary>. Zodra een resultaat wordt
+           * opengeklapt, selecteren en zoomen we naar dat object.
+           */
+          let selectieBezig = false;
+
+          async function activeerZoekresultaat() {
+            if (selectieBezig) {
+              return;
+            }
+
+            selectieBezig = true;
+            summary.classList.add("is-active");
+
+            try {
+              await selecteerEnZoomNaarEenObject(
+                detail.modelId,
+                Number(detail.runtimeId)
+              );
+            } catch (error) {
+              console.error(
+                "Resultaat selecteren mislukt:",
+                error
+              );
+
+              summary.classList.add("selection-error");
+              summary.title =
+                "Selecteren of inzoomen is mislukt. Bekijk de browserconsole.";
+            } finally {
+              selectieBezig = false;
+            }
+          }
+
           summary.addEventListener(
             "click",
-            async function() {
-              try {
-                await selecteerEnZoomNaarEenObject(
-                  detail.modelId,
-                  detail.runtimeId
-                );
-              } catch (error) {
-                console.error(
-                  "Resultaat selecteren mislukt:",
-                  error
-                );
+            function() {
+              /*
+               * Selecteer onmiddellijk bij een klik. De <details>-regel
+               * wordt daarnaast door de browser zelf open- of dichtgeklapt.
+               */
+              activeerZoekresultaat();
+            }
+          );
+
+          detailsElement.addEventListener(
+            "toggle",
+            function() {
+              if (detailsElement.open) {
+                activeerZoekresultaat();
               }
             }
           );
