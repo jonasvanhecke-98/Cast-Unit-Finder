@@ -840,9 +840,10 @@ function zoekEersteHerkenbareNaam(
   index
 ) {
   const mogelijkeNamen = [
+    "Product Name",
+    "Product name",
     "Assembly/Cast unit Mark",
     "Cast unit Mark",
-    "Product Name",
     "Name",
     "Naam",
     "Mark",
@@ -866,11 +867,19 @@ function zoekEersteHerkenbareNaam(
           normaliseerTekst(property.name) ===
           normaliseerTekst(gewensteNaam)
         ) {
-          const waarde =
+          const origineleWaarde =
             String(property.value ?? "").trim();
 
-          if (waarde) {
-            return waarde;
+          if (origineleWaarde) {
+            const opgeschoondeWaarde =
+              verwijderZevencijferigeCode(
+                origineleWaarde
+              );
+
+            return (
+              opgeschoondeWaarde ||
+              origineleWaarde
+            );
           }
         }
       }
@@ -879,7 +888,40 @@ function zoekEersteHerkenbareNaam(
 
   return "Element " + (index + 1);
 }
+function groepeerZoekresultaten(
+  gevondenDetails
+) {
+  const groepen = new Map();
 
+  gevondenDetails.forEach(
+    function(detail, index) {
+      const groepsnaam =
+        zoekEersteHerkenbareNaam(
+          detail.objectProperties,
+          index
+        );
+
+      const sleutel =
+        normaliseerTekst(groepsnaam);
+
+      if (!groepen.has(sleutel)) {
+        groepen.set(sleutel, {
+          naam: groepsnaam,
+          elementen: []
+        });
+      }
+
+      groepen
+        .get(sleutel)
+        .elementen
+        .push(detail);
+    }
+  );
+
+  return Array.from(
+    groepen.values()
+  );
+}
     function maakAltezPropertyRij(property) {
       const rij =
         document.createElement("div");
@@ -911,9 +953,28 @@ function zoekEersteHerkenbareNaam(
       return rij;
     }
 
-    function groepeerOpWeergavenaam(
+    function toonAlgemeneZoekresultaten(
+      zoektekstOrigineel,
       gevondenDetails
     ) {
+      resultElement.innerHTML = "";
+
+      const titel =
+        document.createElement("div");
+
+      titel.className = "result-title";
+      titel.textContent =
+        "Zoekresultaten: " +
+        zoektekstOrigineel;
+
+      resultElement.appendChild(titel);
+
+      /*
+       * Groepeer resultaten op exact dezelfde zichtbare naam.
+       * Voorbeeld:
+       * DCA_W-Gevel met prefabbeton+ISO 28 280
+       * verschijnt dan maar één keer met het aantal elementen.
+       */
       const groepen = new Map();
 
       gevondenDetails.forEach(
@@ -941,66 +1002,7 @@ function zoekEersteHerkenbareNaam(
         }
       );
 
-      return Array.from(
-        groepen.values()
-      );
-    }
-
-    async function selecteerEnZoomNaarGroep(
-      elementen
-    ) {
-      const perModel = new Map();
-
-      elementen.forEach(
-        function(detail) {
-          if (!perModel.has(detail.modelId)) {
-            perModel.set(detail.modelId, []);
-          }
-
-          perModel
-            .get(detail.modelId)
-            .push(detail.runtimeId);
-        }
-      );
-
-      const resultaten =
-        Array.from(perModel.entries())
-          .map(function(entry) {
-            return {
-              modelId: entry[0],
-              objects: entry[1].map(
-                function(id) {
-                  return { id: id };
-                }
-              )
-            };
-          });
-
-      await selecteerEnZoom(resultaten);
-    }
-
-    function toonAlgemeneZoekresultaten(
-      zoektekstOrigineel,
-      gevondenDetails
-    ) {
-      resultElement.innerHTML = "";
-
-      const titel =
-        document.createElement("div");
-
-      titel.className = "result-title";
-      titel.textContent =
-        "Zoekresultaten: " +
-        zoektekstOrigineel;
-
-      resultElement.appendChild(titel);
-
-      const groepen =
-        groepeerOpWeergavenaam(
-          gevondenDetails
-        );
-
-      groepen.forEach(
+      Array.from(groepen.values()).forEach(
         function(groep) {
           const detailsElement =
             document.createElement("details");
@@ -1027,7 +1029,7 @@ function zoekEersteHerkenbareNaam(
             "search-result-details";
 
           groep.elementen.forEach(
-            function(detail, index) {
+            function(detail, elementIndex) {
               const elementBlok =
                 document.createElement("div");
 
@@ -1044,7 +1046,8 @@ function zoekEersteHerkenbareNaam(
                 "8px";
 
               elementTitel.textContent =
-                "Element " + (index + 1);
+                "Element " +
+                (elementIndex + 1);
 
               elementBlok.appendChild(
                 elementTitel
@@ -1057,13 +1060,13 @@ function zoekEersteHerkenbareNaam(
                 const eersteMatch =
                   detail.matches[0];
 
-                const matchInfo =
+                const matchTekst =
                   document.createElement("div");
 
-                matchInfo.style.marginBottom =
+                matchTekst.style.marginBottom =
                   "8px";
 
-                matchInfo.textContent =
+                matchTekst.textContent =
                   "Gevonden in: " +
                   (
                     eersteMatch.setName
@@ -1075,18 +1078,23 @@ function zoekEersteHerkenbareNaam(
                   eersteMatch.value;
 
                 elementBlok.appendChild(
-                  matchInfo
+                  matchTekst
                 );
               }
 
-              const knop =
+              const selecteerKnop =
                 document.createElement("button");
 
-              knop.type = "button";
-              knop.textContent =
+              selecteerKnop.type =
+                "button";
+
+              selecteerKnop.textContent =
                 "Selecteer dit element";
 
-              knop.addEventListener(
+              selecteerKnop.style.marginTop =
+                "10px";
+
+              selecteerKnop.addEventListener(
                 "click",
                 async function(event) {
                   event.stopPropagation();
@@ -1098,24 +1106,76 @@ function zoekEersteHerkenbareNaam(
                     );
                   } catch (error) {
                     console.error(
-                      "Resultaat selecteren mislukt:",
+                      "Element selecteren mislukt:",
                       error
                     );
                   }
                 }
               );
 
-              elementBlok.appendChild(knop);
-              inhoud.appendChild(elementBlok);
+              elementBlok.appendChild(
+                selecteerKnop
+              );
+
+              inhoud.appendChild(
+                elementBlok
+              );
             }
           );
 
+          /*
+           * Klik op de groepsnaam:
+           * selecteer en zoom naar alle elementen in die groep.
+           */
           summary.addEventListener(
             "click",
             async function() {
               try {
-                await selecteerEnZoomNaarGroep(
-                  groep.elementen
+                const perModel =
+                  new Map();
+
+                groep.elementen.forEach(
+                  function(detail) {
+                    if (
+                      !perModel.has(
+                        detail.modelId
+                      )
+                    ) {
+                      perModel.set(
+                        detail.modelId,
+                        []
+                      );
+                    }
+
+                    perModel
+                      .get(detail.modelId)
+                      .push(
+                        detail.runtimeId
+                      );
+                  }
+                );
+
+                const resultaten =
+                  Array.from(
+                    perModel.entries()
+                  ).map(
+                    function(entry) {
+                      return {
+                        modelId: entry[0],
+                        objects:
+                          entry[1].map(
+                            function(id) {
+                              return {
+                                id: id
+                              };
+                            }
+                          )
+                      };
+                    }
+                  );
+
+                await selecteerEnZoom(
+                  resultaten
                 );
               } catch (error) {
                 console.error(
@@ -1126,24 +1186,35 @@ function zoekEersteHerkenbareNaam(
             }
           );
 
-          detailsElement.appendChild(summary);
-          detailsElement.appendChild(inhoud);
-          resultElement.appendChild(detailsElement);
+          detailsElement.appendChild(
+            summary
+          );
+
+          detailsElement.appendChild(
+            inhoud
+          );
+
+          resultElement.appendChild(
+            detailsElement
+          );
         }
       );
 
       const info =
         document.createElement("div");
 
-      info.className = "result-info";
+      info.className =
+        "result-info";
 
       info.textContent =
         gevondenDetails.length +
         " object(en) verdeeld over " +
-        groepen.length +
-        " groep(en). Klik op een groep om alle elementen in die groep te selecteren.";
+        groepen.size +
+        " groep(en).";
 
-      resultElement.appendChild(info);
+      resultElement.appendChild(
+        info
+      );
     }
 
     async function algemeenZoeken() {
