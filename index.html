@@ -462,7 +462,8 @@
         spellcheck="false"
       >
 
-      <label for="element-profile" style="margin-top: 12px;">Profiel</label>
+      
+<label for="element-profile" style="margin-top: 12px;">Profiel</label>
       
 
       <div class="profile-combobox">
@@ -481,6 +482,34 @@
       <div id="profile-status" class="profile-status">
         Klik in het profielveld om de aanwezige profielen in te lezen.
       </div>
+
+      <label for="element-width" style="margin-top: 12px;">Overmeten breedte</label>
+      <p class="small-info">
+        Vul de overmeten breedte van het profiel in.
+        Er wordt automatisch een tolerantie van ±2 mm toegepast.
+      </p>
+      <input
+        id="element-width"
+        type="text"
+        placeholder="Bijvoorbeeld 200"
+        autocomplete="off"
+        spellcheck="false"
+      >
+
+      <label for="element-height" style="margin-top: 12px;">Overmeten hoogte</label>
+      <p class="small-info">
+        Vul de overmeten hoogte van het profiel in.
+        Er wordt automatisch een tolerantie van ±2 mm toegepast.
+      </p>
+      <input
+        id="element-height"
+        type="text"
+        placeholder="Bijvoorbeeld 280"
+        autocomplete="off"
+        spellcheck="false"
+      >
+
+
 
       <label for="element-length" style="margin-top: 12px;">Lengte</label>
       <p class="small-info">Vul de lengte van het profiel in zonder kop- en voetplaten. Er wordt automatisch een tolerantie van ±10 mm toegepast.</p><input
@@ -614,6 +643,12 @@
     const elementProfileInput =
       document.getElementById("element-profile");
 
+    const elementWidthInput =
+      document.getElementById("element-width");
+
+    const elementHeightInput =
+      document.getElementById("element-height");
+
     const profileOptionsElement =
       document.getElementById("profile-options");
 
@@ -740,6 +775,13 @@
       return String(waarde ?? "")
         .trim()
         .toLocaleLowerCase("nl-BE");
+    }
+
+    function normaliseerAlgemeneZoektekst(waarde) {
+      return String(waarde ?? "")
+        .toLocaleLowerCase("nl-BE")
+        .replace(/\s+/g, "")
+        .trim();
     }
 
     function normaliseerMark(waarde) {
@@ -1095,8 +1137,11 @@
             String(property.value ?? "");
 
           if (
-            normaliseerTekst(waarde)
-              .includes(zoektekst)
+            normaliseerAlgemeneZoektekst(
+              waarde
+            ).includes(
+              zoektekst
+            )
           ) {
             matches.push({
               setName: setName,
@@ -1155,58 +1200,47 @@
       return gevondenProperties;
     }
 
-function zoekEersteHerkenbareNaam(
-  objectProperties,
-  index
+function bepaalAlgemeneZoekgroep(
+  detail
 ) {
-  const mogelijkeNamen = [
-    "Product Name",
-    "Product name",
-    "ProductName",
-    "Object Type",
-    "Object type",
-    "Type Name",
-    "Type name",
-    "Type",
-    "Family and Type",
-    "Family",
-    "Category",
-    "Class",
-    "Material",
-    "Layer",
-    "Name",
-    "Naam"
-  ];
-
-  const propertySets =
-    Array.isArray(objectProperties.properties)
-      ? objectProperties.properties
+  const matches =
+    Array.isArray(detail.matches)
+      ? detail.matches
       : [];
 
-  for (const gewensteNaam of mogelijkeNamen) {
-    for (const propertySet of propertySets) {
-      const properties =
-        Array.isArray(propertySet.properties)
-          ? propertySet.properties
-          : [];
+  if (matches.length > 0) {
+    const eersteMatch =
+      matches[0];
 
-      for (const property of properties) {
-        if (
-          normaliseerTekst(property.name) ===
-          normaliseerTekst(gewensteNaam)
-        ) {
-          const waarde =
-            String(property.value ?? "").trim();
+    const gevondenWaarde =
+      String(
+        eersteMatch.value ??
+        "Lege waarde"
+      ).trim();
 
-          if (waarde) {
-            return waarde;
-          }
-        }
-      }
-    }
+    return {
+      value:
+        gevondenWaarde ||
+        "Lege waarde",
+      propertyName:
+        String(
+          eersteMatch.propertyName ||
+          ""
+        ).trim(),
+      setName:
+        String(
+          eersteMatch.setName ||
+          ""
+        ).trim()
+    };
   }
 
-  return "Overige objecten";
+  return {
+    value:
+      "Onbekende waarde",
+    propertyName: "",
+    setName: ""
+  };
 }
 
     function maakAltezPropertyRij(property) {
@@ -1256,37 +1290,87 @@ function zoekEersteHerkenbareNaam(
 
       generalResultElement.appendChild(titel);
 
-      /*
-       * Groepeer op exact dezelfde zichtbare naam.
-       */
+      const uitleg =
+        document.createElement("div");
+
+      uitleg.className =
+        "result-info";
+
+      uitleg.style.marginTop = "0";
+      uitleg.style.marginBottom = "12px";
+
+      uitleg.textContent =
+        "Resultaten zijn gegroepeerd op de werkelijk gevonden waarde. " +
+        "Hoofdletters en spaties hebben geen invloed op de zoekopdracht.";
+
+      generalResultElement.appendChild(
+        uitleg
+      );
+
       const groepen = new Map();
 
       gevondenDetails.forEach(
-        function(detail, index) {
-          const naam =
-            zoekEersteHerkenbareNaam(
-              detail.objectProperties,
-              index
+        function(detail) {
+          const groepInfo =
+            bepaalAlgemeneZoekgroep(
+              detail
             );
 
+          /*
+           * Groepeer per gevonden waarde.
+           * Spaties en hoofdletters worden genegeerd zodat
+           * RAL 9005 en ral9005 samenkomen.
+           * RAL9005GRF blijft een aparte groep.
+           */
           const sleutel =
-            normaliseerTekst(naam);
+            normaliseerAlgemeneZoektekst(
+              groepInfo.value
+            );
 
           if (!groepen.has(sleutel)) {
             groepen.set(sleutel, {
-              naam: naam,
+              value:
+                groepInfo.value,
+              propertyNames:
+                new Set(),
+              setNames:
+                new Set(),
               elementen: []
             });
           }
 
-          groepen
-            .get(sleutel)
-            .elementen
-            .push(detail);
+          const groep =
+            groepen.get(sleutel);
+
+          if (groepInfo.propertyName) {
+            groep.propertyNames.add(
+              groepInfo.propertyName
+            );
+          }
+
+          if (groepInfo.setName) {
+            groep.setNames.add(
+              groepInfo.setName
+            );
+          }
+
+          groep.elementen.push(detail);
         }
       );
 
-      groepen.forEach(
+      const gesorteerdeGroepen =
+        Array.from(
+          groepen.values()
+        ).sort(
+          function(a, b) {
+            return (
+              b.elementen.length -
+              a.elementen.length
+            );
+          }
+        );
+
+      gesorteerdeGroepen.forEach(
         function(groep) {
           const detailsElement =
             document.createElement("details");
@@ -1301,7 +1385,7 @@ function zoekEersteHerkenbareNaam(
             "search-result-summary";
 
           summary.textContent =
-            groep.naam +
+            groep.value +
             " — " +
             groep.elementen.length +
             " element(en)";
@@ -1311,6 +1395,106 @@ function zoekEersteHerkenbareNaam(
 
           inhoud.className =
             "search-result-details";
+
+          const groepInfo =
+            document.createElement("div");
+
+          groepInfo.className =
+            "match-info";
+
+          const eigenschapsnamen =
+            Array.from(
+              groep.propertyNames
+            );
+
+          groepInfo.textContent =
+            "Gevonden waarde: " +
+            groep.value +
+            (
+              eigenschapsnamen.length > 0
+                ? "\nGevonden in: " +
+                  eigenschapsnamen.join(", ")
+                : ""
+            );
+
+          inhoud.appendChild(
+            groepInfo
+          );
+
+          const selecteerGroepKnop =
+            document.createElement("button");
+
+          selecteerGroepKnop.type =
+            "button";
+
+          selecteerGroepKnop.textContent =
+            "Selecteer volledige groep";
+
+          selecteerGroepKnop.style.marginBottom =
+            "10px";
+
+          selecteerGroepKnop.addEventListener(
+            "click",
+            async function(event) {
+              event.stopPropagation();
+
+              try {
+                const perModel =
+                  new Map();
+
+                groep.elementen.forEach(
+                  function(detail) {
+                    if (
+                      !perModel.has(
+                        detail.modelId
+                      )
+                    ) {
+                      perModel.set(
+                        detail.modelId,
+                        []
+                      );
+                    }
+
+                    perModel
+                      .get(detail.modelId)
+                      .push(detail.runtimeId);
+                  }
+                );
+
+                const resultaten =
+                  Array.from(
+                    perModel.entries()
+                  ).map(
+                    function(entry) {
+                      return {
+                        modelId: entry[0],
+                        objects:
+                          entry[1].map(
+                            function(id) {
+                              return {
+                                id: id
+                              };
+                            }
+                          )
+                      };
+                    }
+                  );
+
+                await selecteerEnZoom(
+                  resultaten
+                );
+              } catch (error) {
+                console.error(
+                  "Groep selecteren mislukt:",
+                  error
+                );
+              }
+            }
+          );
+
+          inhoud.appendChild(
+            selecteerGroepKnop
+          );
 
           groep.elementen.forEach(
             function(detail, elementIndex) {
@@ -1341,28 +1525,28 @@ function zoekEersteHerkenbareNaam(
                 Array.isArray(detail.matches) &&
                 detail.matches.length > 0
               ) {
-                const eersteMatch =
-                  detail.matches[0];
+                detail.matches.forEach(
+                  function(match) {
+                    const matchInfo =
+                      document.createElement("div");
 
-                const matchInfo =
-                  document.createElement("div");
+                    matchInfo.style.marginBottom =
+                      "7px";
 
-                matchInfo.style.marginBottom =
-                  "8px";
+                    matchInfo.textContent =
+                      (
+                        match.setName
+                          ? match.setName + " → "
+                          : ""
+                      ) +
+                      match.propertyName +
+                      ": " +
+                      match.value;
 
-                matchInfo.textContent =
-                  "Gevonden in: " +
-                  (
-                    eersteMatch.setName
-                      ? eersteMatch.setName + " → "
-                      : ""
-                  ) +
-                  eersteMatch.propertyName +
-                  "\nWaarde: " +
-                  eersteMatch.value;
-
-                elementBlok.appendChild(
-                  matchInfo
+                    elementBlok.appendChild(
+                      matchInfo
+                    );
+                  }
                 );
               }
 
@@ -1407,54 +1591,6 @@ function zoekEersteHerkenbareNaam(
             }
           );
 
-          summary.addEventListener(
-            "click",
-            async function() {
-              try {
-                const perModel =
-                  new Map();
-
-                groep.elementen.forEach(
-                  function(detail) {
-                    if (!perModel.has(detail.modelId)) {
-                      perModel.set(detail.modelId, []);
-                    }
-
-                    perModel
-                      .get(detail.modelId)
-                      .push(detail.runtimeId);
-                  }
-                );
-
-                const resultaten =
-                  Array.from(
-                    perModel.entries()
-                  ).map(
-                    function(entry) {
-                      return {
-                        modelId: entry[0],
-                        objects:
-                          entry[1].map(
-                            function(id) {
-                              return { id: id };
-                            }
-                          )
-                      };
-                    }
-                  );
-
-                await selecteerEnZoom(
-                  resultaten
-                );
-              } catch (error) {
-                console.error(
-                  "Groep selecteren mislukt:",
-                  error
-                );
-              }
-            }
-          );
-
           detailsElement.appendChild(
             summary
           );
@@ -1479,7 +1615,7 @@ function zoekEersteHerkenbareNaam(
         gevondenDetails.length +
         " object(en) verdeeld over " +
         groepen.size +
-        " groep(en).";
+        " gevonden waarde(n).";
 
       generalResultElement.appendChild(
         info
@@ -1491,7 +1627,7 @@ function zoekEersteHerkenbareNaam(
         generalInput.value.trim();
 
       const zoektekst =
-        normaliseerTekst(
+        normaliseerAlgemeneZoektekst(
           zoektekstOrigineel
         );
 
@@ -1652,6 +1788,40 @@ function zoekEersteHerkenbareNaam(
           "Cross Section",
           "Cross-section",
           "Profiel"
+        ]
+      },
+      {
+        key: "width",
+        label: "Overmeten breedte",
+        names: [
+          "Overall Width",
+          "Overall width",
+          "OverallWidth",
+          "Width",
+          "Breedte",
+          "Total Width",
+          "Total width",
+          "Section Width",
+          "Section width"
+        ]
+      },
+      {
+        key: "height",
+        label: "Overmeten hoogte",
+        names: [
+          "Overall Depth",
+          "Overall depth",
+          "OverallDepth",
+          "Depth",
+          "Height",
+          "Overall Height",
+          "Overall height",
+          "OverallHeight",
+          "Hoogte",
+          "Total Height",
+          "Total height",
+          "Section Height",
+          "Section height"
         ]
       },
       {
@@ -2033,13 +2203,32 @@ function zoekEersteHerkenbareNaam(
           profielWaarde.includes(profielZoekwaarde);
       }
 
-      if (criteriumKey === "length") {
-        const gevondenLengte = leesLengteInMillimeter(propertyWaarde);
-        const gevraagdeLengte = leesLengteInMillimeter(zoekwaarde);
+      if (
+        criteriumKey === "length" ||
+        criteriumKey === "width" ||
+        criteriumKey === "height"
+      ) {
+        const gevondenLengte =
+          leesLengteInMillimeter(
+            propertyWaarde
+          );
+
+        const gevraagdeLengte =
+          leesLengteInMillimeter(
+            zoekwaarde
+          );
+
+        const tolerantie =
+          criteriumKey === "length"
+            ? 10
+            : 2;
 
         return gevondenLengte !== null &&
           gevraagdeLengte !== null &&
-          Math.abs(gevondenLengte - gevraagdeLengte) <= 10;
+          Math.abs(
+            gevondenLengte -
+            gevraagdeLengte
+          ) <= tolerantie;
       }
 
       return normaliseerTekst(propertyWaarde)
@@ -2091,6 +2280,26 @@ function zoekEersteHerkenbareNaam(
           gecombineerdeNaam.includes("profiel") ||
           gecombineerdeNaam.includes("section") ||
           gecombineerdeNaam.includes("crosssection")
+        );
+      }
+
+      if (criteriumKey === "width") {
+        return (
+          gecombineerdeNaam.includes("overallwidth") ||
+          gecombineerdeNaam.includes("sectionwidth") ||
+          gecombineerdeNaam === "width" ||
+          gecombineerdeNaam.includes("breedte")
+        );
+      }
+
+      if (criteriumKey === "height") {
+        return (
+          gecombineerdeNaam.includes("overalldepth") ||
+          gecombineerdeNaam.includes("overallheight") ||
+          gecombineerdeNaam.includes("sectionheight") ||
+          gecombineerdeNaam === "depth" ||
+          gecombineerdeNaam === "height" ||
+          gecombineerdeNaam.includes("hoogte")
         );
       }
 
@@ -3553,6 +3762,10 @@ function zoekEersteHerkenbareNaam(
         ),
         profile:
           elementProfileInput.value.trim(),
+        width:
+          elementWidthInput.value.trim(),
+        height:
+          elementHeightInput.value.trim(),
         length:
           elementLengthInput.value.trim(),
         finish:
@@ -3875,6 +4088,8 @@ function zoekEersteHerkenbareNaam(
     async function wisElementZoeken() {
       markInput.value = "";
       elementProfileInput.value = "";
+      elementWidthInput.value = "";
+      elementHeightInput.value = "";
       elementLengthInput.value = "";
       elementFinishInput.value = "";
       elementMaterialInput.value = "";
@@ -4050,6 +4265,8 @@ function zoekEersteHerkenbareNaam(
     [
       markInput,
       elementProfileInput,
+      elementWidthInput,
+      elementHeightInput,
       elementLengthInput,
       elementFinishInput,
       elementMaterialInput
