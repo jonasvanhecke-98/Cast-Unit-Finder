@@ -327,6 +327,42 @@
       color: #b42318;
     }
 
+
+    .search-progress {
+      display: none;
+      margin: 12px 0;
+      padding: 10px;
+      background: #f4f6f7;
+      border: 1px solid #d8dadd;
+      border-radius: 5px;
+    }
+
+    .search-progress.visible {
+      display: block;
+    }
+
+    .search-progress-text {
+      margin-bottom: 7px;
+      font-size: 12px;
+      line-height: 1.35;
+      color: #33424d;
+    }
+
+    .search-progress-track {
+      width: 100%;
+      height: 10px;
+      overflow: hidden;
+      background: #dfe3e6;
+      border-radius: 999px;
+    }
+
+    .search-progress-bar {
+      width: 0%;
+      height: 100%;
+      background: #0063a3;
+      transition: width 160ms ease;
+    }
+
     .success {
       color: #19733b !important;
     }
@@ -506,6 +542,15 @@
         Zoekvelden en resultaat wissen
       </button>
 
+      <div id="element-search-progress" class="search-progress" aria-live="polite">
+        <div id="element-search-progress-text" class="search-progress-text">
+          Zoekopdracht voorbereiden...
+        </div>
+        <div class="search-progress-track">
+          <div id="element-search-progress-bar" class="search-progress-bar"></div>
+        </div>
+      </div>
+
       <section class="result-panel general-result-panel">
         <div class="result-panel-header">Resultaat Element(en) zoeken</div>
         <div id="element-result" class="result-content">
@@ -606,6 +651,15 @@
     const elementResultElement =
       document.getElementById("element-result");
 
+    const elementSearchProgressElement =
+      document.getElementById("element-search-progress");
+
+    const elementSearchProgressTextElement =
+      document.getElementById("element-search-progress-text");
+
+    const elementSearchProgressBarElement =
+      document.getElementById("element-search-progress-bar");
+
 
     const generalResultElement =
       document.getElementById("general-result");
@@ -623,6 +677,59 @@
       "Tekla Assembly.Cast unit weight",
       "Cast unit weight"
     ];
+
+    function begrensPercentage(percentage) {
+      return Math.max(
+        0,
+        Math.min(
+          100,
+          Number(percentage) || 0
+        )
+      );
+    }
+
+    async function toonZoekVoortgang(
+      percentage,
+      tekst
+    ) {
+      const begrensd =
+        begrensPercentage(percentage);
+
+      elementSearchProgressElement.classList.add(
+        "visible"
+      );
+
+      elementSearchProgressTextElement.textContent =
+        tekst;
+
+      elementSearchProgressBarElement.style.width =
+        begrensd + "%";
+
+      /*
+       * De korte pauze geeft de browser tijd om de nieuwe
+       * voortgang zichtbaar te tekenen voordat de volgende
+       * zware API-stap begint.
+       */
+      await new Promise(function(resolve) {
+        requestAnimationFrame(function() {
+          setTimeout(resolve, 0);
+        });
+      });
+    }
+
+    function verbergZoekVoortgang() {
+      elementSearchProgressElement.classList.remove(
+        "visible"
+      );
+
+      elementSearchProgressBarElement.style.width =
+        "0%";
+    }
+
+    function normaliseerEigenschapsNaam(waarde) {
+      return normaliseerTekst(waarde)
+        .replace(/[^a-z0-9]/g, "");
+    }
 
     function normaliseerTekst(waarde) {
       return String(waarde ?? "")
@@ -1911,10 +2018,75 @@ function zoekEersteHerkenbareNaam(
     }
 
     function haalCastUnitMarkUitProperties(objectProperties) {
-      return zoekPropertyWaarde(
-        objectProperties,
-        markPropertyNames
-      );
+      const exacteWaarde =
+        zoekPropertyWaarde(
+          objectProperties,
+          markPropertyNames
+        );
+
+      if (exacteWaarde) {
+        return exacteWaarde;
+      }
+
+      const propertySets =
+        Array.isArray(objectProperties.properties)
+          ? objectProperties.properties
+          : [];
+
+      /*
+       * Tekla/IFC-exporten gebruiken niet altijd exact dezelfde
+       * set- en propertynamen. Daarom herkennen we ook varianten zoals:
+       * - Cast unit mark
+       * - Cast Unit Mark
+       * - Assembly mark
+       * - Merknummer binnen een assembly/merk-propertyset
+       */
+      for (const propertySet of propertySets) {
+        const setName =
+          String(propertySet.set || "").trim();
+
+        const setNormaal =
+          normaliseerEigenschapsNaam(setName);
+
+        const properties =
+          Array.isArray(propertySet.properties)
+            ? propertySet.properties
+            : [];
+
+        for (const property of properties) {
+          const propertyName =
+            String(property.name || "").trim();
+
+          const naamNormaal =
+            normaliseerEigenschapsNaam(
+              propertyName
+            );
+
+          const value =
+            String(property.value ?? "").trim();
+
+          if (!value) {
+            continue;
+          }
+
+          const isCastUnitMark =
+            naamNormaal.includes("castunitmark") ||
+            naamNormaal.includes("assemblymark") ||
+            naamNormaal === "merknummer" ||
+            naamNormaal === "mark" &&
+              (
+                setNormaal.includes("assembly") ||
+                setNormaal.includes("merk") ||
+                setNormaal.includes("teklaassembly")
+              );
+
+          if (isCastUnitMark) {
+            return value;
+          }
+        }
+      }
+
+      return null;
     }
 
     async function haalAssembliesVoorModel(
@@ -2052,68 +2224,219 @@ function zoekEersteHerkenbareNaam(
       );
     }
 
+    async function zoekVolledigeAssemblySelectie(
+      modelId,
+      mark
+    ) {
+      for (const propertyName of markPropertyNames) {
+        try {
+          const resultaten =
+            await API.viewer.getObjects({
+              parameter: {
+                properties: {
+                  [propertyName]: mark
+                }
+              }
+            });
+
+          if (telObjecten(resultaten) > 0) {
+            return resultaten;
+          }
+        } catch (error) {
+          console.warn(
+            "Assemblyselectie via property mislukt voor " +
+            propertyName +
+            ":",
+            error
+          );
+        }
+      }
+
+      return [];
+    }
+
     async function koppelResultatenAanAssemblies(
       details
     ) {
-      const perModel = new Map();
+      const assembliesMap = new Map();
+      const detailsZonderMark = [];
 
+      await toonZoekVoortgang(
+        72,
+        "Cast Unit Mark rechtstreeks uit passende onderdelen lezen..."
+      );
+
+      /*
+       * In veel Tekla IFC's worden de merk-/assembly-properties
+       * meegegeven bij het onderdeel. Dat is betrouwbaarder dan alleen
+       * vertrouwen op de IFC-hiërarchie.
+       */
       details.forEach(function(detail) {
-        if (!perModel.has(detail.modelId)) {
-          perModel.set(detail.modelId, []);
+        const mark =
+          haalCastUnitMarkUitProperties(
+            detail.objectProperties
+          );
+
+        if (!mark) {
+          detailsZonderMark.push(detail);
+          return;
         }
 
-        perModel
-          .get(detail.modelId)
+        const sleutel =
+          String(detail.modelId) +
+          "|" +
+          normaliseerMark(mark);
+
+        if (!assembliesMap.has(sleutel)) {
+          assembliesMap.set(sleutel, {
+            modelId: detail.modelId,
+            runtimeId: detail.runtimeId,
+            mark: String(mark).trim(),
+            passendeOnderdelen: [],
+            selectieResultaten: []
+          });
+        }
+
+        assembliesMap
+          .get(sleutel)
+          .passendeOnderdelen
           .push(detail);
       });
 
-      const modelEntries =
-        Array.from(perModel.entries());
+      /*
+       * Alleen voor onderdelen waarop geen mark leesbaar was,
+       * proberen we de bovenliggende Element Assembly-hiërarchie.
+       */
+      if (detailsZonderMark.length > 0) {
+        const perModel = new Map();
 
-      const assembliesMap = new Map();
-      let verwerkt = 0;
-
-      for (const entry of modelEntries) {
-        const modelId = entry[0];
-        const modelDetails = entry[1];
-
-        elementResultElement.textContent =
-          "Bijbehorende merken/assemblies bepalen...\\n" +
-          (verwerkt + 1) +
-          " van " +
-          modelEntries.length +
-          " modellen verwerkt.";
-
-        const assemblies =
-          await haalAssembliesVoorModel(
-            modelId,
-            modelDetails.map(function(detail) {
-              return detail.runtimeId;
-            })
-          );
-
-        assemblies.forEach(function(assembly) {
-          const sleutel =
-            String(assembly.modelId) +
-            "|" +
-            String(assembly.runtimeId);
-
-          if (!assembliesMap.has(sleutel)) {
-            assembliesMap.set(
-              sleutel,
-              assembly
-            );
+        detailsZonderMark.forEach(function(detail) {
+          if (!perModel.has(detail.modelId)) {
+            perModel.set(detail.modelId, []);
           }
+
+          perModel
+            .get(detail.modelId)
+            .push(detail);
         });
 
-        verwerkt++;
+        const modelEntries =
+          Array.from(perModel.entries());
+
+        for (
+          let index = 0;
+          index < modelEntries.length;
+          index++
+        ) {
+          const entry = modelEntries[index];
+          const modelId = entry[0];
+          const modelDetails = entry[1];
+
+          await toonZoekVoortgang(
+            74 +
+              Math.round(
+                ((index + 1) /
+                  Math.max(modelEntries.length, 1)) *
+                10
+              ),
+            "Ontbrekende merken via modelhiërarchie koppelen: model " +
+              (index + 1) +
+              " van " +
+              modelEntries.length +
+              "..."
+          );
+
+          const assemblies =
+            await haalAssembliesVoorModel(
+              modelId,
+              modelDetails.map(function(detail) {
+                return detail.runtimeId;
+              })
+            );
+
+          assemblies.forEach(function(assembly) {
+            const sleutel =
+              String(assembly.modelId) +
+              "|" +
+              normaliseerMark(assembly.mark);
+
+            if (!assembliesMap.has(sleutel)) {
+              assembliesMap.set(sleutel, {
+                modelId: assembly.modelId,
+                runtimeId: assembly.runtimeId,
+                mark: assembly.mark,
+                passendeOnderdelen: [],
+                selectieResultaten: []
+              });
+            }
+          });
+        }
+      }
+
+      const assemblies =
+        Array.from(assembliesMap.values());
+
+      /*
+       * Zoek per gevonden mark de volledige selectie. Dit zorgt ervoor
+       * dat niet alleen het passende losse profiel, maar de volledige
+       * merk/assembly wordt geselecteerd.
+       */
+      for (
+        let index = 0;
+        index < assemblies.length;
+        index++
+      ) {
+        const assembly =
+          assemblies[index];
+
+        await toonZoekVoortgang(
+          85 +
+            Math.round(
+              ((index + 1) /
+                Math.max(assemblies.length, 1)) *
+              13
+            ),
+          "Volledige assemblyselectie opbouwen: " +
+            (index + 1) +
+            " van " +
+            assemblies.length +
+            " (" +
+            assembly.mark +
+            ")..."
+        );
+
+        const selectieResultaten =
+          await zoekVolledigeAssemblySelectie(
+            assembly.modelId,
+            assembly.mark
+          );
+
+        if (telObjecten(selectieResultaten) > 0) {
+          assembly.selectieResultaten =
+            selectieResultaten;
+        } else {
+          /*
+           * Fallback: selecteer minstens het object waarop de mark
+           * gevonden werd.
+           */
+          assembly.selectieResultaten = [
+            {
+              modelId: assembly.modelId,
+              objects: [
+                {
+                  id: assembly.runtimeId
+                }
+              ]
+            }
+          ];
+        }
       }
 
       return {
-        assemblies: Array.from(
-          assembliesMap.values()
-        ),
-        matchingPartCount: details.length
+        assemblies: assemblies,
+        matchingPartCount: details.length,
+        unlinkedPartCount:
+          detailsZonderMark.length
       };
     }
 
@@ -2158,7 +2481,7 @@ function zoekEersteHerkenbareNaam(
 
         waarschuwing.textContent =
           resultaat.matchingPartCount +
-          " passend(e) onderdeel/onderdelen gevonden, maar in de modelhiërarchie werd geen bovenliggende assembly met Cast Unit Mark aangetroffen. Controleer of de IFC-export een Element Assembly-relatie en Cast Unit Mark op het merk bevat.";
+          " passend(e) onderdeel/onderdelen gevonden, maar op deze onderdelen en hun bovenliggende modelhiërarchie kon geen Cast Unit Mark worden gelezen. Open één van deze onderdelen in Trimble en controleer de exacte naam van de propertyset en de nummerproperty.";
 
         elementResultElement.appendChild(
           waarschuwing
@@ -2185,9 +2508,8 @@ function zoekEersteHerkenbareNaam(
           "click",
           async function() {
             try {
-              await selecteerEnZoomNaarEenObject(
-                assembly.modelId,
-                assembly.runtimeId
+              await selecteerEnZoom(
+                assembly.selectieResultaten
               );
             } catch (error) {
               console.error(
@@ -2215,7 +2537,9 @@ function zoekEersteHerkenbareNaam(
 
         assemblyInfo.textContent =
           "Merk / Cast Unit Mark: " +
-          assembly.mark;
+          assembly.mark +
+          "\nPassende onderdelen binnen dit merk: " +
+          assembly.passendeOnderdelen.length;
 
         inhoud.appendChild(
           assemblyInfo
@@ -2234,9 +2558,8 @@ function zoekEersteHerkenbareNaam(
           async function(event) {
             event.stopPropagation();
 
-            await selecteerEnZoomNaarEenObject(
-              assembly.modelId,
-              assembly.runtimeId
+            await selecteerEnZoom(
+              assembly.selectieResultaten
             );
           }
         );
@@ -2566,7 +2889,19 @@ function zoekEersteHerkenbareNaam(
       elementResultElement.textContent =
         "Kandidaten bepalen...";
 
+      await toonZoekVoortgang(
+        3,
+        "Zoekopdracht voorbereiden..."
+      );
+
       try {
+        await toonZoekVoortgang(
+          8,
+          waarden.mark
+            ? "Kandidaten op Cast Unit Mark voorfilteren..."
+            : "Objecten uit de geladen modellen verzamelen..."
+        );
+
         let kandidaatModellen;
 
         /*
@@ -2590,12 +2925,19 @@ function zoekEersteHerkenbareNaam(
         if (totaalKandidaten === 0) {
           elementResultElement.textContent =
             "Geen kandidaat-elementen gevonden.";
+          verbergZoekVoortgang();
           return;
         }
 
         elementResultElement.textContent =
           totaalKandidaten +
           " kandidaat-element(en) gevonden. Eigenschappen analyseren...";
+
+        await toonZoekVoortgang(
+          18,
+          totaalKandidaten +
+            " kandidaat-element(en) gevonden. Eigenschappen analyseren..."
+        );
 
         const gevondenDetails = [];
 
@@ -2622,6 +2964,22 @@ function zoekEersteHerkenbareNaam(
             " analyseren...\n" +
             runtimeIds.length +
             " kandidaat-element(en).";
+
+          await toonZoekVoortgang(
+            20 +
+              Math.round(
+                ((modelIndex + 1) /
+                  Math.max(kandidaatModellen.length, 1)) *
+                48
+              ),
+            "Eigenschappen analyseren: model " +
+              (modelIndex + 1) +
+              " van " +
+              kandidaatModellen.length +
+              " (" +
+              runtimeIds.length +
+              " objecten)..."
+          );
 
           const propertyResultaat =
             await haalPropertiesEfficient(
@@ -2656,6 +3014,7 @@ function zoekEersteHerkenbareNaam(
             gevondenDetails.push({
               modelId: model.modelId,
               runtimeId: runtimeId,
+              objectProperties: objectProperties,
               criteriaMatches: criteriaMatches
             });
           }
@@ -2664,6 +3023,7 @@ function zoekEersteHerkenbareNaam(
         if (gevondenDetails.length === 0) {
           elementResultElement.textContent =
             "Geen elementen gevonden die aan alle ingevulde voorwaarden voldoen.";
+          verbergZoekVoortgang();
           return;
         }
 
@@ -2672,9 +3032,19 @@ function zoekEersteHerkenbareNaam(
             gevondenDetails
           );
 
+        await toonZoekVoortgang(
+          100,
+          "Zoekopdracht voltooid."
+        );
+
         toonElementResultaten(
           resultatenMetAssemblies,
           actieveCriteria
+        );
+
+        setTimeout(
+          verbergZoekVoortgang,
+          700
         );
 
         elementClearButton.disabled = false;
@@ -2686,6 +3056,8 @@ function zoekEersteHerkenbareNaam(
 
         elementResultElement.textContent =
           "De gecombineerde zoekactie is mislukt. Bekijk eventueel F12 → Console.";
+
+        verbergZoekVoortgang();
       } finally {
         generalSearchButton.disabled = false;
         elementSearchButton.disabled = false;
@@ -2699,6 +3071,7 @@ function zoekEersteHerkenbareNaam(
       elementFinishInput.value = "";
       elementMaterialInput.value = "";
       elementResultElement.textContent = "Nog geen elementzoekopdracht uitgevoerd.";
+      verbergZoekVoortgang();
       elementClearButton.disabled = true;
       await wisSelectie();
       markInput.focus();
