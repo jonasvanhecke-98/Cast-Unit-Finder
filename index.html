@@ -2204,6 +2204,78 @@ function zoekEersteHerkenbareNaam(
       return null;
     }
 
+    function haalCastUnitWeightUitProperties(
+      objectProperties
+    ) {
+      const exacteWaarde =
+        zoekPropertyWaarde(
+          objectProperties,
+          weightPropertyNames
+        );
+
+      if (
+        exacteWaarde !== null &&
+        exacteWaarde !== undefined &&
+        String(exacteWaarde).trim() !== ""
+      ) {
+        return String(exacteWaarde).trim();
+      }
+
+      const propertySets =
+        Array.isArray(objectProperties.properties)
+          ? objectProperties.properties
+          : [];
+
+      for (const propertySet of propertySets) {
+        const setName =
+          String(propertySet.set || "").trim();
+
+        const setNormaal =
+          normaliseerEigenschapsNaam(setName);
+
+        const properties =
+          Array.isArray(propertySet.properties)
+            ? propertySet.properties
+            : [];
+
+        for (const property of properties) {
+          const propertyName =
+            String(property.name || "").trim();
+
+          const naamNormaal =
+            normaliseerEigenschapsNaam(
+              propertyName
+            );
+
+          const value =
+            String(property.value ?? "").trim();
+
+          if (!value) {
+            continue;
+          }
+
+          const isCastUnitWeight =
+            naamNormaal.includes("castunitweight") ||
+            naamNormaal.includes("assemblyweight") ||
+            naamNormaal === "merkgewicht" ||
+            (
+              naamNormaal === "weight" &&
+              (
+                setNormaal.includes("assembly") ||
+                setNormaal.includes("merk") ||
+                setNormaal.includes("teklaassembly")
+              )
+            );
+
+          if (isCastUnitWeight) {
+            return value;
+          }
+        }
+      }
+
+      return null;
+    }
+
     async function haalAssembliesVoorModel(
       modelId,
       passendeRuntimeIds
@@ -2324,17 +2396,29 @@ function zoekEersteHerkenbareNaam(
             return;
           }
 
+          const weight =
+            haalCastUnitWeightUitProperties(
+              objectProperties
+            );
+
           const sleutel =
             String(modelId) +
             "|" +
-            String(runtimeId);
+            normaliseerMark(mark);
 
           if (!assemblies.has(sleutel)) {
             assemblies.set(sleutel, {
               modelId: modelId,
               runtimeId: runtimeId,
-              mark: String(mark).trim()
+              mark: String(mark).trim(),
+              weight: weight
             });
+          } else if (
+            !assemblies.get(sleutel).weight &&
+            weight
+          ) {
+            assemblies.get(sleutel).weight =
+              weight;
           }
         }
       );
@@ -2402,6 +2486,11 @@ function zoekEersteHerkenbareNaam(
           return;
         }
 
+        const weight =
+          haalCastUnitWeightUitProperties(
+            detail.objectProperties
+          );
+
         const sleutel =
           String(detail.modelId) +
           "|" +
@@ -2412,9 +2501,16 @@ function zoekEersteHerkenbareNaam(
             modelId: detail.modelId,
             runtimeId: detail.runtimeId,
             mark: String(mark).trim(),
+            weight: weight,
             passendeOnderdelen: [],
             selectieResultaten: []
           });
+        } else if (
+          !assembliesMap.get(sleutel).weight &&
+          weight
+        ) {
+          assembliesMap.get(sleutel).weight =
+            weight;
         }
 
         assembliesMap
@@ -2466,30 +2562,69 @@ function zoekEersteHerkenbareNaam(
               "..."
           );
 
-          const assemblies =
-            await haalAssembliesVoorModel(
-              modelId,
-              modelDetails.map(function(detail) {
-                return detail.runtimeId;
-              })
+          try {
+            const assemblies =
+              await haalAssembliesVoorModel(
+                modelId,
+                modelDetails.map(function(detail) {
+                  return detail.runtimeId;
+                })
+              );
+
+            assemblies.forEach(function(assembly) {
+              const sleutel =
+                String(assembly.modelId) +
+                "|" +
+                normaliseerMark(assembly.mark);
+
+              if (!assembliesMap.has(sleutel)) {
+                assembliesMap.set(sleutel, {
+                  modelId: assembly.modelId,
+                  runtimeId: assembly.runtimeId,
+                  mark: assembly.mark,
+                  weight: assembly.weight || null,
+                  passendeOnderdelen:
+                    modelDetails.slice(),
+                  selectieResultaten: []
+                });
+              } else {
+                const bestaand =
+                  assembliesMap.get(sleutel);
+
+                if (
+                  !bestaand.weight &&
+                  assembly.weight
+                ) {
+                  bestaand.weight =
+                    assembly.weight;
+                }
+
+                modelDetails.forEach(
+                  function(detail) {
+                    if (
+                      !bestaand.passendeOnderdelen
+                        .some(function(item) {
+                          return (
+                            item.modelId ===
+                              detail.modelId &&
+                            item.runtimeId ===
+                              detail.runtimeId
+                          );
+                        })
+                    ) {
+                      bestaand.passendeOnderdelen
+                        .push(detail);
+                    }
+                  }
+                );
+              }
+            });
+          } catch (error) {
+            console.warn(
+              "Merk/assembly-koppeling voor model mislukt, zoekresultaten blijven behouden:",
+              error
             );
-
-          assemblies.forEach(function(assembly) {
-            const sleutel =
-              String(assembly.modelId) +
-              "|" +
-              normaliseerMark(assembly.mark);
-
-            if (!assembliesMap.has(sleutel)) {
-              assembliesMap.set(sleutel, {
-                modelId: assembly.modelId,
-                runtimeId: assembly.runtimeId,
-                mark: assembly.mark,
-                passendeOnderdelen: [],
-                selectieResultaten: []
-              });
-            }
-          });
+          }
         }
       }
 
@@ -2616,8 +2751,10 @@ function zoekEersteHerkenbareNaam(
 
       titel.className = "result-title";
       titel.textContent =
-        assemblies.length +
-        " merk(en)/assembly('s) gevonden";
+        assemblies.length === 1
+          ? "1 merk/assembly gevonden"
+          : assemblies.length +
+            " merken/assemblies gevonden";
 
       elementResultElement.appendChild(titel);
 
@@ -2630,7 +2767,7 @@ function zoekEersteHerkenbareNaam(
 
         waarschuwing.textContent =
           resultaat.matchingPartCount +
-          " passend(e) onderdeel/onderdelen gevonden, maar op deze onderdelen en hun bovenliggende modelhiërarchie kon geen Cast Unit Mark worden gelezen. Open één van deze onderdelen in Trimble en controleer de exacte naam van de propertyset en de nummerproperty.";
+          " passend(e) onderdeel/onderdelen gevonden, maar er kon geen Cast Unit Mark/merknummer worden gelezen. De zoekwaarden zelf zijn dus wel gevonden; alleen de koppeling naar het herkenbare merknummer ontbreekt.";
 
         elementResultElement.appendChild(
           waarschuwing
@@ -2651,7 +2788,11 @@ function zoekEersteHerkenbareNaam(
           "search-result-summary";
 
         summary.textContent =
-          assembly.mark;
+          assembly.mark +
+          " — Gewicht: " +
+          formatteerGewicht(
+            assembly.weight
+          );
 
         summary.addEventListener(
           "click",
@@ -2659,7 +2800,7 @@ function zoekEersteHerkenbareNaam(
             try {
               await selecteerVolledigeAssembly(
                 assembly,
-                selecteerKnop
+                null
               );
             } catch (error) {
               console.error(
@@ -2688,6 +2829,10 @@ function zoekEersteHerkenbareNaam(
         assemblyInfo.textContent =
           "Merk / Cast Unit Mark: " +
           assembly.mark +
+          "\nCast Unit Weight: " +
+          formatteerGewicht(
+            assembly.weight
+          ) +
           "\nPassende onderdelen binnen dit merk: " +
           assembly.passendeOnderdelen.length;
 
@@ -2730,7 +2875,7 @@ function zoekEersteHerkenbareNaam(
       info.className = "result-info";
       info.textContent =
         resultaat.matchingPartCount +
-        " passend(e) onderdeel/onderdelen gevonden. Zodra minstens één onderdeel aan de voorwaarden voldoet, wordt de bovenliggende assembly met Cast Unit Mark als resultaat getoond. Voorwaarden: " +
+        " passend(e) onderdeel/onderdelen gevonden. Elk resultaat toont het bijbehorende Cast Unit Mark/merknummer en Cast Unit Weight. Zoekvoorwaarde(n): " +
         actieveCriteria
           .map(function(item) {
             return (
@@ -3139,7 +3284,12 @@ function zoekEersteHerkenbareNaam(
             );
 
           const properties =
-            propertyResultaat.properties;
+            propertyResultaat &&
+            Array.isArray(
+              propertyResultaat.properties
+            )
+              ? propertyResultaat.properties
+              : [];
 
           let gecontroleerdInModel = 0;
 
@@ -3182,18 +3332,104 @@ function zoekEersteHerkenbareNaam(
         }
 
         if (gevondenDetails.length === 0) {
+          const voorwaardenTekst =
+            actieveCriteria
+              .map(function(item) {
+                return (
+                  item.label +
+                  " = " +
+                  item.value
+                );
+              })
+              .join(", ");
+
           elementResultElement.textContent =
-            "Geen elementen gevonden die tegelijk aan alle ingevulde voorwaarden voldoen. " +
-            "Probeer tijdelijk één veld tegelijk om te controleren welke modeleigenschap afwijkt. " +
-            "De zoekfunctie herkent nu ook alternatieve Tekla/IFC-propertynamen.";
+            actieveCriteria.length === 1
+              ? "Geen elementen gevonden voor " +
+                voorwaardenTekst +
+                ". Controleer of de waarde exact voorkomt in het geladen model."
+              : "Geen elementen gevonden die aan alle ingevulde zoekvoorwaarden voldoen: " +
+                voorwaardenTekst +
+                ".";
+
           verbergZoekVoortgang();
           return;
         }
 
-        const resultatenMetAssemblies =
-          await koppelResultatenAanAssemblies(
-            gevondenDetails
+        let resultatenMetAssemblies;
+
+        try {
+          resultatenMetAssemblies =
+            await koppelResultatenAanAssemblies(
+              gevondenDetails
+            );
+        } catch (koppelFout) {
+          console.warn(
+            "Merk/assembly-koppeling gedeeltelijk mislukt:",
+            koppelFout
           );
+
+          /*
+           * Laat een fout in de hiërarchie nooit de volledige
+           * zoekopdracht blokkeren. We bouwen alsnog resultaten
+           * op uit Cast Unit Mark en gewicht die rechtstreeks op
+           * de passende onderdelen leesbaar zijn.
+           */
+          const fallbackMap = new Map();
+
+          gevondenDetails.forEach(
+            function(detail) {
+              const mark =
+                haalCastUnitMarkUitProperties(
+                  detail.objectProperties
+                );
+
+              if (!mark) {
+                return;
+              }
+
+              const sleutel =
+                String(detail.modelId) +
+                "|" +
+                normaliseerMark(mark);
+
+              if (!fallbackMap.has(sleutel)) {
+                fallbackMap.set(sleutel, {
+                  modelId: detail.modelId,
+                  runtimeId: detail.runtimeId,
+                  mark: String(mark).trim(),
+                  weight:
+                    haalCastUnitWeightUitProperties(
+                      detail.objectProperties
+                    ),
+                  passendeOnderdelen: [],
+                  selectieResultaten: null
+                });
+              }
+
+              fallbackMap
+                .get(sleutel)
+                .passendeOnderdelen
+                .push(detail);
+            }
+          );
+
+          resultatenMetAssemblies = {
+            assemblies:
+              Array.from(fallbackMap.values()),
+            matchingPartCount:
+              gevondenDetails.length,
+            unlinkedPartCount:
+              gevondenDetails.length -
+              Array.from(fallbackMap.values())
+                .reduce(function(totaal, item) {
+                  return (
+                    totaal +
+                    item.passendeOnderdelen.length
+                  );
+                }, 0)
+          };
+        }
 
         await toonZoekVoortgang(
           100,
@@ -3223,7 +3459,7 @@ function zoekEersteHerkenbareNaam(
             : "Onbekende fout";
 
         elementResultElement.textContent =
-          "De gecombineerde zoekactie is mislukt.\n\nTechnische melding: " +
+          "De zoekopdracht is mislukt.\n\nTechnische melding: " +
           foutmelding;
 
         verbergZoekVoortgang();
