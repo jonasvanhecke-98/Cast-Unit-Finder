@@ -8,7 +8,7 @@
     content="width=device-width, initial-scale=1.0"
   >
 
-  <title>Altez Zoekmachine</title>
+  <title>Altez Tools</title>
 
   <style>
     * {
@@ -459,6 +459,200 @@
       margin-top: 8px;
     }
 
+
+    body {
+      background: #f6f8fa;
+      color: #22313a;
+      line-height: 1.55;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 23px;
+      letter-spacing: -0.35px;
+      color: #163843;
+    }
+
+    h2 {
+      margin-top: 0;
+      margin-bottom: 8px;
+      color: #163843;
+      letter-spacing: -0.2px;
+    }
+
+    h3 {
+      color: #234b58;
+    }
+
+    #status {
+      margin: 0 0 18px;
+      padding: 8px 11px;
+      background: #eef5f5;
+      border: 1px solid #dce9e9;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+
+    .panel {
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.98);
+      border: 1px solid #e2e8eb;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(31, 55, 64, 0.06);
+    }
+
+    .module-header {
+      margin-bottom: 16px;
+    }
+
+    .module-eyebrow {
+      display: block;
+      margin-bottom: 4px;
+      color: #2e7c78;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .module-subtitle {
+      margin: 0;
+      color: #62747c;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .tool-card-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .tool-card {
+      width: 100%;
+      padding: 16px;
+      text-align: left;
+      color: #173640;
+      background: #fff;
+      border: 1px solid #dfe7e9;
+      border-radius: 11px;
+      box-shadow: 0 2px 8px rgba(29, 59, 68, 0.04);
+      transition:
+        transform 120ms ease,
+        box-shadow 120ms ease,
+        border-color 120ms ease;
+    }
+
+    .tool-card:hover {
+      transform: translateY(-1px);
+      border-color: #9fc5c1;
+      box-shadow: 0 7px 18px rgba(29, 59, 68, 0.09);
+    }
+
+    .tool-card-title {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 15px;
+      font-weight: 750;
+    }
+
+    .tool-card-description {
+      display: block;
+      color: #65777e;
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.5;
+    }
+
+    .tool-card-tag {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 3px 7px;
+      color: #2c6664;
+      background: #edf7f6;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .tool-card.disabled-card {
+      cursor: default;
+      background: #fbfcfc;
+      opacity: 0.78;
+    }
+
+    .tool-card.disabled-card:hover {
+      transform: none;
+      border-color: #dfe7e9;
+      box-shadow: 0 2px 8px rgba(29, 59, 68, 0.04);
+    }
+
+    .module-section {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #edf1f2;
+    }
+
+    .module-section:first-child {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+
+    .module-section-title {
+      margin: 0 0 10px;
+      font-size: 13px;
+      color: #365963;
+    }
+
+    .back-button {
+      margin-bottom: 12px;
+      background: #eef3f4;
+      border-color: #d8e2e4;
+      color: #34535d;
+    }
+
+    label {
+      margin-top: 14px;
+      margin-bottom: 5px;
+      color: #34535d;
+    }
+
+    input,
+    select {
+      border-color: #cedadd;
+      background: #fff;
+    }
+
+    .small-info {
+      margin-top: 4px;
+      margin-bottom: 10px;
+      color: #708087;
+      line-height: 1.55;
+    }
+
+    .result-panel,
+    .saved-search-panel,
+    .organizer-tools {
+      border-color: #e0e7e9;
+      background: #fbfcfc;
+    }
+
+    .placeholder-panel {
+      padding: 16px;
+      color: #667981;
+      background: #fbfcfc;
+      border: 1px dashed #cfdadd;
+      border-radius: 10px;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    @media (min-width: 560px) {
+      .tool-card-grid.two-columns {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
     .success {
       color: #19733b !important;
     }
@@ -476,7 +670,7 @@
 </head>
 
 <body>
-  <h1>Altez Zoekmachine</h1>
+  <h1>Altez Tools</h1>
 
   <p id="status">
     Verbinding met Trimble Connect controleren...
@@ -484,37 +678,261 @@
 
   <section id="menu-view" class="view active">
     <div class="panel">
-      <h2>Kies een zoekfunctie</h2>
+      <div class="module-header">
+        <span class="module-eyebrow">Altez Tools</span>
+        <h2>Kies een module</h2>
+        <p class="module-subtitle">
+          Eén centrale toolbox voor zoeken, modelanalyse en calculatie in Trimble Connect.
+        </p>
+      </div>
 
-      <p class="small-info">
-        Kies hieronder welke zoekfunctie je wilt openen.
-      </p>
-
-      <div class="menu-grid">
-        <button id="open-general-button" class="menu-button" type="button">
-          Algemeen zoeken
-          <span>Zoek in alle parameterwaarden en groepeer de resultaten grof.</span>
+      <div class="tool-card-grid">
+        <button id="open-search-module-button" class="tool-card" type="button">
+          <span class="tool-card-title">Zoeken</span>
+          <span class="tool-card-description">
+            Vind elementen, assemblies en parameterwaarden. Selecteer, kleur, focus,
+            verberg of label de resultaten rechtstreeks in het model.
+          </span>
+          <span class="tool-card-tag">Beschikbaar</span>
         </button>
 
-        <button id="open-elements-button" class="menu-button" type="button">
-          Element(en) zoeken
-          <span>Zoek op Cast Unit Mark of op eigenschappen zoals profiel, lengte, afwerking en staalklasse.</span>
+        <button id="open-analysis-module-button" class="tool-card" type="button">
+          <span class="tool-card-title">Analyse</span>
+          <span class="tool-card-description">
+            Controleer modeleigenschappen, ontbrekende informatie, afwijkingen en
+            algemene modelkwaliteit.
+          </span>
+          <span class="tool-card-tag">Basisstructuur</span>
         </button>
+
+        <button id="open-calculation-module-button" class="tool-card" type="button">
+          <span class="tool-card-title">Calculatie</span>
+          <span class="tool-card-description">
+            Bereken hoeveelheden, lengtes en gewichten en bereid resultaten voor
+            op export.
+          </span>
+          <span class="tool-card-tag">Basisstructuur</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section id="search-menu-view" class="view">
+    <button id="back-from-search-menu" class="secondary back-button" type="button">
+      Terug naar Altez Tools
+    </button>
+
+    <div class="panel">
+      <div class="module-header">
+        <span class="module-eyebrow">Module</span>
+        <h2>Zoeken</h2>
+        <p class="module-subtitle">
+          Zoek gericht naar elementen en assemblies of groepeer het model op een
+          aanwezige parameter.
+        </p>
+      </div>
+
+      <div class="tool-card-grid">
+        <button id="open-elements-button" class="tool-card" type="button">
+          <span class="tool-card-title">Element(en) zoeken</span>
+          <span class="tool-card-description">
+            Zoek op Cast Unit Mark, profiel, afmetingen, lengte, afwerking en
+            staalklasse. Resultaten worden gekoppeld aan het merk of de assembly.
+          </span>
+        </button>
+
+        <button id="open-general-button" class="tool-card" type="button">
+          <span class="tool-card-title">Parameter zoeken</span>
+          <span class="tool-card-description">
+            Zoek in alle properties of kies een specifieke parameter. Groepeer,
+            kleur, focus, verberg, isoleer en label de resultaten.
+          </span>
+        </button>
+
+        <button id="open-saved-searches-button" class="tool-card" type="button">
+          <span class="tool-card-title">Opgeslagen zoekopdrachten</span>
+          <span class="tool-card-description">
+            Open, hergebruik of verwijder eerder opgeslagen parameterzoekopdrachten.
+          </span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section id="analysis-menu-view" class="view">
+    <button id="back-from-analysis-menu" class="secondary back-button" type="button">
+      Terug naar Altez Tools
+    </button>
+
+    <div class="panel">
+      <div class="module-header">
+        <span class="module-eyebrow">Module</span>
+        <h2>Analyse</h2>
+        <p class="module-subtitle">
+          Een centrale plaats voor modelkwaliteit, eigenschappen en overzicht.
+        </p>
+      </div>
+
+      <div class="tool-card-grid">
+        <div class="tool-card disabled-card">
+          <span class="tool-card-title">Eigenschappenanalyse</span>
+          <span class="tool-card-description">
+            Analyseer aanwezige propertysets, meest gebruikte waarden, ontbrekende
+            waarden en afwijkende schrijfwijzen.
+          </span>
+          <span class="tool-card-tag">Volgende stap</span>
+        </div>
+
+        <div class="tool-card disabled-card">
+          <span class="tool-card-title">Modelcontrole</span>
+          <span class="tool-card-description">
+            Controleer ontbrekende merknummers en gewichten, dubbele marks,
+            objecten zonder assembly en andere Altez-afspraken.
+          </span>
+          <span class="tool-card-tag">Volgende stap</span>
+        </div>
+
+        <div class="tool-card disabled-card">
+          <span class="tool-card-title">Modeloverzicht</span>
+          <span class="tool-card-description">
+            Bekijk aantallen, assemblies, totaalgewicht en verdelingen per profiel,
+            materiaal of afwerking.
+          </span>
+          <span class="tool-card-tag">Volgende stap</span>
+        </div>
+      </div>
+
+      <div class="placeholder-panel module-section">
+        De analysemodule is alvast structureel voorzien. De eerstvolgende logische
+        functie is Eigenschappenanalyse: aanwezige parameters inventariseren,
+        ontbrekende waarden tonen en doorklikken naar de betreffende objecten.
+      </div>
+    </div>
+  </section>
+
+  <section id="calculation-menu-view" class="view">
+    <button id="back-from-calculation-menu" class="secondary back-button" type="button">
+      Terug naar Altez Tools
+    </button>
+
+    <div class="panel">
+      <div class="module-header">
+        <span class="module-eyebrow">Module</span>
+        <h2>Calculatie</h2>
+        <p class="module-subtitle">
+          Bereken modelhoeveelheden en groepeer ze volgens de uitvoering.
+        </p>
+      </div>
+
+      <div class="tool-card-grid">
+        <div class="tool-card disabled-card">
+          <span class="tool-card-title">Hoeveelheden</span>
+          <span class="tool-card-description">
+            Aantallen, totale lengtes en oppervlaktes groeperen per profiel,
+            materiaal, afwerking, fase of bouwdeel.
+          </span>
+          <span class="tool-card-tag">Volgende stap</span>
+        </div>
+
+        <div class="tool-card disabled-card">
+          <span class="tool-card-title">Gewicht</span>
+          <span class="tool-card-description">
+            Bereken gewicht per assembly, merk, profielgroep of materiaal en
+            signaleer ontbrekende gewichten.
+          </span>
+          <span class="tool-card-tag">Volgende stap</span>
+        </div>
+
+        <div class="tool-card disabled-card">
+          <span class="tool-card-title">Export</span>
+          <span class="tool-card-description">
+            Bereid berekeningsresultaten voor als overzichtelijke CSV- of
+            Excel-lijst voor calculatie, bestelling of productie.
+          </span>
+          <span class="tool-card-tag">Volgende stap</span>
+        </div>
+      </div>
+
+      <div class="placeholder-panel module-section">
+        De calculatiemodule is voorbereid als apart onderdeel. Bestaande zoek- en
+        groepslogica kan later rechtstreeks worden hergebruikt als filter voor
+        aantallen, lengtes en gewichten.
+      </div>
+    </div>
+  </section>
+
+  <section id="saved-searches-view" class="view">
+    <button id="back-from-saved-searches" class="secondary back-button" type="button">
+      Terug naar Zoeken
+    </button>
+
+    <div class="panel">
+      <div class="module-header">
+        <span class="module-eyebrow">Zoeken</span>
+        <h2>Opgeslagen zoekopdrachten</h2>
+        <p class="module-subtitle">
+          Bewaar de huidige parameterzoekopdracht of open een eerder opgeslagen zoekactie.
+        </p>
+      </div>
+
+
+      <div class="saved-search-panel">
+        <h3>Opgeslagen zoekopdrachten</h3>
+
+        <input
+          id="saved-search-name"
+          type="text"
+          placeholder="Naam van de zoekopdracht"
+          autocomplete="off"
+        >
+
+        <button
+          id="save-general-search-button"
+          class="single-button"
+          type="button"
+          disabled
+        >
+          Huidige zoekopdracht opslaan
+        </button>
+
+        <select id="saved-search-select">
+          <option value="">Kies een opgeslagen zoekopdracht</option>
+        </select>
+
+        <div class="saved-search-actions">
+          <button
+            id="load-saved-search-button"
+            type="button"
+            disabled
+          >
+            Openen
+          </button>
+
+          <button
+            id="delete-saved-search-button"
+            class="secondary"
+            type="button"
+            disabled
+          >
+            Verwijderen
+          </button>
+        </div>
+
+        <div id="saved-search-message" class="organizer-status"></div>
       </div>
     </div>
   </section>
 
   <section id="general-view" class="view">
     <button id="back-from-general" class="secondary back-button" type="button">
-      Terug naar keuzemenu
+      Terug naar Zoeken
     </button>
 
     <section class="panel">
-      <h2>Algemeen zoeken</h2>
+      <h2>Parameter zoeken</h2>
 
       <p class="small-info">
-        Zoekt de ingegeven tekst in alle parameterwaarden van alle geladen
-        modelobjecten en groepeert de resultaten grof.
+        Zoek in alle modeleigenschappen of kies een specifieke parameter. De bestaande resultaatwerkbalk blijft beschikbaar voor kleuren, labels, focus, verbergen en isoleren.
       </p>
 
       <label for="general-search">Zoektekst</label>
@@ -568,66 +986,21 @@
       </button>
 
       <button id="general-clear-button" class="secondary single-button" type="button" disabled>
-        Algemeen zoekresultaat wissen
+        Parameterzoekresultaat wissen
       </button>
 
       <section class="result-panel general-result-panel">
-        <div class="result-panel-header">Resultaat algemeen zoeken</div>
+        <div class="result-panel-header">Resultaat parameter zoeken</div>
         <div id="general-result" class="result-content">
-          Nog geen algemene zoekopdracht uitgevoerd.
+          Nog geen parameterzoekopdracht uitgevoerd.
         </div>
       </section>
-
-      <div class="saved-search-panel">
-        <h3>Opgeslagen zoekopdrachten</h3>
-
-        <input
-          id="saved-search-name"
-          type="text"
-          placeholder="Naam van de zoekopdracht"
-          autocomplete="off"
-        >
-
-        <button
-          id="save-general-search-button"
-          class="single-button"
-          type="button"
-          disabled
-        >
-          Huidige zoekopdracht opslaan
-        </button>
-
-        <select id="saved-search-select">
-          <option value="">Kies een opgeslagen zoekopdracht</option>
-        </select>
-
-        <div class="saved-search-actions">
-          <button
-            id="load-saved-search-button"
-            type="button"
-            disabled
-          >
-            Openen
-          </button>
-
-          <button
-            id="delete-saved-search-button"
-            class="secondary"
-            type="button"
-            disabled
-          >
-            Verwijderen
-          </button>
-        </div>
-
-        <div id="saved-search-message" class="organizer-status"></div>
-      </div>
     </section>
   </section>
 
   <section id="elements-view" class="view">
     <button id="back-from-elements" class="secondary back-button" type="button">
-      Terug naar keuzemenu
+      Terug naar Zoeken
     </button>
 
     <section class="panel cast-unit-card">
@@ -836,6 +1209,18 @@
 
     const menuView =
       document.getElementById("menu-view");
+
+    const searchMenuView =
+      document.getElementById("search-menu-view");
+
+    const analysisMenuView =
+      document.getElementById("analysis-menu-view");
+
+    const calculationMenuView =
+      document.getElementById("calculation-menu-view");
+
+    const savedSearchesView =
+      document.getElementById("saved-searches-view");
 
     const generalView =
       document.getElementById("general-view");
@@ -1840,13 +2225,9 @@ function bepaalAlgemeneZoekgroep(
         coloredSelectors.push(selector);
       }
 
-      if (legend) {
-        renderLegend(legend, groups);
-      }
-
       status.textContent =
         groups.length +
-        " exclusieve groep(en) ingekleurd. Objecten zonder overeenkomst staan automatisch grijs en transparant.";
+        " exclusieve groep(en) ingekleurd. Objecten zonder overeenkomst of zonder ingevulde parameter staan automatisch grijs en transparant.";
     }
 
     function maakObjectSleutel(
@@ -1868,14 +2249,33 @@ function bepaalAlgemeneZoekgroep(
     }
 
     function isGeenOvereenkomstGroep(groep) {
-      return (
-        isSysteemRestgroep(groep) ||
+      const waarde =
         normaliseerAlgemeneZoektekst(
           groep && groep.value
-        ) ===
-        normaliseerAlgemeneZoektekst(
-          "Geen overeenkomst met zoekopdracht"
-        )
+        );
+
+      const heeftMissingType =
+        Boolean(
+          groep &&
+          groep.matchTypes &&
+          typeof groep.matchTypes.has ===
+            "function" &&
+          groep.matchTypes.has(
+            "missing"
+          )
+        );
+
+      return (
+        isSysteemRestgroep(groep) ||
+        heeftMissingType ||
+        waarde ===
+          normaliseerAlgemeneZoektekst(
+            "Geen overeenkomst met zoekopdracht"
+          ) ||
+        waarde ===
+          normaliseerAlgemeneZoektekst(
+            "Niet ingevuld / parameter ontbreekt"
+          )
       );
     }
 
@@ -1903,6 +2303,14 @@ function bepaalAlgemeneZoekgroep(
       zichtbaar,
       statusElement
     ) {
+      if (
+        isGeenOvereenkomstGroep(groep)
+      ) {
+        statusElement.textContent =
+          "Deze systeemgroep blijft altijd grijs en transparant zichtbaar.";
+        return;
+      }
+
       const selector =
         selectorVanDetails(
           groep.elementen
@@ -2470,6 +2878,18 @@ function bepaalAlgemeneZoekgroep(
           1
         );
 
+      /*
+       * De systeem-/restgroep krijgt bewust geen label.
+       */
+      const labelGroups =
+        groups.filter(
+          function(group) {
+            return !isGeenOvereenkomstGroep(
+              group
+            );
+          }
+        );
+
       const labelSpacing =
         labelGroups.length > 1
           ? usableHeight /
@@ -2483,14 +2903,6 @@ function bepaalAlgemeneZoekgroep(
        * Sorteer labels op de verticale positie van hun groep.
        * Daardoor kruisen verbindingslijnen minder vaak.
        */
-      const labelGroups =
-        groups.filter(
-          function(group) {
-            return !isGeenOvereenkomstGroep(
-              group
-            );
-          }
-        );
 
       const sortedGroups =
         labelGroups
@@ -3596,15 +4008,15 @@ function bepaalAlgemeneZoekgroep(
         ).sort(
           function(a, b) {
             if (
-              isSysteemRestgroep(a) &&
-              !isSysteemRestgroep(b)
+              isGeenOvereenkomstGroep(a) &&
+              !isGeenOvereenkomstGroep(b)
             ) {
               return 1;
             }
 
             if (
-              !isSysteemRestgroep(a) &&
-              isSysteemRestgroep(b)
+              !isGeenOvereenkomstGroep(a) &&
+              isGeenOvereenkomstGroep(b)
             ) {
               return -1;
             }
@@ -4111,7 +4523,7 @@ function bepaalAlgemeneZoekgroep(
           );
 
           if (
-            !isSysteemRestgroep(
+            !isGeenOvereenkomstGroep(
               groep
             )
           ) {
@@ -4124,17 +4536,30 @@ function bepaalAlgemeneZoekgroep(
             );
 
             actieGrid.appendChild(
+              zichtbaarheidKnop
+            );
+
+            actieGrid.appendChild(
               isolerenKnop
             );
+
+            inhoud.appendChild(
+              actieGrid
+            );
+          } else {
+            const systeemInfo =
+              document.createElement("div");
+
+            systeemInfo.className =
+              "organizer-status";
+
+            systeemInfo.textContent =
+              "Systeemgroep: blijft automatisch grijs en transparant en kan niet afzonderlijk worden verborgen, gefocust of geïsoleerd.";
+
+            inhoud.appendChild(
+              systeemInfo
+            );
           }
-
-          actieGrid.appendChild(
-            zichtbaarheidKnop
-          );
-
-          inhoud.appendChild(
-            actieGrid
-          );
 
           groep.elementen.forEach(
             function(detail, elementIndex) {
@@ -6796,7 +7221,7 @@ function bepaalAlgemeneZoekgroep(
       generalInput.value = "";
       modelParameterInput.value = "";
       generalResultElement.textContent =
-        "Nog geen algemene zoekopdracht uitgevoerd.";
+        "Nog geen parameterzoekopdracht uitgevoerd.";
       generalClearButton.disabled = true;
       await wisSelectie();
       generalInput.focus();
@@ -6804,9 +7229,42 @@ function bepaalAlgemeneZoekgroep(
 
 
     function toonView(viewNaam) {
-      menuView.classList.remove("active");
-      generalView.classList.remove("active");
-      elementsView.classList.remove("active");
+      const views = [
+        menuView,
+        searchMenuView,
+        analysisMenuView,
+        calculationMenuView,
+        savedSearchesView,
+        generalView,
+        elementsView
+      ];
+
+      views.forEach(function(view) {
+        if (view) {
+          view.classList.remove("active");
+        }
+      });
+
+      if (viewNaam === "search-menu") {
+        searchMenuView.classList.add("active");
+        return;
+      }
+
+      if (viewNaam === "analysis-menu") {
+        analysisMenuView.classList.add("active");
+        return;
+      }
+
+      if (viewNaam === "calculation-menu") {
+        calculationMenuView.classList.add("active");
+        return;
+      }
+
+      if (viewNaam === "saved-searches") {
+        savedSearchesView.classList.add("active");
+        refreshSavedSearches();
+        return;
+      }
 
       if (viewNaam === "general") {
         generalView.classList.add("active");
@@ -7054,6 +7512,36 @@ function bepaalAlgemeneZoekgroep(
     });
 
 
+    document.getElementById("open-search-module-button")
+      .addEventListener("click", function() {
+        toonView("search-menu");
+      });
+
+    document.getElementById("open-analysis-module-button")
+      .addEventListener("click", function() {
+        toonView("analysis-menu");
+      });
+
+    document.getElementById("open-calculation-module-button")
+      .addEventListener("click", function() {
+        toonView("calculation-menu");
+      });
+
+    document.getElementById("back-from-search-menu")
+      .addEventListener("click", function() {
+        toonView("menu");
+      });
+
+    document.getElementById("back-from-analysis-menu")
+      .addEventListener("click", function() {
+        toonView("menu");
+      });
+
+    document.getElementById("back-from-calculation-menu")
+      .addEventListener("click", function() {
+        toonView("menu");
+      });
+
     document.getElementById("open-general-button")
       .addEventListener("click", function() {
         toonView("general");
@@ -7065,14 +7553,24 @@ function bepaalAlgemeneZoekgroep(
         markInput.focus();
       });
 
+    document.getElementById("open-saved-searches-button")
+      .addEventListener("click", function() {
+        toonView("saved-searches");
+      });
+
+    document.getElementById("back-from-saved-searches")
+      .addEventListener("click", function() {
+        toonView("search-menu");
+      });
+
     document.getElementById("back-from-general")
       .addEventListener("click", function() {
-        toonView("menu");
+        toonView("search-menu");
       });
 
     document.getElementById("back-from-elements")
       .addEventListener("click", function() {
-        toonView("menu");
+        toonView("search-menu");
       });
 
     connectToTrimble();
