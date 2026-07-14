@@ -393,42 +393,17 @@
       color: #555;
     }
 
-    .legend-panel {
-      margin-bottom: 12px;
-      padding: 10px;
-      background: #fff;
-      border: 1px solid #d8dadd;
-      border-radius: 6px;
-    }
-
-    .legend-title {
-      margin-bottom: 7px;
-      font-size: 13px;
-      font-weight: bold;
-    }
-
-    .legend-row {
-      display: grid;
-      grid-template-columns: 18px minmax(0, 1fr) auto;
-      gap: 8px;
-      align-items: center;
-      padding: 5px 0;
-      font-size: 12px;
-      border-top: 1px solid #eceeef;
-    }
-
-    .legend-row:first-of-type {
-      border-top: 0;
-    }
-
-    .legend-swatch,
+    
     .group-swatch {
       display: inline-block;
       width: 14px;
       height: 14px;
+      margin-right: 7px;
+      vertical-align: -2px;
       border: 1px solid rgba(0, 0, 0, 0.25);
       border-radius: 3px;
     }
+    
 
     .group-swatch {
       margin-right: 7px;
@@ -1580,7 +1555,11 @@ function bepaalAlgemeneZoekgroep(
         try {
           await API.viewer.setObjectState(
             selector,
-            { color: "reset" }
+            {
+              color: "reset",
+              opacity: 1,
+              visible: "reset"
+            }
           );
         } catch (error) {
           console.warn("Kleur resetten mislukt:", error);
@@ -1701,11 +1680,167 @@ function bepaalAlgemeneZoekgroep(
         coloredSelectors.push(selector);
       }
 
-      renderLegend(legend, groups);
+      if (legend) {
+        renderLegend(legend, groups);
+      }
 
       status.textContent =
         groups.length +
         " groep(en) ingekleurd.";
+    }
+
+    async function herstelAlleAlgemeneGroepen(
+      groepen,
+      statusElement
+    ) {
+      statusElement.textContent =
+        "Alle groepen herstellen...";
+
+      for (
+        let index = 0;
+        index < groepen.length;
+        index++
+      ) {
+        const groep =
+          groepen[index];
+
+        const selector =
+          selectorVanDetails(
+            groep.elementen
+          );
+
+        if (
+          !selector.modelObjectIds ||
+          selector.modelObjectIds.length === 0
+        ) {
+          continue;
+        }
+
+        const kleur =
+          groep.color ||
+          GROUP_COLORS[
+            index % GROUP_COLORS.length
+          ];
+
+        await API.viewer.setObjectState(
+          selector,
+          {
+            color: {
+              r: kleur.r,
+              g: kleur.g,
+              b: kleur.b,
+              a: 255
+            },
+            opacity: 1,
+            visible: true
+          }
+        );
+      }
+
+      statusElement.textContent =
+        "Alle groepen zijn opnieuw volledig zichtbaar.";
+    }
+
+    async function focusOpAlgemeneGroep(
+      actieveGroep,
+      alleGroepen,
+      statusElement
+    ) {
+      statusElement.textContent =
+        "Focusweergave toepassen...";
+
+      for (
+        let index = 0;
+        index < alleGroepen.length;
+        index++
+      ) {
+        const groep =
+          alleGroepen[index];
+
+        const selector =
+          selectorVanDetails(
+            groep.elementen
+          );
+
+        if (
+          !selector.modelObjectIds ||
+          selector.modelObjectIds.length === 0
+        ) {
+          continue;
+        }
+
+        const isActief =
+          groep === actieveGroep;
+
+        if (isActief) {
+          const kleur =
+            groep.color ||
+            GROUP_COLORS[
+              index % GROUP_COLORS.length
+            ];
+
+          await API.viewer.setObjectState(
+            selector,
+            {
+              color: {
+                r: kleur.r,
+                g: kleur.g,
+                b: kleur.b,
+                a: 255
+              },
+              opacity: 1,
+              visible: true
+            }
+          );
+        } else {
+          /*
+           * De overige zoekgroepen blijven zichtbaar als lichte
+           * grijze ghostweergave.
+           */
+          await API.viewer.setObjectState(
+            selector,
+            {
+              color: {
+                r: 175,
+                g: 175,
+                b: 175,
+                a: 255
+              },
+              opacity: 0.18,
+              visible: true
+            }
+          );
+        }
+      }
+
+      const actieveSelector =
+        selectorVanDetails(
+          actieveGroep.elementen
+        );
+
+      try {
+        await API.viewer.setSelection(
+          actieveSelector,
+          "set"
+        );
+
+        await API.viewer.setCamera(
+          actieveSelector,
+          {
+            animationTime: 450
+          }
+        );
+      } catch (error) {
+        console.warn(
+          "Selecteren of inzoomen op focusgroep is niet gelukt:",
+          error
+        );
+      }
+
+      statusElement.textContent =
+        "Focus actief: " +
+        actieveGroep.value +
+        ". Andere groepen staan in grijze ghostweergave.";
     }
 
     function mergeBox(total, box) {
@@ -1792,6 +1927,30 @@ function bepaalAlgemeneZoekgroep(
       };
     }
 
+    async function getOverallGroupsBoundingBox(groups) {
+      let overallBox = null;
+
+      for (const group of groups) {
+        if (!group._labelGeometry) {
+          group._labelGeometry =
+            await getGroupBoundingBox(group);
+        }
+
+        if (
+          group._labelGeometry &&
+          group._labelGeometry.box
+        ) {
+          overallBox =
+            mergeBox(
+              overallBox,
+              group._labelGeometry.box
+            );
+        }
+      }
+
+      return overallBox;
+    }
+
     async function showGroupLabelsOutside(
       groups,
       status
@@ -1809,10 +1968,11 @@ function bepaalAlgemeneZoekgroep(
       await removeGroupLabels();
 
       status.textContent =
-        "Groepslabels plaatsen...";
+        "Groepslabels buiten het model plaatsen...";
 
-      const markups = [];
-
+      /*
+       * Eerst van alle groepen de geometrie bepalen.
+       */
       for (
         let index = 0;
         index < groups.length;
@@ -1820,59 +1980,186 @@ function bepaalAlgemeneZoekgroep(
       ) {
         const group = groups[index];
 
-        try {
-          const result =
+        if (!group._labelGeometry) {
+          group._labelGeometry =
             await getGroupBoundingBox(group);
+        }
+      }
 
-          const box = result.box;
+      const overallBox =
+        await getOverallGroupsBoundingBox(
+          groups
+        );
 
-          if (!box) {
-            continue;
-          }
+      if (!overallBox) {
+        status.textContent =
+          "Er kon geen totale modelbegrenzing worden bepaald.";
+        return;
+      }
+
+      const modelWidth =
+        Math.max(
+          Math.abs(
+            overallBox.max.x -
+            overallBox.min.x
+          ),
+          1
+        );
+
+      const modelHeight =
+        Math.max(
+          Math.abs(
+            overallBox.max.y -
+            overallBox.min.y
+          ),
+          1
+        );
+
+      const modelDepth =
+        Math.max(
+          Math.abs(
+            overallBox.max.z -
+            overallBox.min.z
+          ),
+          1
+        );
+
+      /*
+       * Alle labels komen rechts buiten de volledige modelbox.
+       * De marge is bewust ruim zodat labels ook in schuine camerastanden
+       * zichtbaar buiten het model blijven.
+       */
+      const outsideMargin =
+        Math.max(
+          modelWidth * 0.35,
+          modelHeight * 0.15,
+          modelDepth * 0.15,
+          3
+        );
+
+      const labelX =
+        overallBox.max.x +
+        outsideMargin;
+
+      const topY =
+        overallBox.max.y +
+        Math.max(
+          modelHeight * 0.15,
+          1
+        );
+
+      const bottomY =
+        overallBox.min.y -
+        Math.max(
+          modelHeight * 0.15,
+          1
+        );
+
+      const usableHeight =
+        Math.max(
+          topY - bottomY,
+          1
+        );
+
+      const labelSpacing =
+        groups.length > 1
+          ? usableHeight /
+            Math.max(
+              groups.length - 1,
+              1
+            )
+          : 0;
+
+      /*
+       * Sorteer labels op de verticale positie van hun groep.
+       * Daardoor kruisen verbindingslijnen minder vaak.
+       */
+      const sortedGroups =
+        groups
+          .map(function(group, index) {
+            const geometry =
+              group._labelGeometry;
+
+            const box =
+              geometry &&
+              geometry.box;
+
+            const centerY =
+              box
+                ? (
+                    box.min.y +
+                    box.max.y
+                  ) / 2
+                : 0;
+
+            return {
+              group: group,
+              originalIndex: index,
+              centerY: centerY
+            };
+          })
+          .filter(function(item) {
+            return (
+              item.group._labelGeometry &&
+              item.group._labelGeometry.box
+            );
+          })
+          .sort(function(a, b) {
+            return b.centerY - a.centerY;
+          });
+
+      const markups = [];
+
+      sortedGroups.forEach(
+        function(item, sortedIndex) {
+          const group =
+            item.group;
+
+          const result =
+            group._labelGeometry;
+
+          const box =
+            result.box;
 
           const centerX =
             (box.min.x + box.max.x) / 2;
+
           const centerY =
             (box.min.y + box.max.y) / 2;
+
           const centerZ =
             (box.min.z + box.max.z) / 2;
 
-          const sizeX =
+          const currentLabelY =
+            groups.length > 1
+              ? topY -
+                sortedIndex *
+                labelSpacing
+              : (
+                  overallBox.min.y +
+                  overallBox.max.y
+                ) / 2;
+
+          /*
+           * Labels krijgen een kleine Z-verschuiving zodat ze niet
+           * allemaal exact op hetzelfde vlak liggen.
+           */
+          const labelZ =
+            centerZ +
+            (
+              sortedIndex -
+              (sortedGroups.length - 1) / 2
+            ) *
             Math.max(
-              Math.abs(box.max.x - box.min.x),
-              1
+              modelDepth * 0.015,
+              0.15
             );
-
-          const sizeY =
-            Math.max(
-              Math.abs(box.max.y - box.min.y),
-              1
-            );
-
-          const margin =
-            Math.max(
-              sizeX * 0.2,
-              sizeY * 0.15,
-              1
-            );
-
-          const right =
-            index % 2 === 0;
-
-          const labelX =
-            right
-              ? box.max.x + margin
-              : box.min.x - margin;
-
-          const labelY =
-            box.max.y +
-            margin +
-            (index % 5) * margin * 0.35;
 
           const color =
             group.color ||
             GROUP_COLORS[
-              index % GROUP_COLORS.length
+              item.originalIndex %
+              GROUP_COLORS.length
             ];
 
           markups.push({
@@ -1888,29 +2175,32 @@ function bepaalAlgemeneZoekgroep(
               a: 255
             },
             start: {
-              positionX: labelX * 1000,
-              positionY: labelY * 1000,
-              positionZ: centerZ * 1000,
-              modelId: result.modelId,
-              objectId: result.objectId
+              positionX:
+                labelX * 1000,
+              positionY:
+                currentLabelY * 1000,
+              positionZ:
+                labelZ * 1000,
+              modelId:
+                result.modelId,
+              objectId:
+                result.objectId
             },
             end: {
-              positionX: centerX * 1000,
-              positionY: centerY * 1000,
-              positionZ: centerZ * 1000,
-              modelId: result.modelId,
-              objectId: result.objectId
+              positionX:
+                centerX * 1000,
+              positionY:
+                centerY * 1000,
+              positionZ:
+                centerZ * 1000,
+              modelId:
+                result.modelId,
+              objectId:
+                result.objectId
             }
           });
-        } catch (error) {
-          console.warn(
-            "Label overgeslagen voor " +
-            group.value +
-            ":",
-            error
-          );
         }
-      }
+      );
 
       if (markups.length === 0) {
         status.textContent =
@@ -1940,9 +2230,12 @@ function bepaalAlgemeneZoekgroep(
 
         status.textContent =
           markups.length +
-          " label(s) buiten de geometrie geplaatst.";
+          " label(s) rechts buiten het model geplaatst.";
       } catch (error) {
-        console.error("Labels plaatsen mislukt:", error);
+        console.error(
+          "Labels plaatsen mislukt:",
+          error
+        );
 
         status.textContent =
           "Kleuren en legenda werken, maar de 3D-labels konden niet worden geplaatst.";
@@ -2246,7 +2539,7 @@ function bepaalAlgemeneZoekgroep(
 
       labelButton.type = "button";
       labelButton.textContent =
-        "Toon labels buiten geometrie";
+        "Toon labels rechts buiten model";
 
       const resetButton =
         document.createElement("button");
@@ -2256,10 +2549,23 @@ function bepaalAlgemeneZoekgroep(
       resetButton.textContent =
         "Kleuren en labels wissen";
 
+      const restoreGroupsButton =
+        document.createElement("button");
+
+      restoreGroupsButton.type =
+        "button";
+
+      restoreGroupsButton.className =
+        "secondary";
+
+      restoreGroupsButton.textContent =
+        "Alle groepen herstellen";
+
       toolsRow.appendChild(colorButton);
       toolsRow.appendChild(labelButton);
 
       tools.appendChild(toolsRow);
+      tools.appendChild(restoreGroupsButton);
       tools.appendChild(resetButton);
 
       const organizerStatus =
@@ -2289,7 +2595,7 @@ function bepaalAlgemeneZoekgroep(
           try {
             await colorGeneralGroups(
               gesorteerdeGroepen,
-              legend,
+              null,
               organizerStatus
             );
           } catch (error) {
@@ -2326,6 +2632,32 @@ function bepaalAlgemeneZoekgroep(
               "Labels tonen is mislukt.";
           } finally {
             labelButton.disabled = false;
+          }
+        }
+      );
+
+      restoreGroupsButton.addEventListener(
+        "click",
+        async function() {
+          restoreGroupsButton.disabled =
+            true;
+
+          try {
+            await herstelAlleAlgemeneGroepen(
+              gesorteerdeGroepen,
+              organizerStatus
+            );
+          } catch (error) {
+            console.error(
+              "Alle groepen herstellen mislukt:",
+              error
+            );
+
+            organizerStatus.textContent =
+              "Alle groepen herstellen is mislukt.";
+          } finally {
+            restoreGroupsButton.disabled =
+              false;
           }
         }
       );
@@ -2501,6 +2833,51 @@ function bepaalAlgemeneZoekgroep(
 
           inhoud.appendChild(
             selecteerGroepKnop
+          );
+
+          const focusGroepKnop =
+            document.createElement("button");
+
+          focusGroepKnop.type =
+            "button";
+
+          focusGroepKnop.textContent =
+            "Focus op deze groep";
+
+          focusGroepKnop.style.marginBottom =
+            "10px";
+
+          focusGroepKnop.addEventListener(
+            "click",
+            async function(event) {
+              event.stopPropagation();
+
+              focusGroepKnop.disabled =
+                true;
+
+              try {
+                await focusOpAlgemeneGroep(
+                  groep,
+                  gesorteerdeGroepen,
+                  organizerStatus
+                );
+              } catch (error) {
+                console.error(
+                  "Focus op groep mislukt:",
+                  error
+                );
+
+                organizerStatus.textContent =
+                  "Focusweergave toepassen is mislukt.";
+              } finally {
+                focusGroepKnop.disabled =
+                  false;
+              }
+            }
+          );
+
+          inhoud.appendChild(
+            focusGroepKnop
           );
 
           groep.elementen.forEach(
