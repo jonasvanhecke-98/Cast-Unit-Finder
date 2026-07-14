@@ -1815,6 +1815,11 @@ function bepaalAlgemeneZoekgroep(
 
         group.color = color;
 
+        const isGeenOvereenkomst =
+          isGeenOvereenkomstGroep(
+            group
+          );
+
         await API.viewer.setObjectState(
           selector,
           {
@@ -1823,7 +1828,12 @@ function bepaalAlgemeneZoekgroep(
               g: color.g,
               b: color.b,
               a: color.a
-            }
+            },
+            opacity:
+              isGeenOvereenkomst
+                ? 0.18
+                : 1,
+            visible: true
           }
         );
 
@@ -1836,7 +1846,7 @@ function bepaalAlgemeneZoekgroep(
 
       status.textContent =
         groups.length +
-        " exclusieve groep(en) ingekleurd. Elk object behoort aan precies één kleur.";
+        " exclusieve groep(en) ingekleurd. Objecten zonder overeenkomst staan automatisch grijs en transparant.";
     }
 
     function isGeenOvereenkomstGroep(groep) {
@@ -1899,11 +1909,19 @@ function bepaalAlgemeneZoekgroep(
             Math.max(index, 0)
           );
 
+        const isGeenOvereenkomst =
+          isGeenOvereenkomstGroep(
+            groep
+          );
+
         await API.viewer.setObjectState(
           selector,
           {
             visible: true,
-            opacity: 1,
+            opacity:
+              isGeenOvereenkomst
+                ? 0.18
+                : 1,
             color: {
               r: kleur.r,
               g: kleur.g,
@@ -2063,6 +2081,11 @@ function bepaalAlgemeneZoekgroep(
             index
           );
 
+        const isGeenOvereenkomst =
+          isGeenOvereenkomstGroep(
+            groep
+          );
+
         await API.viewer.setObjectState(
           selector,
           {
@@ -2072,7 +2095,10 @@ function bepaalAlgemeneZoekgroep(
               b: kleur.b,
               a: 255
             },
-            opacity: 1,
+            opacity:
+              isGeenOvereenkomst
+                ? 0.18
+                : 1,
             visible: true
           }
         );
@@ -2327,6 +2353,14 @@ function bepaalAlgemeneZoekgroep(
       ) {
         const group = groups[index];
 
+        if (
+          isGeenOvereenkomstGroep(
+            group
+          )
+        ) {
+          continue;
+        }
+
         if (!group._labelGeometry) {
           group._labelGeometry =
             await getGroupBoundingBox(group);
@@ -2409,10 +2443,10 @@ function bepaalAlgemeneZoekgroep(
         );
 
       const labelSpacing =
-        groups.length > 1
+        labelGroups.length > 1
           ? usableHeight /
             Math.max(
-              groups.length - 1,
+              labelGroups.length - 1,
               1
             )
           : 0;
@@ -2421,8 +2455,17 @@ function bepaalAlgemeneZoekgroep(
        * Sorteer labels op de verticale positie van hun groep.
        * Daardoor kruisen verbindingslijnen minder vaak.
        */
+      const labelGroups =
+        groups.filter(
+          function(group) {
+            return !isGeenOvereenkomstGroep(
+              group
+            );
+          }
+        );
+
       const sortedGroups =
-        groups
+        labelGroups
           .map(function(group, index) {
             const geometry =
               group._labelGeometry;
@@ -2478,7 +2521,7 @@ function bepaalAlgemeneZoekgroep(
             (box.min.z + box.max.z) / 2;
 
           const currentLabelY =
-            groups.length > 1
+            labelGroups.length > 1
               ? topY -
                 sortedIndex *
                 labelSpacing
