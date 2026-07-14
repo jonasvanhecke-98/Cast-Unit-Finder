@@ -131,6 +131,13 @@
       border-bottom: 1px solid #d8dadd;
     }
 
+
+    .field-indent {
+      margin-left: 24px;
+      padding-left: 12px;
+      border-left: 2px solid #d9d9d9;
+    }
+
     .small-info {
       margin: 0 0 10px;
       font-size: 12px;
@@ -483,7 +490,8 @@
         Klik in het profielveld om de aanwezige profielen in te lezen.
       </div>
 
-      <label for="element-width" style="margin-top: 12px;">Overmeten breedte</label>
+      <div class="field-indent">
+<label for="element-width" style="margin-top: 12px;">Overmeten breedte</label>
       <p class="small-info">
         Vul de overmeten breedte van het profiel in.
         Er wordt automatisch een tolerantie van ±2 mm toegepast.
@@ -511,7 +519,10 @@
 
 
 
-      <label for="element-length" style="margin-top: 12px;">Lengte</label>
+      
+</div>
+
+<label for="element-length" style="margin-top: 12px;">Lengte</label>
       <p class="small-info">Vul de lengte van het profiel in zonder kop- en voetplaten. Er wordt automatisch een tolerantie van ±10 mm toegepast.</p><input
         id="element-length"
         type="text"
@@ -1116,7 +1127,8 @@
       objectProperties,
       zoektekst
     ) {
-      const matches = [];
+      const parameterNaamMatches = [];
+      const waardeMatches = [];
 
       const propertySets =
         Array.isArray(objectProperties.properties)
@@ -1133,27 +1145,95 @@
             : [];
 
         for (const property of properties) {
-          const waarde =
-            String(property.value ?? "");
+          const propertyName =
+            String(property.name || "").trim();
 
-          if (
+          const waarde =
+            String(property.value ?? "").trim();
+
+          const volledigeNaam =
+            setName
+              ? setName + "." + propertyName
+              : propertyName;
+
+          const genormaliseerdePropertyNaam =
+            normaliseerAlgemeneZoektekst(
+              propertyName
+            );
+
+          const genormaliseerdeVolledigeNaam =
+            normaliseerAlgemeneZoektekst(
+              volledigeNaam
+            );
+
+          const genormaliseerdeSetNaam =
+            normaliseerAlgemeneZoektekst(
+              setName
+            );
+
+          const genormaliseerdeWaarde =
             normaliseerAlgemeneZoektekst(
               waarde
-            ).includes(
+            );
+
+          const parameterNaamKomtOvereen =
+            genormaliseerdePropertyNaam.includes(
+              zoektekst
+            ) ||
+            genormaliseerdeVolledigeNaam.includes(
+              zoektekst
+            ) ||
+            genormaliseerdeSetNaam ===
+              zoektekst;
+
+          if (parameterNaamKomtOvereen) {
+            /*
+             * Bij zoeken op een parameternaam, bijvoorbeeld "Finish",
+             * nemen we de waarde van die parameter mee.
+             */
+            parameterNaamMatches.push({
+              setName: setName,
+              propertyName: propertyName,
+              value:
+                waarde || "Lege waarde",
+              matchType:
+                "parameterName"
+            });
+
+            continue;
+          }
+
+          if (
+            waarde &&
+            genormaliseerdeWaarde.includes(
               zoektekst
             )
           ) {
-            matches.push({
+            /*
+             * Bij zoeken op een waarde, bijvoorbeeld RAL9005,
+             * blijft de bestaande gedeeltelijke zoekactie werken.
+             */
+            waardeMatches.push({
               setName: setName,
-              propertyName:
-                String(property.name || ""),
-              value: waarde
+              propertyName: propertyName,
+              value: waarde,
+              matchType:
+                "value"
             });
           }
         }
       }
 
-      return matches;
+      /*
+       * Wanneer de zoektekst een parameternaam is, gebruiken we alleen
+       * de waarden van die parameter. Zo kunnen toevallige waardematches
+       * uit andere properties de groepering niet verstoren.
+       */
+      if (parameterNaamMatches.length > 0) {
+        return parameterNaamMatches;
+      }
+
+      return waardeMatches;
     }
 
     function normaliseerPropertySetNaam(waarde) {
@@ -1231,7 +1311,12 @@ function bepaalAlgemeneZoekgroep(
         String(
           eersteMatch.setName ||
           ""
-        ).trim()
+        ).trim(),
+      matchType:
+        String(
+          eersteMatch.matchType ||
+          "value"
+        )
     };
   }
 
@@ -1239,7 +1324,8 @@ function bepaalAlgemeneZoekgroep(
     value:
       "Onbekende waarde",
     propertyName: "",
-    setName: ""
+    setName: "",
+    matchType: "value"
   };
 }
 
@@ -1299,9 +1385,27 @@ function bepaalAlgemeneZoekgroep(
       uitleg.style.marginTop = "0";
       uitleg.style.marginBottom = "12px";
 
+      const zoektOpParameterNaam =
+        gevondenDetails.some(
+          function(detail) {
+            return (
+              Array.isArray(detail.matches) &&
+              detail.matches.some(
+                function(match) {
+                  return (
+                    match.matchType ===
+                    "parameterName"
+                  );
+                }
+              )
+            );
+          }
+        );
+
       uitleg.textContent =
-        "Resultaten zijn gegroepeerd op de werkelijk gevonden waarde. " +
-        "Hoofdletters en spaties hebben geen invloed op de zoekopdracht.";
+        zoektOpParameterNaam
+          ? "De zoektekst werd als parameternaam herkend. Alle verschillende waarden van deze parameter worden als aparte groepen getoond."
+          : "Resultaten zijn gegroepeerd op de werkelijk gevonden waarde. Hoofdletters en spaties hebben geen invloed op de zoekopdracht.";
 
       generalResultElement.appendChild(
         uitleg
@@ -1335,6 +1439,8 @@ function bepaalAlgemeneZoekgroep(
                 new Set(),
               setNames:
                 new Set(),
+              matchTypes:
+                new Set(),
               elementen: []
             });
           }
@@ -1351,6 +1457,12 @@ function bepaalAlgemeneZoekgroep(
           if (groepInfo.setName) {
             groep.setNames.add(
               groepInfo.setName
+            );
+          }
+
+          if (groepInfo.matchType) {
+            groep.matchTypes.add(
+              groepInfo.matchType
             );
           }
 
@@ -1407,15 +1519,24 @@ function bepaalAlgemeneZoekgroep(
               groep.propertyNames
             );
 
+          const isParameterNaamGroep =
+            groep.matchTypes.has(
+              "parameterName"
+            );
+
           groepInfo.textContent =
-            "Gevonden waarde: " +
-            groep.value +
+            (
+              isParameterNaamGroep
+                ? "Parameter: "
+                : "Gevonden in: "
+            ) +
             (
               eigenschapsnamen.length > 0
-                ? "\nGevonden in: " +
-                  eigenschapsnamen.join(", ")
-                : ""
-            );
+                ? eigenschapsnamen.join(", ")
+                : "Onbekende parameter"
+            ) +
+            "\nWaarde: " +
+            groep.value;
 
           inhoud.appendChild(
             groepInfo
@@ -1737,7 +1858,7 @@ function bepaalAlgemeneZoekgroep(
 
         if (gevondenDetails.length === 0) {
           generalResultElement.textContent =
-            "Geen parameterwaarde gevonden die \"" +
+            "Geen parameternaam of parameterwaarde gevonden die \"" +
             zoektekstOrigineel +
             "\" bevat.";
 
