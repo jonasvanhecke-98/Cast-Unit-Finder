@@ -450,7 +450,7 @@
       <datalist id="profile-options"></datalist>
 
       <div id="profile-status" class="profile-status">
-        Profielen, afwerkingen en staalklassen worden uit het geladen model opgehaald zodra je deze functie opent.
+        Klik in het profielveld om de aanwezige profielen in te lezen.
       </div>
 
       <label for="element-length" style="margin-top: 12px;">Lengte</label>
@@ -476,9 +476,8 @@
       </div>
 
       <datalist id="finish-options"></datalist>
-
       <div id="finish-status" class="profile-status">
-        Aanwezige afwerkingen worden samen met de profielen ingelezen.
+        Klik in het veld om aanwezige afwerkingen in te lezen.
       </div>
 
       <label for="element-material" style="margin-top: 12px;">Staalklasse (Material)</label>
@@ -495,9 +494,8 @@
       </div>
 
       <datalist id="material-options"></datalist>
-
       <div id="material-status" class="profile-status">
-        Aanwezige staalklassen worden samen met de profielen ingelezen.
+        Klik in het veld om aanwezige staalklassen in te lezen.
       </div>
 
       <button id="element-search-button" class="single-button" type="button" disabled>
@@ -528,19 +526,13 @@
      * niet opnieuw via de Trimble API te worden ingelezen.
      */
     const objectPropertiesCache = new Map();
-
-    /*
-     * Grotere batches en meer parallelle aanvragen maken de eerste analyse
-     * sneller, zonder onbeperkt requests tegelijk naar Trimble te sturen.
-     */
-    const PROPERTY_BATCH_SIZE = 750;
-    const MAX_PARALLEL_REQUESTS = 8;
+    const PROPERTY_BATCH_SIZE = 250;
+    const MAX_PARALLEL_REQUESTS = 2;
+    const PROPERTY_REQUEST_RETRIES = 1;
 
     let cachedAllObjects = null;
-
     let filterOptionsLoaded = false;
     let filterOptionsLoadingPromise = null;
-
     let beschikbareProfielen = [];
     let beschikbareAfwerkingen = [];
     let beschikbareMaterialen = [];
@@ -1575,14 +1567,10 @@ function zoekEersteHerkenbareNaam(
 
     function vulKeuzelijst(element, waarden) {
       element.innerHTML = "";
-
-      const fragment =
-        document.createDocumentFragment();
+      const fragment = document.createDocumentFragment();
 
       waarden.forEach(function(waarde) {
-        const option =
-          document.createElement("option");
-
+        const option = document.createElement("option");
         option.value = waarde;
         fragment.appendChild(option);
       });
@@ -1590,7 +1578,23 @@ function zoekEersteHerkenbareNaam(
       element.appendChild(fragment);
     }
 
-    function voegUniekeWaardenToe(
+    function zetFilterStatus(element, tekst, toestand = "") {
+      element.textContent = tekst;
+      element.className =
+        "profile-status" +
+        (toestand ? " " + toestand : "");
+    }
+
+    async function haalAlleModelObjecten() {
+      if (cachedAllObjects) {
+        return cachedAllObjects;
+      }
+
+      cachedAllObjects = await API.viewer.getObjects();
+      return cachedAllObjects;
+    }
+
+    function voegFilterWaardenToe(
       doelMap,
       objectProperties,
       namen,
@@ -1603,50 +1607,17 @@ function zoekEersteHerkenbareNaam(
         );
 
       waarden.forEach(function(waarde) {
-        const sleutel =
-          normaliseerFunctie(waarde);
+        const sleutel = normaliseerFunctie(waarde);
 
-        if (
-          sleutel &&
-          !doelMap.has(sleutel)
-        ) {
-          doelMap.set(
-            sleutel,
-            waarde
-          );
+        if (sleutel && !doelMap.has(sleutel)) {
+          doelMap.set(sleutel, waarde);
         }
       });
     }
 
-    function zetFilterStatus(
-      element,
-      tekst,
-      toestand = ""
-    ) {
-      element.textContent = tekst;
-      element.className =
-        "profile-status" +
-        (toestand ? " " + toestand : "");
-    }
-
-    async function haalAlleModelObjecten() {
-      if (cachedAllObjects) {
-        return cachedAllObjects;
-      }
-
-      cachedAllObjects =
-        await API.viewer.getObjects();
-
-      return cachedAllObjects;
-    }
-
     async function laadBeschikbareFilterWaarden() {
       if (filterOptionsLoaded) {
-        return {
-          profiles: beschikbareProfielen,
-          finishes: beschikbareAfwerkingen,
-          materials: beschikbareMaterialen
-        };
+        return;
       }
 
       if (filterOptionsLoadingPromise) {
@@ -1655,67 +1626,56 @@ function zoekEersteHerkenbareNaam(
 
       filterOptionsLoadingPromise =
         (async function() {
+          const profielMap = new Map();
+          const finishMap = new Map();
+          const materiaalMap = new Map();
+
+          const profielCriterium =
+            elementCriteria.find(function(item) {
+              return item.key === "profile";
+            });
+
+          const finishCriterium =
+            elementCriteria.find(function(item) {
+              return item.key === "finish";
+            });
+
+          const materiaalCriterium =
+            elementCriteria.find(function(item) {
+              return item.key === "material";
+            });
+
           zetFilterStatus(
             profileStatusElement,
-            "Profielen, afwerkingen en staalklassen uit het geladen model analyseren...",
+            "Modelwaarden rustig opbouwen...",
             "loading"
           );
-
           zetFilterStatus(
             finishStatusElement,
-            "Modelwaarden analyseren...",
+            "Modelwaarden rustig opbouwen...",
             "loading"
           );
-
           zetFilterStatus(
             materialStatusElement,
-            "Modelwaarden analyseren...",
+            "Modelwaarden rustig opbouwen...",
             "loading"
           );
 
           try {
-            const alleObjecten =
-              await haalAlleModelObjecten();
+            const modellen = await haalAlleModelObjecten();
+            let mislukteBlokken = 0;
 
-            const profielCriterium =
-              elementCriteria.find(function(item) {
-                return item.key === "profile";
-              });
-
-            const finishCriterium =
-              elementCriteria.find(function(item) {
-                return item.key === "finish";
-              });
-
-            const materiaalCriterium =
-              elementCriteria.find(function(item) {
-                return item.key === "material";
-              });
-
-            const profielMap = new Map();
-            const finishMap = new Map();
-            const materiaalMap = new Map();
-
-            /*
-             * Elk model wordt één keer ingelezen. Diezelfde properties vullen
-             * alle drie dropdowns én worden in de algemene objectcache bewaard.
-             */
             for (
               let modelIndex = 0;
-              modelIndex < alleObjecten.length;
+              modelIndex < modellen.length;
               modelIndex++
             ) {
-              const model =
-                alleObjecten[modelIndex];
-
+              const model = modellen[modelIndex];
               const runtimeIds =
                 haalObjecten(model)
                   .map(haalRuntimeId)
                   .filter(function(id) {
-                    return (
-                      id !== null &&
-                      id !== undefined
-                    );
+                    return id !== null && id !== undefined;
                   });
 
               if (runtimeIds.length === 0) {
@@ -1726,83 +1686,67 @@ function zoekEersteHerkenbareNaam(
                 "Model " +
                 (modelIndex + 1) +
                 " van " +
-                alleObjecten.length +
+                modellen.length +
                 " analyseren...";
 
-              zetFilterStatus(
-                profileStatusElement,
-                voortgang,
-                "loading"
-              );
+              zetFilterStatus(profileStatusElement, voortgang, "loading");
+              zetFilterStatus(finishStatusElement, voortgang, "loading");
+              zetFilterStatus(materialStatusElement, voortgang, "loading");
 
-              zetFilterStatus(
-                finishStatusElement,
-                voortgang,
-                "loading"
-              );
-
-              zetFilterStatus(
-                materialStatusElement,
-                voortgang,
-                "loading"
-              );
-
-              const properties =
+              const resultaat =
                 await haalPropertiesEfficient(
                   model.modelId,
                   runtimeIds,
                   false
                 );
 
-              properties.forEach(
+              mislukteBlokken += resultaat.mislukteBlokken;
+
+              resultaat.properties.forEach(
                 function(objectProperties) {
-                  voegUniekeWaardenToe(
+                  voegFilterWaardenToe(
                     profielMap,
                     objectProperties,
                     profielCriterium.names,
                     normaliseerProfiel
                   );
-
-                  voegUniekeWaardenToe(
+                  voegFilterWaardenToe(
                     finishMap,
                     objectProperties,
                     finishCriterium.names
                   );
-
-                  voegUniekeWaardenToe(
+                  voegFilterWaardenToe(
                     materiaalMap,
                     objectProperties,
                     materiaalCriterium.names
                   );
                 }
               );
+
+              /* Geef de browser kort ademruimte tussen modellen. */
+              await new Promise(function(resolve) {
+                setTimeout(resolve, 0);
+              });
             }
 
             beschikbareProfielen =
-              Array.from(
-                profielMap.values()
-              ).sort(sorteerFilterWaarden);
-
+              Array.from(profielMap.values())
+                .sort(sorteerFilterWaarden);
             beschikbareAfwerkingen =
-              Array.from(
-                finishMap.values()
-              ).sort(sorteerFilterWaarden);
-
+              Array.from(finishMap.values())
+                .sort(sorteerFilterWaarden);
             beschikbareMaterialen =
-              Array.from(
-                materiaalMap.values()
-              ).sort(sorteerFilterWaarden);
+              Array.from(materiaalMap.values())
+                .sort(sorteerFilterWaarden);
 
             vulKeuzelijst(
               profileOptionsElement,
               beschikbareProfielen
             );
-
             vulKeuzelijst(
               finishOptionsElement,
               beschikbareAfwerkingen
             );
-
             vulKeuzelijst(
               materialOptionsElement,
               beschikbareMaterialen
@@ -1810,82 +1754,526 @@ function zoekEersteHerkenbareNaam(
 
             filterOptionsLoaded = true;
 
+            const extraMelding =
+              mislukteBlokken > 0
+                ? " Enkele modeldelen konden niet worden gelezen."
+                : "";
+
             zetFilterStatus(
               profileStatusElement,
-              beschikbareProfielen.length > 0
-                ? beschikbareProfielen.length +
-                  " uniek(e) profiel(en) gevonden. Klik in het veld of begin te typen."
-                : "Geen herkenbare profielen gevonden. Handmatig typen blijft mogelijk.",
-              beschikbareProfielen.length > 0
-                ? ""
-                : "error"
+              beschikbareProfielen.length +
+                " uniek(e) profiel(en) gevonden." +
+                extraMelding,
+              beschikbareProfielen.length ? "" : "error"
             );
-
             zetFilterStatus(
               finishStatusElement,
-              beschikbareAfwerkingen.length > 0
-                ? beschikbareAfwerkingen.length +
-                  " unieke afwerking(en) gevonden. Klik in het veld of begin te typen."
-                : "Geen herkenbare afwerkingen gevonden. Handmatig typen blijft mogelijk.",
-              beschikbareAfwerkingen.length > 0
-                ? ""
-                : "error"
+              beschikbareAfwerkingen.length +
+                " unieke afwerking(en) gevonden." +
+                extraMelding,
+              beschikbareAfwerkingen.length ? "" : "error"
             );
-
             zetFilterStatus(
               materialStatusElement,
-              beschikbareMaterialen.length > 0
-                ? beschikbareMaterialen.length +
-                  " unieke staalklasse(n)/materiaalwaarden gevonden. Klik in het veld of begin te typen."
-                : "Geen herkenbare staalklassen gevonden. Handmatig typen blijft mogelijk.",
-              beschikbareMaterialen.length > 0
-                ? ""
-                : "error"
+              beschikbareMaterialen.length +
+                " unieke materiaal-/staalklassewaarden gevonden." +
+                extraMelding,
+              beschikbareMaterialen.length ? "" : "error"
             );
-
-            return {
-              profiles: beschikbareProfielen,
-              finishes: beschikbareAfwerkingen,
-              materials: beschikbareMaterialen
-            };
           } catch (error) {
-            console.error(
-              "Modelwaarden laden mislukt:",
-              error
-            );
+            console.error("Modelwaarden laden mislukt:", error);
 
             const foutTekst =
-              "Automatisch inlezen is mislukt. Handmatig typen blijft mogelijk.";
+              "De keuzelijst kon niet volledig worden opgebouwd. " +
+              "Handmatig typen en zoeken blijft mogelijk.";
 
-            zetFilterStatus(
-              profileStatusElement,
-              foutTekst,
-              "error"
-            );
-
-            zetFilterStatus(
-              finishStatusElement,
-              foutTekst,
-              "error"
-            );
-
-            zetFilterStatus(
-              materialStatusElement,
-              foutTekst,
-              "error"
-            );
-
-            return {
-              profiles: [],
-              finishes: [],
-              materials: []
-            };
+            zetFilterStatus(profileStatusElement, foutTekst, "error");
+            zetFilterStatus(finishStatusElement, foutTekst, "error");
+            zetFilterStatus(materialStatusElement, foutTekst, "error");
           } finally {
             filterOptionsLoadingPromise = null;
           }
         })();
 
       return filterOptionsLoadingPromise;
+    }
+
+    function leesLengteInMillimeter(waarde) {
+      const tekst = String(waarde ?? "")
+        .trim()
+        .toLocaleLowerCase("nl-BE")
+        .replace(/,/g, ".");
+
+      const match = tekst.match(/-?\d+(?:\.\d+)?/);
+      if (!match) {
+        return null;
+      }
+
+      let getal = Number(match[0]);
+      if (!Number.isFinite(getal)) {
+        return null;
+      }
+
+      if (/\bcm\b/.test(tekst)) {
+        getal *= 10;
+      } else if (/\bm\b/.test(tekst) && !/\bmm\b/.test(tekst)) {
+        getal *= 1000;
+      }
+
+      return getal;
+    }
+
+    function waardeVoldoetAanCriterium(criteriumKey, propertyWaarde, zoekwaarde) {
+      if (criteriumKey === "profile") {
+        const profielWaarde = normaliseerProfiel(propertyWaarde);
+        const profielZoekwaarde = normaliseerProfiel(zoekwaarde);
+
+        return profielZoekwaarde !== "" &&
+          profielWaarde.includes(profielZoekwaarde);
+      }
+
+      if (criteriumKey === "length") {
+        const gevondenLengte = leesLengteInMillimeter(propertyWaarde);
+        const gevraagdeLengte = leesLengteInMillimeter(zoekwaarde);
+
+        return gevondenLengte !== null &&
+          gevraagdeLengte !== null &&
+          Math.abs(gevondenLengte - gevraagdeLengte) <= 10;
+      }
+
+      return normaliseerTekst(propertyWaarde)
+        .includes(normaliseerTekst(zoekwaarde));
+    }
+
+    function haalPropertyMatches(
+      objectProperties,
+      gewensteNamen,
+      zoekwaarde,
+      criteriumKey
+    ) {
+      const resultaten = [];
+      const propertySets = Array.isArray(objectProperties.properties)
+        ? objectProperties.properties
+        : [];
+
+      for (const propertySet of propertySets) {
+        const setName = String(propertySet.set || "").trim();
+        const properties = Array.isArray(propertySet.properties)
+          ? propertySet.properties
+          : [];
+
+        for (const property of properties) {
+          const propertyName = String(property.name || "").trim();
+          const fullName = setName ? setName + "." + propertyName : propertyName;
+          const naamPast = gewensteNamen.some(function(naam) {
+            return normaliseerTekst(naam) === normaliseerTekst(propertyName) ||
+              normaliseerTekst(naam) === normaliseerTekst(fullName);
+          });
+
+          if (!naamPast) continue;
+
+          const value = String(property.value ?? "").trim();
+
+          if (waardeVoldoetAanCriterium(criteriumKey, value, zoekwaarde)) {
+            resultaten.push({
+              setName: setName,
+              propertyName: propertyName,
+              value: value
+            });
+          }
+        }
+      }
+
+      return resultaten;
+    }
+
+    function objectVoldoetAanElementCriteria(objectProperties, actieveCriteria) {
+      const gevonden = [];
+
+      for (const criterium of actieveCriteria) {
+        const matches = haalPropertyMatches(
+          objectProperties,
+          criterium.names,
+          criterium.value,
+          criterium.key
+        );
+
+        if (matches.length === 0) return null;
+
+        gevonden.push({
+          label: criterium.label,
+          ingevoerd: criterium.value,
+          match: matches[0]
+        });
+      }
+
+      return gevonden;
+    }
+
+    function haalCastUnitMarkUitProperties(objectProperties) {
+      return zoekPropertyWaarde(
+        objectProperties,
+        markPropertyNames
+      );
+    }
+
+    async function zoekAssemblyVoorElement(modelId, runtimeId) {
+      const cacheSleutel =
+        maakCacheSleutel(modelId, runtimeId);
+
+      if (assemblyLookupCache.has(cacheSleutel)) {
+        return assemblyLookupCache.get(cacheSleutel);
+      }
+
+      let assembly = null;
+
+      try {
+        const ouders =
+          await API.viewer.getHierarchyParents(
+            modelId,
+            [runtimeId],
+            ASSEMBLY_HIERARCHY_TYPE,
+            true
+          );
+
+        const parentIds = Array.isArray(ouders)
+          ? ouders
+              .map(function(parent) {
+                return parent && parent.id;
+              })
+              .filter(function(id) {
+                return id !== null && id !== undefined;
+              })
+          : [];
+
+        if (parentIds.length > 0) {
+          const parentProperties =
+            await haalPropertiesEfficient(
+              modelId,
+              parentIds,
+              false
+            );
+
+          for (const objectProperties of parentProperties) {
+            const mark =
+              haalCastUnitMarkUitProperties(
+                objectProperties
+              );
+
+            if (!mark) {
+              continue;
+            }
+
+            const assemblyRuntimeId =
+              haalRuntimeIdUitProperties(
+                objectProperties
+              );
+
+            if (
+              assemblyRuntimeId === null ||
+              assemblyRuntimeId === undefined
+            ) {
+              continue;
+            }
+
+            assembly = {
+              modelId: modelId,
+              runtimeId: assemblyRuntimeId,
+              mark: String(mark).trim()
+            };
+
+            break;
+          }
+        }
+      } catch (error) {
+        console.warn(
+          "Assembly voor element bepalen mislukt:",
+          error
+        );
+      }
+
+      /*
+       * Fallback: sommige IFC-exporten zetten de assemblymark
+       * ook rechtstreeks op het onderdeel.
+       */
+      if (!assembly) {
+        const objectProperties =
+          objectPropertiesCache.get(cacheSleutel);
+
+        const mark = objectProperties
+          ? haalCastUnitMarkUitProperties(objectProperties)
+          : null;
+
+        if (mark) {
+          assembly = {
+            modelId: modelId,
+            runtimeId: runtimeId,
+            mark: String(mark).trim()
+          };
+        }
+      }
+
+      assemblyLookupCache.set(
+        cacheSleutel,
+        assembly
+      );
+
+      return assembly;
+    }
+
+    async function koppelResultatenAanAssemblies(details) {
+      const resultaat = new Array(details.length);
+      let volgendeIndex = 0;
+
+      async function worker() {
+        while (true) {
+          const index = volgendeIndex++;
+
+          if (index >= details.length) {
+            return;
+          }
+
+          const detail = details[index];
+          const assembly =
+            await zoekAssemblyVoorElement(
+              detail.modelId,
+              detail.runtimeId
+            );
+
+          resultaat[index] = {
+            ...detail,
+            assembly: assembly
+          };
+
+          elementResultElement.textContent =
+            "Bijbehorende merken/assemblies bepalen...\\n" +
+            (index + 1) +
+            " van " +
+            details.length +
+            " onderdelen verwerkt.";
+        }
+      }
+
+      const workerAantal = Math.min(
+        MAX_PARALLEL_ASSEMBLY_LOOKUPS,
+        details.length
+      );
+
+      await Promise.all(
+        Array.from(
+          { length: workerAantal },
+          function() {
+            return worker();
+          }
+        )
+      );
+
+      return resultaat;
+    }
+
+    function toonElementResultaten(gevondenDetails, actieveCriteria) {
+      elementResultElement.innerHTML = "";
+
+      const assemblyGroepen = new Map();
+      const zonderAssembly = [];
+
+      gevondenDetails.forEach(function(detail) {
+        if (!detail.assembly || !detail.assembly.mark) {
+          zonderAssembly.push(detail);
+          return;
+        }
+
+        const sleutel =
+          String(detail.assembly.modelId) +
+          "|" +
+          String(detail.assembly.runtimeId);
+
+        if (!assemblyGroepen.has(sleutel)) {
+          assemblyGroepen.set(sleutel, {
+            modelId: detail.assembly.modelId,
+            runtimeId: detail.assembly.runtimeId,
+            mark: detail.assembly.mark,
+            onderdelen: []
+          });
+        }
+
+        assemblyGroepen
+          .get(sleutel)
+          .onderdelen
+          .push(detail);
+      });
+
+      const assemblies =
+        Array.from(assemblyGroepen.values())
+          .sort(function(a, b) {
+            return a.mark.localeCompare(
+              b.mark,
+              "nl-BE",
+              {
+                numeric: true,
+                sensitivity: "base"
+              }
+            );
+          });
+
+      const titel = document.createElement("div");
+      titel.className = "result-title";
+      titel.textContent =
+        assemblies.length +
+        " merk(en)/assembly('s) gevonden";
+      elementResultElement.appendChild(titel);
+
+      assemblies.forEach(function(assembly) {
+        const detailsElement =
+          document.createElement("details");
+
+        detailsElement.className =
+          "search-result";
+
+        const summary =
+          document.createElement("summary");
+
+        summary.className =
+          "search-result-summary";
+
+        summary.textContent =
+          assembly.mark +
+          " — " +
+          assembly.onderdelen.length +
+          " passend(e) onderdeel/onderdelen";
+
+        summary.addEventListener(
+          "click",
+          async function() {
+            try {
+              await selecteerEnZoomNaarEenObject(
+                assembly.modelId,
+                assembly.runtimeId
+              );
+            } catch (error) {
+              console.error(
+                "Assembly selecteren mislukt:",
+                error
+              );
+            }
+          }
+        );
+
+        const inhoud =
+          document.createElement("div");
+
+        inhoud.className =
+          "search-result-details";
+
+        const assemblyInfo =
+          document.createElement("div");
+
+        assemblyInfo.className = "match-info";
+        assemblyInfo.style.fontWeight = "bold";
+        assemblyInfo.textContent =
+          "Merk / Cast Unit Mark: " +
+          assembly.mark;
+
+        inhoud.appendChild(assemblyInfo);
+
+        const knop =
+          document.createElement("button");
+
+        knop.type = "button";
+        knop.textContent =
+          "Selecteer merk/assembly " +
+          assembly.mark;
+
+        knop.style.marginBottom = "10px";
+
+        knop.addEventListener(
+          "click",
+          async function(event) {
+            event.stopPropagation();
+
+            await selecteerEnZoomNaarEenObject(
+              assembly.modelId,
+              assembly.runtimeId
+            );
+          }
+        );
+
+        inhoud.appendChild(knop);
+
+        assembly.onderdelen.forEach(
+          function(detail, index) {
+            const blok =
+              document.createElement("div");
+
+            blok.className = "match-info";
+
+            const kop =
+              document.createElement("div");
+
+            kop.style.fontWeight = "bold";
+            kop.style.marginBottom = "8px";
+            kop.textContent =
+              "Passend onderdeel " +
+              (index + 1);
+
+            blok.appendChild(kop);
+
+            detail.criteriaMatches.forEach(
+              function(item) {
+                const regel =
+                  document.createElement("div");
+
+                regel.style.marginBottom = "5px";
+                regel.textContent =
+                  item.label +
+                  ": " +
+                  item.match.value;
+
+                blok.appendChild(regel);
+              }
+            );
+
+            inhoud.appendChild(blok);
+          }
+        );
+
+        detailsElement.appendChild(summary);
+        detailsElement.appendChild(inhoud);
+        elementResultElement.appendChild(
+          detailsElement
+        );
+      });
+
+      if (zonderAssembly.length > 0) {
+        const waarschuwing =
+          document.createElement("div");
+
+        waarschuwing.className = "result-info";
+        waarschuwing.textContent =
+          zonderAssembly.length +
+          " passend(e) onderdeel/onderdelen konden niet aan een merk/assembly met Cast Unit Mark worden gekoppeld.";
+
+        elementResultElement.appendChild(
+          waarschuwing
+        );
+      }
+
+      const info = document.createElement("div");
+      info.className = "result-info";
+      info.textContent =
+        "Gecombineerde voorwaarden: " +
+        actieveCriteria
+          .map(function(item) {
+            return item.label + " = " + item.value;
+          })
+          .join(", ") +
+        ". De resultaten worden weergegeven en geselecteerd als merk/assembly.";
+
+      elementResultElement.appendChild(info);
+    }
+
+    function maakCacheSleutel(modelId, runtimeId) {
+      return String(modelId) + "|" + String(runtimeId);
     }
 
     function haalRuntimeIdUitProperties(objectProperties) {
@@ -1897,14 +2285,101 @@ function zoekEersteHerkenbareNaam(
       );
     }
 
-    async function voerMetConcurrencyUit(taken, maximum, uitvoerder, toonVoortgang = true) {
+    async function wachtEven(ms) {
+      return new Promise(function(resolve) {
+        setTimeout(resolve, ms);
+      });
+    }
+
+    async function haalPropertyBatchMetHerstel(
+      modelId,
+      runtimeIds,
+      retry = 0
+    ) {
+      try {
+        const properties =
+          await API.viewer.getObjectProperties(
+            modelId,
+            runtimeIds
+          );
+
+        return {
+          properties:
+            Array.isArray(properties)
+              ? properties
+              : [],
+          mislukteBlokken: 0
+        };
+      } catch (error) {
+        console.warn(
+          "Propertyblok mislukt:",
+          runtimeIds.length,
+          error
+        );
+
+        if (retry < PROPERTY_REQUEST_RETRIES) {
+          await wachtEven(250 * (retry + 1));
+
+          return haalPropertyBatchMetHerstel(
+            modelId,
+            runtimeIds,
+            retry + 1
+          );
+        }
+
+        /* Split een te zwaar blok op in kleinere stukken. */
+        if (runtimeIds.length > 40) {
+          const midden =
+            Math.ceil(runtimeIds.length / 2);
+
+          const links =
+            await haalPropertyBatchMetHerstel(
+              modelId,
+              runtimeIds.slice(0, midden),
+              retry + 1
+            );
+
+          const rechts =
+            await haalPropertyBatchMetHerstel(
+              modelId,
+              runtimeIds.slice(midden),
+              retry + 1
+            );
+
+          return {
+            properties:
+              links.properties.concat(
+                rechts.properties
+              ),
+            mislukteBlokken:
+              links.mislukteBlokken +
+              rechts.mislukteBlokken
+          };
+        }
+
+        return {
+          properties: [],
+          mislukteBlokken: 1
+        };
+      }
+    }
+
+    async function voerMetConcurrencyUit(
+      taken,
+      maximum,
+      uitvoerder,
+      toonVoortgang = true
+    ) {
       let volgendeIndex = 0;
       let voltooid = 0;
 
       async function worker() {
         while (true) {
           const index = volgendeIndex++;
-          if (index >= taken.length) return;
+
+          if (index >= taken.length) {
+            return;
+          }
 
           await uitvoerder(taken[index], index);
           voltooid++;
@@ -1912,26 +2387,41 @@ function zoekEersteHerkenbareNaam(
           if (toonVoortgang) {
             elementResultElement.textContent =
               "Elementen analyseren...\n" +
-              voltooid + " van " + taken.length + " delen verwerkt.";
+              voltooid +
+              " van " +
+              taken.length +
+              " delen verwerkt.";
           }
         }
       }
 
-      const aantalWorkers = Math.min(maximum, taken.length);
+      const aantalWorkers =
+        Math.min(maximum, taken.length);
+
       await Promise.all(
-        Array.from({ length: aantalWorkers }, function() {
-          return worker();
-        })
+        Array.from(
+          { length: aantalWorkers },
+          function() {
+            return worker();
+          }
+        )
       );
     }
 
-    async function haalPropertiesEfficient(modelId, runtimeIds, toonVoortgang = true) {
+    async function haalPropertiesEfficient(
+      modelId,
+      runtimeIds,
+      toonVoortgang = true
+    ) {
       const gevonden = [];
       const ontbrekendeIds = [];
 
       runtimeIds.forEach(function(runtimeId) {
-        const cacheSleutel = maakCacheSleutel(modelId, runtimeId);
-        const cached = objectPropertiesCache.get(cacheSleutel);
+        const cacheSleutel =
+          maakCacheSleutel(modelId, runtimeId);
+
+        const cached =
+          objectPropertiesCache.get(cacheSleutel);
 
         if (cached) {
           gevonden.push(cached);
@@ -1940,51 +2430,69 @@ function zoekEersteHerkenbareNaam(
         }
       });
 
-      const batches = verdeelInGroepen(
-        ontbrekendeIds,
-        PROPERTY_BATCH_SIZE
-      );
+      const batches =
+        verdeelInGroepen(
+          ontbrekendeIds,
+          PROPERTY_BATCH_SIZE
+        );
+
+      let mislukteBlokken = 0;
 
       if (batches.length > 0) {
-        const batchResultaten = new Array(batches.length);
+        const batchResultaten =
+          new Array(batches.length);
 
         await voerMetConcurrencyUit(
           batches,
           MAX_PARALLEL_REQUESTS,
           async function(batch, batchIndex) {
-            const properties =
-              await API.viewer.getObjectProperties(
+            batchResultaten[batchIndex] =
+              await haalPropertyBatchMetHerstel(
                 modelId,
                 batch
               );
-
-            batchResultaten[batchIndex] =
-              Array.isArray(properties) ? properties : [];
           },
           toonVoortgang
         );
 
-        batchResultaten.forEach(function(properties) {
-          properties.forEach(function(objectProperties) {
-            const runtimeId =
-              haalRuntimeIdUitProperties(objectProperties);
+        batchResultaten.forEach(function(resultaat) {
+          if (!resultaat) {
+            return;
+          }
 
-            if (
-              runtimeId !== null &&
-              runtimeId !== undefined
-            ) {
-              objectPropertiesCache.set(
-                maakCacheSleutel(modelId, runtimeId),
-                objectProperties
-              );
+          mislukteBlokken +=
+            resultaat.mislukteBlokken;
+
+          resultaat.properties.forEach(
+            function(objectProperties) {
+              const runtimeId =
+                haalRuntimeIdUitProperties(
+                  objectProperties
+                );
+
+              if (
+                runtimeId !== null &&
+                runtimeId !== undefined
+              ) {
+                objectPropertiesCache.set(
+                  maakCacheSleutel(
+                    modelId,
+                    runtimeId
+                  ),
+                  objectProperties
+                );
+              }
+
+              gevonden.push(objectProperties);
             }
-
-            gevonden.push(objectProperties);
-          });
+          );
         });
       }
 
-      return gevonden;
+      return {
+        properties: gevonden,
+        mislukteBlokken: mislukteBlokken
+      };
     }
 
     async function zoekKandidatenOpCastUnitMark(mark) {
@@ -2116,11 +2624,14 @@ function zoekEersteHerkenbareNaam(
             runtimeIds.length +
             " kandidaat-element(en).";
 
-          const properties =
+          const propertyResultaat =
             await haalPropertiesEfficient(
               model.modelId,
               runtimeIds
             );
+
+          const properties =
+            propertyResultaat.properties;
 
           for (const objectProperties of properties) {
             const criteriaMatches =
@@ -2377,13 +2888,9 @@ function zoekEersteHerkenbareNaam(
       });
 
     document.getElementById("open-elements-button")
-      .addEventListener("click", async function() {
+      .addEventListener("click", function() {
         toonView("elements");
         markInput.focus();
-
-        if (API) {
-          await laadBeschikbareFilterWaarden();
-        }
       });
 
     document.getElementById("back-from-general")
