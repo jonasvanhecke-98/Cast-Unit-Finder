@@ -132,6 +132,12 @@
     }
 
 
+    .field-divider {
+      height: 1px;
+      margin: 18px 0;
+      background: #d8dadd;
+    }
+
     .field-indent {
       margin-left: 24px;
       padding-left: 12px;
@@ -447,6 +453,12 @@
     .error {
       color: #b42318 !important;
     }
+      .legend-panel,
+    .legend-title,
+    .legend-item,
+    .legend-row {
+      display: none !important;
+    }
   </style>
 </head>
 
@@ -504,6 +516,42 @@
 
       <button id="general-search-button" class="single-button" type="button" disabled>
         Algemeen zoeken
+      </button>
+
+      <div class="field-divider"></div>
+
+      <label for="altez-parameter-search">ALTEZ-parameter</label>
+
+      <p class="small-info">
+        Je kunt alleen een zoektekst invullen, alleen een ALTEZ-parameter kiezen,
+        of beide combineren. Bij een combinatie wordt de zoektekst alleen binnen
+        de gekozen parameter gezocht.
+      </p>
+
+      <div class="profile-combobox">
+        <input
+          id="altez-parameter-search"
+          type="text"
+          list="altez-parameter-options"
+          placeholder="Klik of begin de parameternaam te typen"
+          autocomplete="off"
+          spellcheck="false"
+        >
+      </div>
+
+      <datalist id="altez-parameter-options"></datalist>
+
+      <div id="altez-parameter-status" class="profile-status">
+        Klik in het veld om de aanwezige ALTEZ-parameters in te lezen.
+      </div>
+
+      <button
+        id="altez-parameter-search-button"
+        class="single-button"
+        type="button"
+        disabled
+      >
+        Zoeken met ALTEZ-parameter
       </button>
 
       <button id="general-clear-button" class="secondary single-button" type="button" disabled>
@@ -736,6 +784,10 @@
     let beschikbareAfwerkingen = [];
     let beschikbareMaterialen = [];
 
+    let altezParametersLoaded = false;
+    let altezParametersLoadingPromise = null;
+    let beschikbareAltezParameters = [];
+
     const assemblyLookupCache = new Map();
     const ASSEMBLY_HIERARCHY_TYPE = 4;
     const MAX_PARALLEL_ASSEMBLY_LOOKUPS = 8;
@@ -749,9 +801,21 @@
     const generalInput =
       document.getElementById("general-search");
 
+    const altezParameterInput =
+      document.getElementById("altez-parameter-search");
+
+    const altezParameterOptionsElement =
+      document.getElementById("altez-parameter-options");
+
+    const altezParameterStatusElement =
+      document.getElementById("altez-parameter-status");
+
 
     const generalSearchButton =
       document.getElementById("general-search-button");
+
+    const altezParameterSearchButton =
+      document.getElementById("altez-parameter-search-button");
 
     const generalClearButton =
       document.getElementById("general-clear-button");
@@ -936,6 +1000,27 @@
         .replace(/[^a-z0-9]/g, "");
     }
 
+    const ALTEZ_PROPERTY_SET_NAMES = [
+      "ALTEZ_CODERING",
+      "ALTEZ_HOEVEELHEID",
+      "ALTEZ_IFC"
+    ];
+
+    function normaliseerPropertySetVoorAltez(waarde) {
+      return String(waarde || "")
+        .trim()
+        .replace(/[\s-]+/g, "_")
+        .toLocaleUpperCase("nl-BE");
+    }
+
+    function isAltezPropertySet(setName) {
+      return ALTEZ_PROPERTY_SET_NAMES.includes(
+        normaliseerPropertySetVoorAltez(
+          setName
+        )
+      );
+    }
+
     function normaliseerTekst(waarde) {
       return String(waarde ?? "")
         .trim()
@@ -1041,6 +1126,7 @@
         statusElement.classList.add("success");
 
         generalSearchButton.disabled = false;
+        altezParameterSearchButton.disabled = false;
         elementSearchButton.disabled = false;
       } catch (error) {
         console.error(
@@ -1594,52 +1680,9 @@ function bepaalAlgemeneZoekgroep(
       createdMarkupIds = [];
     }
 
-    function renderLegend(container, groups) {
-      container.innerHTML = "";
-
-      const title =
-        document.createElement("div");
-
-      title.className = "legend-title";
-      title.textContent = "Legenda";
-
-      container.appendChild(title);
-
-      groups.forEach(function(group) {
-        const row =
-          document.createElement("div");
-
-        row.className = "legend-row";
-
-        const swatch =
-          document.createElement("span");
-
-        swatch.className = "legend-swatch";
-        swatch.style.backgroundColor =
-          group.color.hex;
-
-        const name =
-          document.createElement("span");
-
-        name.textContent = group.value;
-
-        const count =
-          document.createElement("span");
-
-        count.textContent =
-          group.elementen.length;
-
-        row.appendChild(swatch);
-        row.appendChild(name);
-        row.appendChild(count);
-
-        container.appendChild(row);
-      });
-    }
 
     async function colorGeneralGroups(
       groups,
-      legend,
       status
     ) {
       await resetGeneralColors();
@@ -2388,6 +2431,528 @@ function bepaalAlgemeneZoekgroep(
       refreshSavedSearches();
     }
 
+
+    function vindAltezPropertyWaarde(
+      objectProperties,
+      parameterNaam
+    ) {
+      const gewensteNaam =
+        normaliseerTekst(
+          parameterNaam
+        );
+
+      const propertySets =
+        Array.isArray(objectProperties.properties)
+          ? objectProperties.properties
+          : [];
+
+      for (const propertySet of propertySets) {
+        const setName =
+          String(propertySet.set || "").trim();
+
+        if (!isAltezPropertySet(setName)) {
+          continue;
+        }
+
+        const properties =
+          Array.isArray(propertySet.properties)
+            ? propertySet.properties
+            : [];
+
+        for (const property of properties) {
+          const propertyName =
+            String(property.name || "").trim();
+
+          if (
+            normaliseerTekst(propertyName) !==
+            gewensteNaam
+          ) {
+            continue;
+          }
+
+          const value =
+            property.value;
+
+          if (Array.isArray(value)) {
+            return value
+              .map(function(item) {
+                return String(item ?? "").trim();
+              })
+              .filter(Boolean)
+              .join(", ");
+          }
+
+          if (
+            value &&
+            typeof value === "object"
+          ) {
+            try {
+              return JSON.stringify(value);
+            } catch (error) {
+              return String(value);
+            }
+          }
+
+          return String(value ?? "").trim();
+        }
+      }
+
+      return null;
+    }
+
+    async function laadBeschikbareAltezParameters() {
+      if (altezParametersLoaded) {
+        return beschikbareAltezParameters;
+      }
+
+      if (altezParametersLoadingPromise) {
+        return altezParametersLoadingPromise;
+      }
+
+      altezParametersLoadingPromise =
+        (async function() {
+          altezParameterStatusElement.textContent =
+            "Aanwezige ALTEZ-parameters inlezen...";
+
+          altezParameterStatusElement.className =
+            "profile-status loading";
+
+          try {
+            const modellen =
+              await haalAlleModelObjecten();
+
+            const parameterMap =
+              new Map();
+
+            for (
+              let modelIndex = 0;
+              modelIndex < modellen.length;
+              modelIndex++
+            ) {
+              const model =
+                modellen[modelIndex];
+
+              const runtimeIds =
+                haalObjecten(model)
+                  .map(haalRuntimeId)
+                  .filter(function(id) {
+                    return (
+                      id !== null &&
+                      id !== undefined
+                    );
+                  });
+
+              if (runtimeIds.length === 0) {
+                continue;
+              }
+
+              altezParameterStatusElement.textContent =
+                "ALTEZ-parameters analyseren: model " +
+                (modelIndex + 1) +
+                " van " +
+                modellen.length +
+                "...";
+
+              const resultaat =
+                await haalPropertiesEfficient(
+                  model.modelId,
+                  runtimeIds,
+                  false
+                );
+
+              const properties =
+                resultaat &&
+                Array.isArray(
+                  resultaat.properties
+                )
+                  ? resultaat.properties
+                  : [];
+
+              properties.forEach(
+                function(objectProperties) {
+                  const propertySets =
+                    Array.isArray(
+                      objectProperties.properties
+                    )
+                      ? objectProperties.properties
+                      : [];
+
+                  propertySets.forEach(
+                    function(propertySet) {
+                      const setName =
+                        String(
+                          propertySet.set || ""
+                        ).trim();
+
+                      if (
+                        !isAltezPropertySet(
+                          setName
+                        )
+                      ) {
+                        return;
+                      }
+
+                      const setProperties =
+                        Array.isArray(
+                          propertySet.properties
+                        )
+                          ? propertySet.properties
+                          : [];
+
+                      setProperties.forEach(
+                        function(property) {
+                          const propertyName =
+                            String(
+                              property.name || ""
+                            ).trim();
+
+                          if (!propertyName) {
+                            return;
+                          }
+
+                          const sleutel =
+                            normaliseerTekst(
+                              propertyName
+                            );
+
+                          if (
+                            !parameterMap.has(
+                              sleutel
+                            )
+                          ) {
+                            parameterMap.set(
+                              sleutel,
+                              propertyName
+                            );
+                          }
+                        }
+                      );
+                    }
+                  );
+                }
+              );
+
+              await new Promise(
+                function(resolve) {
+                  setTimeout(resolve, 0);
+                }
+              );
+            }
+
+            beschikbareAltezParameters =
+              Array.from(
+                parameterMap.values()
+              ).sort(
+                function(a, b) {
+                  return a.localeCompare(
+                    b,
+                    "nl-BE",
+                    {
+                      numeric: true,
+                      sensitivity: "base"
+                    }
+                  );
+                }
+              );
+
+            altezParameterOptionsElement.innerHTML =
+              "";
+
+            const fragment =
+              document.createDocumentFragment();
+
+            beschikbareAltezParameters.forEach(
+              function(parameterNaam) {
+                const option =
+                  document.createElement(
+                    "option"
+                  );
+
+                option.value =
+                  parameterNaam;
+
+                fragment.appendChild(
+                  option
+                );
+              }
+            );
+
+            altezParameterOptionsElement.appendChild(
+              fragment
+            );
+
+            altezParametersLoaded = true;
+
+            if (
+              beschikbareAltezParameters.length >
+              0
+            ) {
+              altezParameterStatusElement.textContent =
+                beschikbareAltezParameters.length +
+                " aanwezige ALTEZ-parameter(s) gevonden.";
+
+              altezParameterStatusElement.className =
+                "profile-status";
+            } else {
+              altezParameterStatusElement.textContent =
+                "Geen parameters gevonden in Altez_Codering, Altez_Hoeveelheid of ALTEZ_IFC.";
+
+              altezParameterStatusElement.className =
+                "profile-status error";
+            }
+
+            return beschikbareAltezParameters;
+          } catch (error) {
+            console.error(
+              "ALTEZ-parameters inlezen mislukt:",
+              error
+            );
+
+            altezParameterStatusElement.textContent =
+              "De ALTEZ-parameters konden niet worden ingelezen.";
+
+            altezParameterStatusElement.className =
+              "profile-status error";
+
+            return [];
+          } finally {
+            altezParametersLoadingPromise =
+              null;
+          }
+        })();
+
+      return altezParametersLoadingPromise;
+    }
+
+    async function zoekOpAltezParameter() {
+      const parameterNaam =
+        altezParameterInput.value.trim();
+
+      const zoektekstOrigineel =
+        generalInput.value.trim();
+
+      const zoektekst =
+        normaliseerAlgemeneZoektekst(
+          zoektekstOrigineel
+        );
+
+      if (
+        !parameterNaam &&
+        !zoektekstOrigineel
+      ) {
+        generalResultElement.textContent =
+          "Vul een zoektekst in, kies een ALTEZ-parameter, of gebruik beide.";
+        return;
+      }
+
+      /*
+       * Zonder gekozen ALTEZ-parameter blijft de gewone algemene
+       * zoekfunctie actief.
+       */
+      if (!parameterNaam) {
+        await algemeenZoeken();
+        return;
+      }
+
+      generalSearchButton.disabled = true;
+      altezParameterSearchButton.disabled =
+        true;
+      generalClearButton.disabled = true;
+
+      generalResultElement.textContent =
+        zoektekstOrigineel
+          ? "Zoeken naar \"" +
+            zoektekstOrigineel +
+            "\" binnen ALTEZ-parameter \"" +
+            parameterNaam +
+            "\"..."
+          : "Alle objecten groeperen op ALTEZ-parameter \"" +
+            parameterNaam +
+            "\"...";
+
+      try {
+        if (!altezParametersLoaded) {
+          await laadBeschikbareAltezParameters();
+        }
+
+        const modellen =
+          await haalAlleModelObjecten();
+
+        const gevondenDetails = [];
+
+        for (
+          let modelIndex = 0;
+          modelIndex < modellen.length;
+          modelIndex++
+        ) {
+          const model =
+            modellen[modelIndex];
+
+          const runtimeIds =
+            haalObjecten(model)
+              .map(haalRuntimeId)
+              .filter(function(id) {
+                return (
+                  id !== null &&
+                  id !== undefined
+                );
+              });
+
+          if (runtimeIds.length === 0) {
+            continue;
+          }
+
+          generalResultElement.textContent =
+            zoektekstOrigineel
+              ? "Zoeken binnen ALTEZ-parameter \"" +
+                parameterNaam +
+                "\"...\nModel " +
+                (modelIndex + 1) +
+                " van " +
+                modellen.length
+              : "ALTEZ-parameter \"" +
+                parameterNaam +
+                "\" analyseren...\nModel " +
+                (modelIndex + 1) +
+                " van " +
+                modellen.length;
+
+          const resultaat =
+            await haalPropertiesEfficient(
+              model.modelId,
+              runtimeIds,
+              false
+            );
+
+          const properties =
+            resultaat &&
+            Array.isArray(
+              resultaat.properties
+            )
+              ? resultaat.properties
+              : [];
+
+          properties.forEach(
+            function(objectProperties) {
+              const runtimeId =
+                objectProperties.id ??
+                objectProperties.runtimeId ??
+                objectProperties.objectRuntimeId;
+
+              if (
+                runtimeId === null ||
+                runtimeId === undefined
+              ) {
+                return;
+              }
+
+              const waarde =
+                vindAltezPropertyWaarde(
+                  objectProperties,
+                  parameterNaam
+                );
+
+              const heeftWaarde =
+                waarde !== null &&
+                waarde !== undefined &&
+                String(waarde).trim() !== "";
+
+              const zichtbareWaarde =
+                heeftWaarde
+                  ? String(waarde).trim()
+                  : "Niet ingevuld / parameter ontbreekt";
+
+              /*
+               * Alleen parameter gekozen:
+               * elk object komt in de groep van zijn parameterwaarde.
+               *
+               * Parameter + zoektekst:
+               * alleen waarden die de zoektekst bevatten worden als
+               * eigen groep getoond; de overige objecten komen in een
+               * duidelijke groep zonder overeenkomst.
+               */
+              let matchValue =
+                zichtbareWaarde;
+
+              let matchType =
+                heeftWaarde
+                  ? "parameterName"
+                  : "missing";
+
+              if (zoektekstOrigineel) {
+                const waardePast =
+                  heeftWaarde &&
+                  normaliseerAlgemeneZoektekst(
+                    zichtbareWaarde
+                  ).includes(
+                    zoektekst
+                  );
+
+                if (!waardePast) {
+                  matchValue =
+                    "Geen overeenkomst met zoekopdracht";
+
+                  matchType =
+                    "noMatch";
+                }
+              }
+
+              gevondenDetails.push({
+                modelId: model.modelId,
+                runtimeId: runtimeId,
+                objectProperties:
+                  objectProperties,
+                matches: [
+                  {
+                    setName:
+                      "ALTEZ",
+                    propertyName:
+                      parameterNaam,
+                    value:
+                      matchValue,
+                    matchType:
+                      matchType
+                  }
+                ]
+              });
+            }
+          );
+        }
+
+        if (gevondenDetails.length === 0) {
+          generalResultElement.textContent =
+            "Er konden geen objecteigenschappen worden ingelezen.";
+          return;
+        }
+
+        const titel =
+          zoektekstOrigineel
+            ? parameterNaam +
+              " bevat " +
+              zoektekstOrigineel
+            : parameterNaam;
+
+        toonAlgemeneZoekresultaten(
+          titel,
+          gevondenDetails
+        );
+
+        generalClearButton.disabled = false;
+      } catch (error) {
+        console.error(
+          "Zoeken met ALTEZ-parameter mislukt:",
+          error
+        );
+
+        generalResultElement.textContent =
+          "Zoeken met de ALTEZ-parameter is mislukt.";
+      } finally {
+        generalSearchButton.disabled = false;
+        altezParameterSearchButton.disabled =
+          false;
+      }
+    }
+
     function toonAlgemeneZoekresultaten(
       zoektekstOrigineel,
       gevondenDetails
@@ -2595,10 +3160,6 @@ function bepaalAlgemeneZoekgroep(
       legend.className =
         "legend-panel";
 
-      renderLegend(
-        legend,
-        gesorteerdeGroepen
-      );
 
       colorButton.addEventListener(
         "click",
@@ -2608,7 +3169,6 @@ function bepaalAlgemeneZoekgroep(
           try {
             await colorGeneralGroups(
               gesorteerdeGroepen,
-              null,
               organizerStatus
             );
           } catch (error) {
@@ -3105,10 +3665,6 @@ function bepaalAlgemeneZoekgroep(
                   zoektekst
                 );
 
-              if (matches.length === 0) {
-                continue;
-              }
-
               const runtimeId =
                 objectProperties.id ??
                 objectProperties.runtimeId ??
@@ -3121,12 +3677,28 @@ function bepaalAlgemeneZoekgroep(
                 continue;
               }
 
+              const resultaatMatches =
+                matches.length > 0
+                  ? matches
+                  : [
+                      {
+                        setName: "",
+                        propertyName:
+                          "Zoekopdracht",
+                        value:
+                          "Geen overeenkomst met zoekopdracht",
+                        matchType:
+                          "noMatch"
+                      }
+                    ];
+
               gevondenDetails.push({
                 modelId: model.modelId,
                 runtimeId: runtimeId,
                 objectProperties:
                   objectProperties,
-                matches: matches
+                matches:
+                  resultaatMatches
               });
             }
           }
@@ -3134,9 +3706,7 @@ function bepaalAlgemeneZoekgroep(
 
         if (gevondenDetails.length === 0) {
           generalResultElement.textContent =
-            "Geen parameternaam of parameterwaarde gevonden die \"" +
-            zoektekstOrigineel +
-            "\" bevat.";
+            "Er konden geen objecteigenschappen worden ingelezen.";
 
           return;
         }
@@ -5541,6 +6111,7 @@ function bepaalAlgemeneZoekgroep(
       saveGeneralSearchButton.disabled = true;
 
       generalInput.value = "";
+      altezParameterInput.value = "";
       generalResultElement.textContent =
         "Nog geen algemene zoekopdracht uitgevoerd.";
       generalClearButton.disabled = true;
@@ -5587,7 +6158,13 @@ function bepaalAlgemeneZoekgroep(
           event.key === "Enter" &&
           !generalSearchButton.disabled
         ) {
-          algemeenZoeken();
+          if (
+            altezParameterInput.value.trim()
+          ) {
+            zoekOpAltezParameter();
+          } else {
+            algemeenZoeken();
+          }
         }
       }
     );
@@ -5595,7 +6172,71 @@ function bepaalAlgemeneZoekgroep(
 
     generalSearchButton.addEventListener(
       "click",
-      algemeenZoeken
+      function() {
+        if (
+          altezParameterInput.value.trim()
+        ) {
+          zoekOpAltezParameter();
+        } else {
+          algemeenZoeken();
+        }
+      }
+    );
+
+    altezParameterSearchButton.addEventListener(
+      "click",
+      zoekOpAltezParameter
+    );
+
+    altezParameterInput.addEventListener(
+      "change",
+      function() {
+        const ingevoerd =
+          normaliseerTekst(
+            altezParameterInput.value
+          );
+
+        const bestaand =
+          beschikbareAltezParameters.find(
+            function(parameterNaam) {
+              return (
+                normaliseerTekst(
+                  parameterNaam
+                ) === ingevoerd
+              );
+            }
+          );
+
+        if (bestaand) {
+          altezParameterInput.value =
+            bestaand;
+        }
+      }
+    );
+
+    altezParameterInput.addEventListener(
+      "focus",
+      function() {
+        if (
+          API &&
+          !altezParametersLoaded &&
+          !altezParametersLoadingPromise
+        ) {
+          laadBeschikbareAltezParameters();
+        }
+      }
+    );
+
+    altezParameterInput.addEventListener(
+      "keydown",
+      function(event) {
+        if (
+          event.key === "Enter" &&
+          !altezParameterSearchButton.disabled
+        ) {
+          zoekOpAltezParameter();
+        }
+      }
     );
 
     generalClearButton.addEventListener(
