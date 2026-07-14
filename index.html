@@ -571,8 +571,8 @@
      * niet opnieuw via de Trimble API te worden ingelezen.
      */
     const objectPropertiesCache = new Map();
-    const PROPERTY_BATCH_SIZE = 250;
-    const MAX_PARALLEL_REQUESTS = 2;
+    const PROPERTY_BATCH_SIZE = 150;
+    const MAX_PARALLEL_REQUESTS = 1;
     const PROPERTY_REQUEST_RETRIES = 1;
 
     let cachedAllObjects = null;
@@ -724,6 +724,12 @@
 
       elementSearchProgressBarElement.style.width =
         "0%";
+    }
+
+    async function geefBrowserAdemruimte() {
+      await new Promise(function(resolve) {
+        setTimeout(resolve, 0);
+      });
     }
 
     function normaliseerEigenschapsNaam(waarde) {
@@ -1952,6 +1958,94 @@ function zoekEersteHerkenbareNaam(
         .includes(normaliseerTekst(zoekwaarde));
     }
 
+    function propertyNaamPastBijCriterium(
+      propertyName,
+      fullName,
+      gewensteNamen,
+      criteriumKey
+    ) {
+      const propertyNormaal =
+        normaliseerEigenschapsNaam(propertyName);
+
+      const fullNormaal =
+        normaliseerEigenschapsNaam(fullName);
+
+      const gewensteNormaal =
+        gewensteNamen.map(
+          normaliseerEigenschapsNaam
+        );
+
+      const exacteOfBredeMatch =
+        gewensteNormaal.some(function(naam) {
+          if (!naam) {
+            return false;
+          }
+
+          return (
+            propertyNormaal === naam ||
+            fullNormaal === naam ||
+            propertyNormaal.includes(naam) ||
+            fullNormaal.includes(naam) ||
+            naam.includes(propertyNormaal)
+          );
+        });
+
+      if (exacteOfBredeMatch) {
+        return true;
+      }
+
+      const gecombineerdeNaam =
+        fullNormaal || propertyNormaal;
+
+      if (criteriumKey === "profile") {
+        return (
+          gecombineerdeNaam.includes("profile") ||
+          gecombineerdeNaam.includes("profiel") ||
+          gecombineerdeNaam.includes("section") ||
+          gecombineerdeNaam.includes("crosssection")
+        );
+      }
+
+      if (criteriumKey === "length") {
+        return (
+          gecombineerdeNaam.includes("length") ||
+          gecombineerdeNaam.includes("lengte") ||
+          gecombineerdeNaam.includes("cutlength") ||
+          gecombineerdeNaam.includes("totallength")
+        );
+      }
+
+      if (criteriumKey === "finish") {
+        return (
+          gecombineerdeNaam.includes("finish") ||
+          gecombineerdeNaam.includes("afwerking") ||
+          gecombineerdeNaam.includes("coating") ||
+          gecombineerdeNaam.includes("treatment") ||
+          gecombineerdeNaam.includes("surface")
+        );
+      }
+
+      if (criteriumKey === "material") {
+        return (
+          gecombineerdeNaam.includes("material") ||
+          gecombineerdeNaam.includes("materiaal") ||
+          gecombineerdeNaam.includes("steelgrade") ||
+          gecombineerdeNaam.includes("grade") ||
+          gecombineerdeNaam.includes("staalklasse")
+        );
+      }
+
+      if (criteriumKey === "mark") {
+        return (
+          gecombineerdeNaam.includes("castunitmark") ||
+          gecombineerdeNaam.includes("assemblymark") ||
+          gecombineerdeNaam.includes("merknummer")
+        );
+      }
+
+      return false;
+    }
+
     function haalPropertyMatches(
       objectProperties,
       gewensteNamen,
@@ -1959,29 +2053,50 @@ function zoekEersteHerkenbareNaam(
       criteriumKey
     ) {
       const resultaten = [];
-      const propertySets = Array.isArray(objectProperties.properties)
-        ? objectProperties.properties
-        : [];
-
-      for (const propertySet of propertySets) {
-        const setName = String(propertySet.set || "").trim();
-        const properties = Array.isArray(propertySet.properties)
-          ? propertySet.properties
+      const propertySets =
+        Array.isArray(objectProperties.properties)
+          ? objectProperties.properties
           : [];
 
+      for (const propertySet of propertySets) {
+        const setName =
+          String(propertySet.set || "").trim();
+
+        const properties =
+          Array.isArray(propertySet.properties)
+            ? propertySet.properties
+            : [];
+
         for (const property of properties) {
-          const propertyName = String(property.name || "").trim();
-          const fullName = setName ? setName + "." + propertyName : propertyName;
-          const naamPast = gewensteNamen.some(function(naam) {
-            return normaliseerTekst(naam) === normaliseerTekst(propertyName) ||
-              normaliseerTekst(naam) === normaliseerTekst(fullName);
-          });
+          const propertyName =
+            String(property.name || "").trim();
 
-          if (!naamPast) continue;
+          const fullName =
+            setName
+              ? setName + "." + propertyName
+              : propertyName;
 
-          const value = String(property.value ?? "").trim();
+          if (
+            !propertyNaamPastBijCriterium(
+              propertyName,
+              fullName,
+              gewensteNamen,
+              criteriumKey
+            )
+          ) {
+            continue;
+          }
 
-          if (waardeVoldoetAanCriterium(criteriumKey, value, zoekwaarde)) {
+          const value =
+            String(property.value ?? "").trim();
+
+          if (
+            waardeVoldoetAanCriterium(
+              criteriumKey,
+              value,
+              zoekwaarde
+            )
+          ) {
             resultaten.push({
               setName: setName,
               propertyName: propertyName,
@@ -2376,61 +2491,20 @@ function zoekEersteHerkenbareNaam(
       const assemblies =
         Array.from(assembliesMap.values());
 
+      await toonZoekVoortgang(
+        96,
+        assemblies.length +
+          " merk(en)/assembly('s) voorbereiden..."
+      );
+
       /*
-       * Zoek per gevonden mark de volledige selectie. Dit zorgt ervoor
-       * dat niet alleen het passende losse profiel, maar de volledige
-       * merk/assembly wordt geselecteerd.
+       * De volledige assemblyselectie wordt pas opgehaald wanneer de
+       * gebruiker op een resultaat klikt. Daardoor blijft zoeken snel en
+       * responsief, ook wanneer veel merken gevonden worden.
        */
-      for (
-        let index = 0;
-        index < assemblies.length;
-        index++
-      ) {
-        const assembly =
-          assemblies[index];
-
-        await toonZoekVoortgang(
-          85 +
-            Math.round(
-              ((index + 1) /
-                Math.max(assemblies.length, 1)) *
-              13
-            ),
-          "Volledige assemblyselectie opbouwen: " +
-            (index + 1) +
-            " van " +
-            assemblies.length +
-            " (" +
-            assembly.mark +
-            ")..."
-        );
-
-        const selectieResultaten =
-          await zoekVolledigeAssemblySelectie(
-            assembly.modelId,
-            assembly.mark
-          );
-
-        if (telObjecten(selectieResultaten) > 0) {
-          assembly.selectieResultaten =
-            selectieResultaten;
-        } else {
-          /*
-           * Fallback: selecteer minstens het object waarop de mark
-           * gevonden werd.
-           */
-          assembly.selectieResultaten = [
-            {
-              modelId: assembly.modelId,
-              objects: [
-                {
-                  id: assembly.runtimeId
-                }
-              ]
-            }
-          ];
-        }
-      }
+      assemblies.forEach(function(assembly) {
+        assembly.selectieResultaten = null;
+      });
 
       return {
         assemblies: assemblies,
@@ -2438,6 +2512,76 @@ function zoekEersteHerkenbareNaam(
         unlinkedPartCount:
           detailsZonderMark.length
       };
+    }
+
+    async function selecteerVolledigeAssembly(
+      assembly,
+      knop
+    ) {
+      const origineleTekst =
+        knop ? knop.textContent : "";
+
+      try {
+        if (knop) {
+          knop.disabled = true;
+          knop.textContent =
+            "Assembly laden...";
+        }
+
+        if (!assembly.selectieResultaten) {
+          const selectieResultaten =
+            await zoekVolledigeAssemblySelectie(
+              assembly.modelId,
+              assembly.mark
+            );
+
+          if (telObjecten(selectieResultaten) > 0) {
+            assembly.selectieResultaten =
+              selectieResultaten;
+          } else if (
+            Array.isArray(assembly.passendeOnderdelen) &&
+            assembly.passendeOnderdelen.length > 0
+          ) {
+            assembly.selectieResultaten =
+              maakResultatenVanDetails(
+                assembly.passendeOnderdelen
+              );
+          } else {
+            assembly.selectieResultaten = [
+              {
+                modelId: assembly.modelId,
+                objects: [
+                  {
+                    id: assembly.runtimeId
+                  }
+                ]
+              }
+            ];
+          }
+        }
+
+        await selecteerEnZoom(
+          assembly.selectieResultaten
+        );
+      } catch (error) {
+        console.error(
+          "Assembly selecteren mislukt:",
+          error
+        );
+
+        if (knop) {
+          knop.textContent =
+            "Selecteren mislukt";
+        }
+      } finally {
+        if (knop) {
+          setTimeout(function() {
+            knop.disabled = false;
+            knop.textContent =
+              origineleTekst;
+          }, 800);
+        }
+      }
     }
 
     function toonElementResultaten(
@@ -2508,8 +2652,9 @@ function zoekEersteHerkenbareNaam(
           "click",
           async function() {
             try {
-              await selecteerEnZoom(
-                assembly.selectieResultaten
+              await selecteerVolledigeAssembly(
+                assembly,
+                selecteerKnop
               );
             } catch (error) {
               console.error(
@@ -2558,8 +2703,9 @@ function zoekEersteHerkenbareNaam(
           async function(event) {
             event.stopPropagation();
 
-            await selecteerEnZoom(
-              assembly.selectieResultaten
+            await selecteerVolledigeAssembly(
+              assembly,
+              null
             );
           }
         );
@@ -2990,6 +3136,8 @@ function zoekEersteHerkenbareNaam(
           const properties =
             propertyResultaat.properties;
 
+          let gecontroleerdInModel = 0;
+
           for (const objectProperties of properties) {
             const criteriaMatches =
               objectVoldoetAanElementCriteria(
@@ -3017,12 +3165,22 @@ function zoekEersteHerkenbareNaam(
               objectProperties: objectProperties,
               criteriaMatches: criteriaMatches
             });
+
+            gecontroleerdInModel++;
+
+            if (gecontroleerdInModel % 250 === 0) {
+              await geefBrowserAdemruimte();
+            }
           }
+
+          await geefBrowserAdemruimte();
         }
 
         if (gevondenDetails.length === 0) {
           elementResultElement.textContent =
-            "Geen elementen gevonden die aan alle ingevulde voorwaarden voldoen.";
+            "Geen elementen gevonden die tegelijk aan alle ingevulde voorwaarden voldoen. " +
+            "Probeer tijdelijk één veld tegelijk om te controleren welke modeleigenschap afwijkt. " +
+            "De zoekfunctie herkent nu ook alternatieve Tekla/IFC-propertynamen.";
           verbergZoekVoortgang();
           return;
         }
