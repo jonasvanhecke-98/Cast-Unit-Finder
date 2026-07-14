@@ -575,10 +575,10 @@
       <p class="small-info">Vul één of meerdere zoekvelden in. Lege velden worden genegeerd. Wanneer meerdere velden zijn ingevuld, moeten alle ingevulde voorwaarden overeenkomen.</p>
 
       <label for="cast-unit-mark">Cast Unit Mark</label>
-      <p class="small-info">Vul het merknummer in.</p><input
+      <p class="small-info">Vul het volledige merknummer of een deel ervan in, bijvoorbeeld ZPL, K of L.</p><input
         id="cast-unit-mark"
         type="text"
-        placeholder="Bijvoorbeeld K10"
+        placeholder="Bijvoorbeeld ZPL, K, L of ZPL1038"
         autocomplete="off"
         autocapitalize="characters"
         spellcheck="false"
@@ -953,6 +953,13 @@
       return String(waarde ?? "")
         .trim()
         .toLocaleUpperCase("nl-BE");
+    }
+
+    function normaliseerMarkZoektekst(waarde) {
+      return String(waarde ?? "")
+        .toLocaleUpperCase("nl-BE")
+        .replace(/\s+/g, "")
+        .trim();
     }
 
     function haalObjecten(model) {
@@ -2174,13 +2181,19 @@ function bepaalAlgemeneZoekgroep(
               b: color.b,
               a: 255
             },
+
+            /*
+             * Bij Trimble TextMarkup is 'start' het punt waar de
+             * aanwijslijn de geometrie raakt en 'end' de positie
+             * waar de tekst buiten het model wordt geplaatst.
+             */
             start: {
               positionX:
-                labelX * 1000,
+                centerX * 1000,
               positionY:
-                currentLabelY * 1000,
+                centerY * 1000,
               positionZ:
-                labelZ * 1000,
+                centerZ * 1000,
               modelId:
                 result.modelId,
               objectId:
@@ -2188,11 +2201,11 @@ function bepaalAlgemeneZoekgroep(
             },
             end: {
               positionX:
-                centerX * 1000,
+                labelX * 1000,
               positionY:
-                centerY * 1000,
+                currentLabelY * 1000,
               positionZ:
-                centerZ * 1000,
+                labelZ * 1000,
               modelId:
                 result.modelId,
               objectId:
@@ -4718,7 +4731,7 @@ function bepaalAlgemeneZoekgroep(
       info.className = "result-info";
       info.textContent =
         resultaat.matchingPartCount +
-        " passend(e) onderdeel/onderdelen gevonden. Elk resultaat toont het bijbehorende Cast Unit Mark/merknummer en Cast Unit Weight. Zoekvoorwaarde(n): " +
+        " passend(e) onderdeel/onderdelen gevonden. Elk resultaat toont het volledige Cast Unit Mark/merknummer en Cast Unit Weight. Zoekvoorwaarde(n): " +
         actieveCriteria
           .map(function(item) {
             return (
@@ -5195,84 +5208,120 @@ function bepaalAlgemeneZoekgroep(
           actieveCriteria.length === 1 &&
           actieveCriteria[0].key === "mark"
         ) {
-          await toonZoekVoortgang(
-            25,
-            "Zoeken op Cast Unit Mark..."
-          );
-
-          const kandidaatModellen =
-            await zoekKandidatenOpCastUnitMark(
+          const markZoektekst =
+            normaliseerMarkZoektekst(
               waarden.mark
             );
 
-          if (
-            telObjecten(kandidaatModellen) === 0
-          ) {
+          await toonZoekVoortgang(
+            15,
+            "Cast Unit Marks analyseren..."
+          );
+
+          /*
+           * Voor een gedeeltelijke Cast Unit Mark moet de tool alle
+           * beschikbare marks kunnen vergelijken. Daarom gebruiken we
+           * eerst de reeds opgebouwde modelcache. Wanneer die nog niet
+           * bestaat, wordt ze eenmalig opgebouwd.
+           */
+          if (!filterOptionsLoaded) {
+            await toonZoekVoortgang(
+              22,
+              "Modelindex eenmalig opbouwen..."
+            );
+
+            await laadBeschikbareFilterWaarden();
+          }
+
+          await toonZoekVoortgang(
+            68,
+            "Cast Unit Marks doorzoeken..."
+          );
+
+          const gevondenDetails = [];
+
+          objectPropertiesCache.forEach(
+            function(objectProperties, cacheSleutel) {
+              const mark =
+                haalCastUnitMarkUitProperties(
+                  objectProperties
+                );
+
+              if (!mark) {
+                return;
+              }
+
+              const genormaliseerdeMark =
+                normaliseerMarkZoektekst(
+                  mark
+                );
+
+              if (
+                !genormaliseerdeMark.includes(
+                  markZoektekst
+                )
+              ) {
+                return;
+              }
+
+              const scheiding =
+                String(cacheSleutel).lastIndexOf("|");
+
+              if (scheiding < 0) {
+                return;
+              }
+
+              const modelId =
+                herstelModelIdUitCacheSleutel(
+                  String(cacheSleutel).slice(
+                    0,
+                    scheiding
+                  )
+                );
+
+              const runtimeIdTekst =
+                String(cacheSleutel).slice(
+                  scheiding + 1
+                );
+
+              const runtimeIdGetal =
+                Number(runtimeIdTekst);
+
+              const runtimeId =
+                Number.isNaN(runtimeIdGetal)
+                  ? runtimeIdTekst
+                  : runtimeIdGetal;
+
+              gevondenDetails.push({
+                modelId: modelId,
+                runtimeId: runtimeId,
+                objectProperties:
+                  objectProperties,
+                criteriaMatches: [
+                  {
+                    label:
+                      "Cast Unit Mark",
+                    value: String(mark)
+                  }
+                ]
+              });
+            }
+          );
+
+          if (gevondenDetails.length === 0) {
             elementResultElement.textContent =
-              "Geen merk/assembly gevonden met Cast Unit Mark " +
+              "Geen Cast Unit Mark gevonden die \\"" +
               waarden.mark +
-              ".";
+              "\\" bevat.";
 
             verbergZoekVoortgang();
             return;
           }
 
-          const gevondenDetails = [];
-
-          for (
-            let modelIndex = 0;
-            modelIndex < kandidaatModellen.length;
-            modelIndex++
-          ) {
-            const model =
-              kandidaatModellen[modelIndex];
-
-            const runtimeIds =
-              haalObjecten(model)
-                .map(haalRuntimeId)
-                .filter(function(id) {
-                  return (
-                    id !== null &&
-                    id !== undefined
-                  );
-                });
-
-            const propertyResultaat =
-              await haalPropertiesEfficient(
-                model.modelId,
-                runtimeIds,
-                false
-              );
-
-            const properties =
-              propertyResultaat &&
-              Array.isArray(
-                propertyResultaat.properties
-              )
-                ? propertyResultaat.properties
-                : [];
-
-            properties.forEach(
-              function(objectProperties) {
-                const runtimeId =
-                  haalRuntimeIdUitProperties(
-                    objectProperties
-                  );
-
-                gevondenDetails.push({
-                  modelId: model.modelId,
-                  runtimeId: runtimeId,
-                  objectProperties:
-                    objectProperties,
-                  criteriaMatches: []
-                });
-              }
-            );
-          }
-
           await toonZoekVoortgang(
-            90,
-            "Merknummer en gewicht verwerken..."
+            86,
+            gevondenDetails.length +
+              " passende objecten gevonden. Merken groeperen..."
           );
 
           const resultaat =
@@ -5281,41 +5330,21 @@ function bepaalAlgemeneZoekgroep(
             );
 
           /*
-           * Wanneer Trimble de mark wel vond maar de properties niet
-           * volledig terugstuurde, tonen we minstens de ingevoerde mark.
+           * Sorteer logisch op merknummer, zodat bijvoorbeeld K1, K2,
+           * K10 en ZPL1038 netjes in volgorde verschijnen.
            */
-          if (
-            resultaat.assemblies.length === 0
-          ) {
-            kandidaatModellen.forEach(
-              function(model) {
-                const eersteId =
-                  haalObjecten(model)
-                    .map(haalRuntimeId)
-                    .find(function(id) {
-                      return (
-                        id !== null &&
-                        id !== undefined
-                      );
-                    });
-
-                if (
-                  eersteId !== null &&
-                  eersteId !== undefined
-                ) {
-                  resultaat.assemblies.push({
-                    modelId: model.modelId,
-                    runtimeId: eersteId,
-                    mark: waarden.mark,
-                    weight: null,
-                    passendeOnderdelen: [],
-                    selectieResultaten:
-                      kandidaatModellen
-                  });
+          resultaat.assemblies.sort(
+            function(a, b) {
+              return String(a.mark).localeCompare(
+                String(b.mark),
+                "nl-BE",
+                {
+                  numeric: true,
+                  sensitivity: "base"
                 }
-              }
-            );
-          }
+              );
+            }
+          );
 
           await toonZoekVoortgang(
             100,
