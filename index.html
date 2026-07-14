@@ -323,9 +323,9 @@
           <span>Zoek in alle parameterwaarden en groepeer de resultaten grof.</span>
         </button>
 
-        <button id="open-cast-button" class="menu-button" type="button">
-          Zoeken op Cast Unit Mark
-          <span>Zoek uitsluitend op de specifieke Cast Unit Mark-parameter.</span>
+        <button id="open-elements-button" class="menu-button" type="button">
+          Element(en) zoeken
+          <span>Zoek op Cast Unit Mark of op eigenschappen zoals profiel, lengte, afwerking en staalklasse.</span>
         </button>
       </div>
     </div>
@@ -371,20 +371,21 @@
     </section>
   </section>
 
-  <section id="cast-view" class="view">
-    <button id="back-from-cast" class="secondary back-button" type="button">
+  <section id="elements-view" class="view">
+    <button id="back-from-elements" class="secondary back-button" type="button">
       Terug naar keuzemenu
     </button>
 
     <section class="panel cast-unit-card">
-      <h2>Zoeken op Cast Unit Mark</h2>
+      <h2>Element(en) zoeken</h2>
 
       <p class="small-info">
-        Zoekt uitsluitend op Assembly/Cast unit Mark of Cast unit Mark.
+        Vul één of meerdere zoekvelden in. Lege velden worden genegeerd.
+        Wanneer meerdere velden zijn ingevuld, worden alleen resultaten getoond
+        die aan alle ingevulde voorwaarden voldoen.
       </p>
 
-      <label for="cast-unit-mark">Assembly/Cast unit Mark</label>
-
+      <label for="cast-unit-mark">Cast Unit Mark</label>
       <input
         id="cast-unit-mark"
         type="text"
@@ -394,20 +395,56 @@
         spellcheck="false"
       >
 
-      <button id="mark-search-button" class="single-button" type="button" disabled>
-        Zoek Cast Unit Mark
+      <label for="element-profile" style="margin-top: 12px;">Profiel</label>
+      <input
+        id="element-profile"
+        type="text"
+        placeholder="Bijvoorbeeld HEA200"
+        autocomplete="off"
+        spellcheck="false"
+      >
+
+      <label for="element-length" style="margin-top: 12px;">Lengte</label>
+      <input
+        id="element-length"
+        type="text"
+        placeholder="Bijvoorbeeld 6000 of 6000 mm"
+        autocomplete="off"
+        spellcheck="false"
+      >
+
+      <label for="element-finish" style="margin-top: 12px;">Afwerking (Finish)</label>
+      <input
+        id="element-finish"
+        type="text"
+        placeholder="Bijvoorbeeld primer of verzinkt"
+        autocomplete="off"
+        spellcheck="false"
+      >
+
+      <label for="element-material" style="margin-top: 12px;">Staalklasse (Material)</label>
+      <input
+        id="element-material"
+        type="text"
+        placeholder="Bijvoorbeeld S235 of S355"
+        autocomplete="off"
+        spellcheck="false"
+      >
+
+      <button id="element-search-button" class="single-button" type="button" disabled>
+        Element(en) zoeken
       </button>
 
-      <button id="cast-clear-button" class="secondary single-button" type="button" disabled>
-        Cast Unit Mark-resultaat wissen
+      <button id="element-clear-button" class="secondary single-button" type="button" disabled>
+        Zoekvelden en resultaat wissen
       </button>
 
-      <div class="inline-result">
-        <div class="inline-result-header">Resultaat</div>
-        <div id="cast-result" class="result-content">
-          Nog geen Cast Unit Mark gezocht.
+      <section class="result-panel general-result-panel">
+        <div class="result-panel-header">Resultaat Element(en) zoeken</div>
+        <div id="element-result" class="result-content">
+          Nog geen elementzoekopdracht uitgevoerd.
         </div>
-      </div>
+      </section>
     </section>
   </section>
 
@@ -425,8 +462,6 @@
     const generalInput =
       document.getElementById("general-search");
 
-    const markSearchButton =
-      document.getElementById("mark-search-button");
 
     const generalSearchButton =
       document.getElementById("general-search-button");
@@ -434,8 +469,6 @@
     const generalClearButton =
       document.getElementById("general-clear-button");
 
-    const castClearButton =
-      document.getElementById("cast-clear-button");
 
     const menuView =
       document.getElementById("menu-view");
@@ -443,11 +476,30 @@
     const generalView =
       document.getElementById("general-view");
 
-    const castView =
-      document.getElementById("cast-view");
+    const elementsView =
+      document.getElementById("elements-view");
 
-    const castResultElement =
-      document.getElementById("cast-result");
+    const elementProfileInput =
+      document.getElementById("element-profile");
+
+    const elementLengthInput =
+      document.getElementById("element-length");
+
+    const elementFinishInput =
+      document.getElementById("element-finish");
+
+    const elementMaterialInput =
+      document.getElementById("element-material");
+
+    const elementSearchButton =
+      document.getElementById("element-search-button");
+
+    const elementClearButton =
+      document.getElementById("element-clear-button");
+
+    const elementResultElement =
+      document.getElementById("element-result");
+
 
     const generalResultElement =
       document.getElementById("general-result");
@@ -556,8 +608,8 @@
 
         statusElement.classList.add("success");
 
-        markSearchButton.disabled = false;
         generalSearchButton.disabled = false;
+        elementSearchButton.disabled = false;
       } catch (error) {
         console.error(
           "Verbinding mislukt:",
@@ -693,160 +745,6 @@
       }
 
       return tekst + " t";
-    }
-
-    async function zoekCastUnitMark() {
-      const mark =
-        normaliseerMark(markInput.value);
-
-      markInput.value = mark;
-
-      if (!mark) {
-        castResultElement.textContent =
-          "Vul eerst een Cast Unit Mark in.";
-
-        return;
-      }
-
-      markSearchButton.disabled = true;
-      generalSearchButton.disabled = true;
-
-      castResultElement.textContent =
-        "Zoeken naar Cast Unit Mark " +
-        mark +
-        "...";
-
-      try {
-        let gevondenResultaten = [];
-        let gebruikteProperty = "";
-
-        for (const propertyName of markPropertyNames) {
-          const resultaten =
-            await API.viewer.getObjects({
-              parameter: {
-                properties: {
-                  [propertyName]: mark
-                }
-              }
-            });
-
-          if (telObjecten(resultaten) > 0) {
-            gevondenResultaten = resultaten;
-            gebruikteProperty = propertyName;
-            break;
-          }
-        }
-
-        if (telObjecten(gevondenResultaten) === 0) {
-          castResultElement.textContent =
-            "Geen object gevonden voor " +
-            mark +
-            ".";
-
-          return;
-        }
-
-        await selecteerEnZoom(
-          gevondenResultaten
-        );
-
-        const gevondenElementen = [];
-
-        for (const model of gevondenResultaten) {
-          const runtimeIds =
-            haalObjecten(model)
-              .map(haalRuntimeId)
-              .filter(function(id) {
-                return (
-                  id !== null &&
-                  id !== undefined
-                );
-              });
-
-          const properties =
-            await API.viewer.getObjectProperties(
-              model.modelId,
-              runtimeIds
-            );
-
-          for (const objectProperties of properties) {
-            gevondenElementen.push({
-              mark: zoekPropertyWaarde(
-                objectProperties,
-                markPropertyNames
-              ),
-
-              weight: zoekPropertyWaarde(
-                objectProperties,
-                weightPropertyNames
-              )
-            });
-          }
-        }
-
-        castResultElement.innerHTML = "";
-
-        const titel =
-          document.createElement("div");
-
-        titel.className = "result-title";
-        titel.textContent = mark;
-
-        castResultElement.appendChild(titel);
-
-        gevondenElementen.forEach(
-          function(element, index) {
-            const rij =
-              document.createElement("div");
-
-            rij.className =
-              "result-weight";
-
-            if (gevondenElementen.length === 1) {
-              rij.textContent =
-                "Gewicht: " +
-                formatteerGewicht(
-                  element.weight
-                );
-            } else {
-              rij.textContent =
-                "Element " +
-                (index + 1) +
-                " — Gewicht: " +
-                formatteerGewicht(
-                  element.weight
-                );
-            }
-
-            castResultElement.appendChild(rij);
-          }
-        );
-
-        const info =
-          document.createElement("div");
-
-        info.className = "result-info";
-
-        info.textContent =
-          gevondenElementen.length +
-          " object(en) gevonden via " +
-          gebruikteProperty;
-
-        castResultElement.appendChild(info);
-
-        castClearButton.disabled = false;
-      } catch (error) {
-        console.error(
-          "Zoeken op Cast Unit Mark mislukt:",
-          error
-        );
-
-        castResultElement.textContent =
-          "Er ging iets fout tijdens het zoeken.";
-      } finally {
-        markSearchButton.disabled = false;
-        generalSearchButton.disabled = false;
-      }
     }
 
     function verdeelInGroepen(array, grootte) {
@@ -1425,6 +1323,298 @@ function zoekEersteHerkenbareNaam(
       }
     }
 
+
+
+    const elementCriteria = [
+      {
+        key: "mark",
+        label: "Cast Unit Mark",
+        names: [
+          "Tekla Assembly.Assembly/Cast unit Mark",
+          "Assembly/Cast unit Mark",
+          "Tekla Assembly.Cast unit Mark",
+          "Cast unit Mark"
+        ]
+      },
+      {
+        key: "profile",
+        label: "Profiel",
+        names: [
+          "Profile",
+          "Profile Name",
+          "ProfileName",
+          "Section",
+          "Cross Section",
+          "Cross-section",
+          "Profiel"
+        ]
+      },
+      {
+        key: "length",
+        label: "Lengte",
+        names: [
+          "Length",
+          "Total Length",
+          "Total length",
+          "Cut Length",
+          "Cut length",
+          "Lengte"
+        ]
+      },
+      {
+        key: "finish",
+        label: "Afwerking",
+        names: [
+          "Finish",
+          "Surface Finish",
+          "Surface finish",
+          "Coating",
+          "Treatment",
+          "Afwerking"
+        ]
+      },
+      {
+        key: "material",
+        label: "Staalklasse",
+        names: [
+          "Material",
+          "Material Name",
+          "MaterialName",
+          "Grade",
+          "Steel Grade",
+          "Steel grade",
+          "Staalklasse"
+        ]
+      }
+    ];
+
+    function haalPropertyMatches(objectProperties, gewensteNamen, zoekwaarde) {
+      const resultaten = [];
+      const propertySets = Array.isArray(objectProperties.properties)
+        ? objectProperties.properties
+        : [];
+      const zoekNormaal = normaliseerTekst(zoekwaarde);
+
+      for (const propertySet of propertySets) {
+        const setName = String(propertySet.set || "").trim();
+        const properties = Array.isArray(propertySet.properties)
+          ? propertySet.properties
+          : [];
+
+        for (const property of properties) {
+          const propertyName = String(property.name || "").trim();
+          const fullName = setName ? setName + "." + propertyName : propertyName;
+          const naamPast = gewensteNamen.some(function(naam) {
+            return normaliseerTekst(naam) === normaliseerTekst(propertyName) ||
+              normaliseerTekst(naam) === normaliseerTekst(fullName);
+          });
+
+          if (!naamPast) continue;
+
+          const value = String(property.value ?? "").trim();
+          if (normaliseerTekst(value).includes(zoekNormaal)) {
+            resultaten.push({ setName: setName, propertyName: propertyName, value: value });
+          }
+        }
+      }
+
+      return resultaten;
+    }
+
+    function objectVoldoetAanElementCriteria(objectProperties, actieveCriteria) {
+      const gevonden = [];
+
+      for (const criterium of actieveCriteria) {
+        const matches = haalPropertyMatches(
+          objectProperties,
+          criterium.names,
+          criterium.value
+        );
+
+        if (matches.length === 0) return null;
+
+        gevonden.push({
+          label: criterium.label,
+          ingevoerd: criterium.value,
+          match: matches[0]
+        });
+      }
+
+      return gevonden;
+    }
+
+    function toonElementResultaten(gevondenDetails, actieveCriteria) {
+      elementResultElement.innerHTML = "";
+
+      const titel = document.createElement("div");
+      titel.className = "result-title";
+      titel.textContent = gevondenDetails.length + " element(en) gevonden";
+      elementResultElement.appendChild(titel);
+
+      const groepen = new Map();
+      gevondenDetails.forEach(function(detail) {
+        const profiel = detail.criteriaMatches.find(function(item) {
+          return item.label === "Profiel";
+        });
+        const groepNaam = profiel ? profiel.match.value : "Overige elementen";
+        const sleutel = normaliseerTekst(groepNaam);
+        if (!groepen.has(sleutel)) groepen.set(sleutel, { naam: groepNaam, elementen: [] });
+        groepen.get(sleutel).elementen.push(detail);
+      });
+
+      Array.from(groepen.values())
+        .sort(function(a, b) { return b.elementen.length - a.elementen.length; })
+        .forEach(function(groep) {
+          const detailsElement = document.createElement("details");
+          detailsElement.className = "search-result";
+
+          const summary = document.createElement("summary");
+          summary.className = "search-result-summary";
+          summary.textContent = groep.naam + " — " + groep.elementen.length + " element(en)";
+
+          summary.addEventListener("click", async function() {
+            try {
+              const perModel = new Map();
+              groep.elementen.forEach(function(detail) {
+                if (!perModel.has(detail.modelId)) perModel.set(detail.modelId, []);
+                perModel.get(detail.modelId).push(detail.runtimeId);
+              });
+              const resultaten = Array.from(perModel.entries()).map(function(entry) {
+                return { modelId: entry[0], objects: entry[1].map(function(id) { return { id: id }; }) };
+              });
+              await selecteerEnZoom(resultaten);
+            } catch (error) {
+              console.error("Elementgroep selecteren mislukt:", error);
+            }
+          });
+
+          const inhoud = document.createElement("div");
+          inhoud.className = "search-result-details";
+
+          groep.elementen.forEach(function(detail, index) {
+            const blok = document.createElement("div");
+            blok.className = "match-info";
+
+            const kop = document.createElement("div");
+            kop.style.fontWeight = "bold";
+            kop.style.marginBottom = "8px";
+            kop.textContent = "Element " + (index + 1);
+            blok.appendChild(kop);
+
+            detail.criteriaMatches.forEach(function(item) {
+              const regel = document.createElement("div");
+              regel.style.marginBottom = "5px";
+              regel.textContent = item.label + ": " + item.match.value +
+                " (" + (item.match.setName ? item.match.setName + " → " : "") + item.match.propertyName + ")";
+              blok.appendChild(regel);
+            });
+
+            const knop = document.createElement("button");
+            knop.type = "button";
+            knop.textContent = "Selecteer dit element";
+            knop.style.marginTop = "8px";
+            knop.addEventListener("click", async function(event) {
+              event.stopPropagation();
+              await selecteerEnZoomNaarEenObject(detail.modelId, detail.runtimeId);
+            });
+            blok.appendChild(knop);
+            inhoud.appendChild(blok);
+          });
+
+          detailsElement.appendChild(summary);
+          detailsElement.appendChild(inhoud);
+          elementResultElement.appendChild(detailsElement);
+        });
+
+      const info = document.createElement("div");
+      info.className = "result-info";
+      info.textContent = "Gecombineerde voorwaarden: " + actieveCriteria
+        .map(function(item) { return item.label + " = " + item.value; })
+        .join(", ") + ".";
+      elementResultElement.appendChild(info);
+    }
+
+    async function zoekElementen() {
+      const waarden = {
+        mark: normaliseerMark(markInput.value),
+        profile: elementProfileInput.value.trim(),
+        length: elementLengthInput.value.trim(),
+        finish: elementFinishInput.value.trim(),
+        material: elementMaterialInput.value.trim()
+      };
+
+      markInput.value = waarden.mark;
+
+      const actieveCriteria = elementCriteria
+        .map(function(item) { return { ...item, value: waarden[item.key] }; })
+        .filter(function(item) { return item.value; });
+
+      if (actieveCriteria.length === 0) {
+        elementResultElement.textContent = "Vul minstens één zoekveld in.";
+        return;
+      }
+
+      generalSearchButton.disabled = true;
+      elementSearchButton.disabled = true;
+      elementClearButton.disabled = true;
+      elementResultElement.textContent = "Elementen doorzoeken op alle ingevulde voorwaarden...";
+
+      try {
+        const alleObjecten = await API.viewer.getObjects();
+        const gevondenDetails = [];
+
+        for (let modelIndex = 0; modelIndex < alleObjecten.length; modelIndex++) {
+          const model = alleObjecten[modelIndex];
+          const runtimeIds = haalObjecten(model)
+            .map(haalRuntimeId)
+            .filter(function(id) { return id !== null && id !== undefined; });
+          const batches = verdeelInGroepen(runtimeIds, 300);
+
+          for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+            elementResultElement.textContent =
+              "Model " + (modelIndex + 1) + " van " + alleObjecten.length +
+              " doorzoeken...\nDeel " + (batchIndex + 1) + " van " + batches.length;
+
+            const properties = await API.viewer.getObjectProperties(model.modelId, batches[batchIndex]);
+            for (const objectProperties of properties) {
+              const criteriaMatches = objectVoldoetAanElementCriteria(objectProperties, actieveCriteria);
+              if (!criteriaMatches) continue;
+              const runtimeId = objectProperties.id ?? objectProperties.runtimeId ?? objectProperties.objectRuntimeId;
+              if (runtimeId === null || runtimeId === undefined) continue;
+              gevondenDetails.push({ modelId: model.modelId, runtimeId: runtimeId, criteriaMatches: criteriaMatches });
+            }
+          }
+        }
+
+        if (gevondenDetails.length === 0) {
+          elementResultElement.textContent = "Geen elementen gevonden die aan alle ingevulde voorwaarden voldoen.";
+          return;
+        }
+
+        toonElementResultaten(gevondenDetails, actieveCriteria);
+        elementClearButton.disabled = false;
+      } catch (error) {
+        console.error("Element(en) zoeken mislukt:", error);
+        elementResultElement.textContent = "De gecombineerde zoekactie is mislukt. Bekijk eventueel F12 → Console.";
+      } finally {
+        generalSearchButton.disabled = false;
+        elementSearchButton.disabled = false;
+      }
+    }
+
+    async function wisElementZoeken() {
+      markInput.value = "";
+      elementProfileInput.value = "";
+      elementLengthInput.value = "";
+      elementFinishInput.value = "";
+      elementMaterialInput.value = "";
+      elementResultElement.textContent = "Nog geen elementzoekopdracht uitgevoerd.";
+      elementClearButton.disabled = true;
+      await wisSelectie();
+      markInput.focus();
+    }
+
+
     async function wisSelectie() {
       try {
         if (API) {
@@ -1452,19 +1642,11 @@ function zoekEersteHerkenbareNaam(
       generalInput.focus();
     }
 
-    async function wisCastUnitZoeken() {
-      markInput.value = "";
-      castResultElement.textContent =
-        "Nog geen Cast Unit Mark gezocht.";
-      castClearButton.disabled = true;
-      await wisSelectie();
-      markInput.focus();
-    }
 
     function toonView(viewNaam) {
       menuView.classList.remove("active");
       generalView.classList.remove("active");
-      castView.classList.remove("active");
+      elementsView.classList.remove("active");
 
       if (viewNaam === "general") {
         generalView.classList.add("active");
@@ -1472,8 +1654,8 @@ function zoekEersteHerkenbareNaam(
         return;
       }
 
-      if (viewNaam === "cast") {
-        castView.classList.add("active");
+      if (viewNaam === "elements") {
+        elementsView.classList.add("active");
         markInput.focus();
         return;
       }
@@ -1491,17 +1673,6 @@ function zoekEersteHerkenbareNaam(
       }
     );
 
-    markInput.addEventListener(
-      "keydown",
-      function(event) {
-        if (
-          event.key === "Enter" &&
-          !markSearchButton.disabled
-        ) {
-          zoekCastUnitMark();
-        }
-      }
-    );
 
     generalInput.addEventListener(
       "keydown",
@@ -1515,10 +1686,6 @@ function zoekEersteHerkenbareNaam(
       }
     );
 
-    markSearchButton.addEventListener(
-      "click",
-      zoekCastUnitMark
-    );
 
     generalSearchButton.addEventListener(
       "click",
@@ -1530,19 +1697,42 @@ function zoekEersteHerkenbareNaam(
       wisAlgemeenZoeken
     );
 
-    castClearButton.addEventListener(
+
+
+
+    elementSearchButton.addEventListener(
       "click",
-      wisCastUnitZoeken
+      zoekElementen
     );
+
+    elementClearButton.addEventListener(
+      "click",
+      wisElementZoeken
+    );
+
+    [
+      markInput,
+      elementProfileInput,
+      elementLengthInput,
+      elementFinishInput,
+      elementMaterialInput
+    ].forEach(function(input) {
+      input.addEventListener("keydown", function(event) {
+        if (event.key === "Enter" && !elementSearchButton.disabled) {
+          zoekElementen();
+        }
+      });
+    });
+
 
     document.getElementById("open-general-button")
       .addEventListener("click", function() {
         toonView("general");
       });
 
-    document.getElementById("open-cast-button")
+    document.getElementById("open-elements-button")
       .addEventListener("click", function() {
-        toonView("cast");
+        toonView("elements");
       });
 
     document.getElementById("back-from-general")
@@ -1550,7 +1740,7 @@ function zoekEersteHerkenbareNaam(
         toonView("menu");
       });
 
-    document.getElementById("back-from-cast")
+    document.getElementById("back-from-elements")
       .addEventListener("click", function() {
         toonView("menu");
       });
