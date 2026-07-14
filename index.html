@@ -454,6 +454,15 @@
   <script>
     let API;
 
+    /*
+     * Cache voor reeds opgehaalde objecteigenschappen.
+     * Daardoor hoeven dezelfde objecten bij een volgende zoekopdracht
+     * niet opnieuw via de Trimble API te worden ingelezen.
+     */
+    const objectPropertiesCache = new Map();
+    const PROPERTY_BATCH_SIZE = 500;
+    const MAX_PARALLEL_REQUESTS = 5;
+
     const statusElement =
       document.getElementById("status");
 
@@ -1597,6 +1606,146 @@ function zoekEersteHerkenbareNaam(
       elementResultElement.appendChild(info);
     }
 
+    function maakCacheSleutel(modelId, runtimeId) {
+      return String(modelId) + "|" + String(runtimeId);
+    }
+
+    function haalRuntimeIdUitProperties(objectProperties) {
+      return (
+        objectProperties.id ??
+        objectProperties.runtimeId ??
+        objectProperties.objectRuntimeId ??
+        null
+      );
+    }
+
+    async function voerMetConcurrencyUit(taken, maximum, uitvoerder) {
+      let volgendeIndex = 0;
+      let voltooid = 0;
+
+      async function worker() {
+        while (true) {
+          const index = volgendeIndex++;
+          if (index >= taken.length) return;
+
+          await uitvoerder(taken[index], index);
+          voltooid++;
+
+          elementResultElement.textContent =
+            "Elementen analyseren...\n" +
+            voltooid + " van " + taken.length + " delen verwerkt.";
+        }
+      }
+
+      const aantalWorkers = Math.min(maximum, taken.length);
+      await Promise.all(
+        Array.from({ length: aantalWorkers }, function() {
+          return worker();
+        })
+      );
+    }
+
+    async function haalPropertiesEfficient(modelId, runtimeIds) {
+      const gevonden = [];
+      const ontbrekendeIds = [];
+
+      runtimeIds.forEach(function(runtimeId) {
+        const cacheSleutel = maakCacheSleutel(modelId, runtimeId);
+        const cached = objectPropertiesCache.get(cacheSleutel);
+
+        if (cached) {
+          gevonden.push(cached);
+        } else {
+          ontbrekendeIds.push(runtimeId);
+        }
+      });
+
+      const batches = verdeelInGroepen(
+        ontbrekendeIds,
+        PROPERTY_BATCH_SIZE
+      );
+
+      if (batches.length > 0) {
+        const batchResultaten = new Array(batches.length);
+
+        await voerMetConcurrencyUit(
+          batches,
+          MAX_PARALLEL_REQUESTS,
+          async function(batch, batchIndex) {
+            const properties =
+              await API.viewer.getObjectProperties(
+                modelId,
+                batch
+              );
+
+            batchResultaten[batchIndex] =
+              Array.isArray(properties) ? properties : [];
+          }
+        );
+
+        batchResultaten.forEach(function(properties) {
+          properties.forEach(function(objectProperties) {
+            const runtimeId =
+              haalRuntimeIdUitProperties(objectProperties);
+
+            if (
+              runtimeId !== null &&
+              runtimeId !== undefined
+            ) {
+              objectPropertiesCache.set(
+                maakCacheSleutel(modelId, runtimeId),
+                objectProperties
+              );
+            }
+
+            gevonden.push(objectProperties);
+          });
+        });
+      }
+
+      return gevonden;
+    }
+
+    async function zoekKandidatenOpCastUnitMark(mark) {
+      const perModel = new Map();
+
+      for (const propertyName of markPropertyNames) {
+        const resultaten = await API.viewer.getObjects({
+          parameter: {
+            properties: {
+              [propertyName]: mark
+            }
+          }
+        });
+
+        if (!Array.isArray(resultaten)) continue;
+
+        resultaten.forEach(function(model) {
+          if (!perModel.has(model.modelId)) {
+            perModel.set(model.modelId, new Set());
+          }
+
+          haalObjecten(model)
+            .map(haalRuntimeId)
+            .filter(function(id) {
+              return id !== null && id !== undefined;
+            })
+            .forEach(function(id) {
+              perModel.get(model.modelId).add(id);
+            });
+        });
+      }
+
+      return Array.from(perModel.entries()).map(function(entry) {
+        return {
+          modelId: entry[0],
+          objects: Array.from(entry[1]).map(function(id) {
+            return { id: id };
+          })
+        };
+      });
+    }
+
     async function zoekElementen() {
       const waarden = {
         mark: normaliseerMark(markInput.value),
@@ -1609,56 +1758,138 @@ function zoekEersteHerkenbareNaam(
       markInput.value = waarden.mark;
 
       const actieveCriteria = elementCriteria
-        .map(function(item) { return { ...item, value: waarden[item.key] }; })
-        .filter(function(item) { return item.value; });
+        .map(function(item) {
+          return { ...item, value: waarden[item.key] };
+        })
+        .filter(function(item) {
+          return item.value;
+        });
 
       if (actieveCriteria.length === 0) {
-        elementResultElement.textContent = "Vul minstens één zoekveld in.";
+        elementResultElement.textContent =
+          "Vul minstens één zoekveld in.";
         return;
       }
 
       generalSearchButton.disabled = true;
       elementSearchButton.disabled = true;
       elementClearButton.disabled = true;
-      elementResultElement.textContent = "Elementen doorzoeken op alle ingevulde voorwaarden...";
+
+      elementResultElement.textContent =
+        "Kandidaten bepalen...";
 
       try {
-        const alleObjecten = await API.viewer.getObjects();
+        let kandidaatModellen;
+
+        /*
+         * Cast Unit Mark kan Trimble rechtstreeks filteren.
+         * Bij een ingevulde mark lezen we daardoor alleen de bijbehorende
+         * objecten in, in plaats van het volledige model.
+         */
+        if (waarden.mark) {
+          kandidaatModellen =
+            await zoekKandidatenOpCastUnitMark(
+              waarden.mark
+            );
+        } else {
+          kandidaatModellen =
+            await API.viewer.getObjects();
+        }
+
+        const totaalKandidaten =
+          telObjecten(kandidaatModellen);
+
+        if (totaalKandidaten === 0) {
+          elementResultElement.textContent =
+            "Geen kandidaat-elementen gevonden.";
+          return;
+        }
+
+        elementResultElement.textContent =
+          totaalKandidaten +
+          " kandidaat-element(en) gevonden. Eigenschappen analyseren...";
+
         const gevondenDetails = [];
 
-        for (let modelIndex = 0; modelIndex < alleObjecten.length; modelIndex++) {
-          const model = alleObjecten[modelIndex];
+        for (
+          let modelIndex = 0;
+          modelIndex < kandidaatModellen.length;
+          modelIndex++
+        ) {
+          const model = kandidaatModellen[modelIndex];
+
           const runtimeIds = haalObjecten(model)
             .map(haalRuntimeId)
-            .filter(function(id) { return id !== null && id !== undefined; });
-          const batches = verdeelInGroepen(runtimeIds, 300);
+            .filter(function(id) {
+              return id !== null && id !== undefined;
+            });
 
-          for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-            elementResultElement.textContent =
-              "Model " + (modelIndex + 1) + " van " + alleObjecten.length +
-              " doorzoeken...\nDeel " + (batchIndex + 1) + " van " + batches.length;
+          if (runtimeIds.length === 0) continue;
 
-            const properties = await API.viewer.getObjectProperties(model.modelId, batches[batchIndex]);
-            for (const objectProperties of properties) {
-              const criteriaMatches = objectVoldoetAanElementCriteria(objectProperties, actieveCriteria);
-              if (!criteriaMatches) continue;
-              const runtimeId = objectProperties.id ?? objectProperties.runtimeId ?? objectProperties.objectRuntimeId;
-              if (runtimeId === null || runtimeId === undefined) continue;
-              gevondenDetails.push({ modelId: model.modelId, runtimeId: runtimeId, criteriaMatches: criteriaMatches });
+          elementResultElement.textContent =
+            "Model " +
+            (modelIndex + 1) +
+            " van " +
+            kandidaatModellen.length +
+            " analyseren...\n" +
+            runtimeIds.length +
+            " kandidaat-element(en).";
+
+          const properties =
+            await haalPropertiesEfficient(
+              model.modelId,
+              runtimeIds
+            );
+
+          for (const objectProperties of properties) {
+            const criteriaMatches =
+              objectVoldoetAanElementCriteria(
+                objectProperties,
+                actieveCriteria
+              );
+
+            if (!criteriaMatches) continue;
+
+            const runtimeId =
+              haalRuntimeIdUitProperties(
+                objectProperties
+              );
+
+            if (
+              runtimeId === null ||
+              runtimeId === undefined
+            ) {
+              continue;
             }
+
+            gevondenDetails.push({
+              modelId: model.modelId,
+              runtimeId: runtimeId,
+              criteriaMatches: criteriaMatches
+            });
           }
         }
 
         if (gevondenDetails.length === 0) {
-          elementResultElement.textContent = "Geen elementen gevonden die aan alle ingevulde voorwaarden voldoen.";
+          elementResultElement.textContent =
+            "Geen elementen gevonden die aan alle ingevulde voorwaarden voldoen.";
           return;
         }
 
-        toonElementResultaten(gevondenDetails, actieveCriteria);
+        toonElementResultaten(
+          gevondenDetails,
+          actieveCriteria
+        );
+
         elementClearButton.disabled = false;
       } catch (error) {
-        console.error("Element(en) zoeken mislukt:", error);
-        elementResultElement.textContent = "De gecombineerde zoekactie is mislukt. Bekijk eventueel F12 → Console.";
+        console.error(
+          "Element(en) zoeken mislukt:",
+          error
+        );
+
+        elementResultElement.textContent =
+          "De gecombineerde zoekactie is mislukt. Bekijk eventueel F12 → Console.";
       } finally {
         generalSearchButton.disabled = false;
         elementSearchButton.disabled = false;
