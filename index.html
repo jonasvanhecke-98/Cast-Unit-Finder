@@ -1917,211 +1917,253 @@ function zoekEersteHerkenbareNaam(
       );
     }
 
-    async function zoekAssemblyVoorElement(modelId, runtimeId) {
-      const cacheSleutel =
-        maakCacheSleutel(modelId, runtimeId);
-
-      if (assemblyLookupCache.has(cacheSleutel)) {
-        return assemblyLookupCache.get(cacheSleutel);
-      }
-
-      let assembly = null;
-
-      try {
-        const ouders =
-          await API.viewer.getHierarchyParents(
-            modelId,
-            [runtimeId],
-            ASSEMBLY_HIERARCHY_TYPE,
-            true
-          );
-
-        const parentIds = Array.isArray(ouders)
-          ? ouders
-              .map(function(parent) {
-                return parent && parent.id;
-              })
-              .filter(function(id) {
-                return id !== null && id !== undefined;
-              })
-          : [];
-
-        if (parentIds.length > 0) {
-          const parentProperties =
-            await haalPropertiesEfficient(
-              modelId,
-              parentIds,
-              false
-            );
-
-          for (const objectProperties of parentProperties) {
-            const mark =
-              haalCastUnitMarkUitProperties(
-                objectProperties
-              );
-
-            if (!mark) {
-              continue;
-            }
-
-            const assemblyRuntimeId =
-              haalRuntimeIdUitProperties(
-                objectProperties
-              );
-
-            if (
-              assemblyRuntimeId === null ||
-              assemblyRuntimeId === undefined
-            ) {
-              continue;
-            }
-
-            assembly = {
-              modelId: modelId,
-              runtimeId: assemblyRuntimeId,
-              mark: String(mark).trim()
-            };
-
-            break;
-          }
-        }
-      } catch (error) {
-        console.warn(
-          "Assembly voor element bepalen mislukt:",
-          error
-        );
-      }
-
-      /*
-       * Fallback: sommige IFC-exporten zetten de assemblymark
-       * ook rechtstreeks op het onderdeel.
-       */
-      if (!assembly) {
-        const objectProperties =
-          objectPropertiesCache.get(cacheSleutel);
-
-        const mark = objectProperties
-          ? haalCastUnitMarkUitProperties(objectProperties)
-          : null;
-
-        if (mark) {
-          assembly = {
-            modelId: modelId,
-            runtimeId: runtimeId,
-            mark: String(mark).trim()
-          };
-        }
-      }
-
-      assemblyLookupCache.set(
-        cacheSleutel,
-        assembly
-      );
-
-      return assembly;
-    }
-
-    async function koppelResultatenAanAssemblies(details) {
-      const resultaat = new Array(details.length);
-      let volgendeIndex = 0;
-
-      async function worker() {
-        while (true) {
-          const index = volgendeIndex++;
-
-          if (index >= details.length) {
-            return;
-          }
-
-          const detail = details[index];
-          const assembly =
-            await zoekAssemblyVoorElement(
-              detail.modelId,
-              detail.runtimeId
-            );
-
-          resultaat[index] = {
-            ...detail,
-            assembly: assembly
-          };
-
-          elementResultElement.textContent =
-            "Bijbehorende merken/assemblies bepalen...\\n" +
-            (index + 1) +
-            " van " +
-            details.length +
-            " onderdelen verwerkt.";
-        }
-      }
-
-      const workerAantal = Math.min(
-        MAX_PARALLEL_ASSEMBLY_LOOKUPS,
-        details.length
-      );
-
-      await Promise.all(
-        Array.from(
-          { length: workerAantal },
-          function() {
-            return worker();
-          }
+    async function haalAssembliesVoorModel(
+      modelId,
+      passendeRuntimeIds
+    ) {
+      const uniekeIds = Array.from(
+        new Set(
+          passendeRuntimeIds.filter(function(id) {
+            return id !== null && id !== undefined;
+          })
         )
       );
 
-      return resultaat;
+      if (uniekeIds.length === 0) {
+        return [];
+      }
+
+      const parentIds = new Set();
+
+      async function voegOudersToe(
+        hierarchyType
+      ) {
+        try {
+          const ouders =
+            await API.viewer.getHierarchyParents(
+              modelId,
+              uniekeIds,
+              hierarchyType,
+              true,
+              false
+            );
+
+          if (!Array.isArray(ouders)) {
+            return;
+          }
+
+          ouders.forEach(function(parent) {
+            const id =
+              parent &&
+              (parent.id ??
+                parent.runtimeId ??
+                parent.objectRuntimeId);
+
+            if (
+              id !== null &&
+              id !== undefined
+            ) {
+              parentIds.add(id);
+            }
+          });
+        } catch (error) {
+          console.warn(
+            "Hiërarchieouders ophalen mislukt:",
+            error
+          );
+        }
+      }
+
+      /*
+       * Eerst de echte Element Assembly-hiërarchie proberen.
+       * Bij sommige IFC-exporten zit de mark echter hoger of in een
+       * andere hiërarchie. Daarom volgt een tweede, algemene poging.
+       */
+      await voegOudersToe(
+        ASSEMBLY_HIERARCHY_TYPE
+      );
+
+      if (parentIds.size === 0) {
+        await voegOudersToe(undefined);
+      }
+
+      const kandidaatIds = Array.from(parentIds);
+
+      /*
+       * Soms staat Cast Unit Mark rechtstreeks op het gevonden object.
+       * Neem daarom ook de passende objecten zelf mee als kandidaat.
+       */
+      uniekeIds.forEach(function(id) {
+        kandidaatIds.push(id);
+      });
+
+      const uniekeKandidaatIds =
+        Array.from(new Set(kandidaatIds));
+
+      const properties =
+        await haalPropertiesEfficient(
+          modelId,
+          uniekeKandidaatIds,
+          false
+        );
+
+      const assemblies = new Map();
+
+      properties.forEach(
+        function(objectProperties) {
+          const mark =
+            haalCastUnitMarkUitProperties(
+              objectProperties
+            );
+
+          if (!mark) {
+            return;
+          }
+
+          const runtimeId =
+            haalRuntimeIdUitProperties(
+              objectProperties
+            );
+
+          if (
+            runtimeId === null ||
+            runtimeId === undefined
+          ) {
+            return;
+          }
+
+          const sleutel =
+            String(modelId) +
+            "|" +
+            String(runtimeId);
+
+          if (!assemblies.has(sleutel)) {
+            assemblies.set(sleutel, {
+              modelId: modelId,
+              runtimeId: runtimeId,
+              mark: String(mark).trim()
+            });
+          }
+        }
+      );
+
+      return Array.from(
+        assemblies.values()
+      );
     }
 
-    function toonElementResultaten(gevondenDetails, actieveCriteria) {
-      elementResultElement.innerHTML = "";
+    async function koppelResultatenAanAssemblies(
+      details
+    ) {
+      const perModel = new Map();
 
-      const assemblyGroepen = new Map();
-      const zonderAssembly = [];
-
-      gevondenDetails.forEach(function(detail) {
-        if (!detail.assembly || !detail.assembly.mark) {
-          zonderAssembly.push(detail);
-          return;
+      details.forEach(function(detail) {
+        if (!perModel.has(detail.modelId)) {
+          perModel.set(detail.modelId, []);
         }
 
-        const sleutel =
-          String(detail.assembly.modelId) +
-          "|" +
-          String(detail.assembly.runtimeId);
-
-        if (!assemblyGroepen.has(sleutel)) {
-          assemblyGroepen.set(sleutel, {
-            modelId: detail.assembly.modelId,
-            runtimeId: detail.assembly.runtimeId,
-            mark: detail.assembly.mark,
-            onderdelen: []
-          });
-        }
-
-        assemblyGroepen
-          .get(sleutel)
-          .onderdelen
+        perModel
+          .get(detail.modelId)
           .push(detail);
       });
 
-      const assemblies =
-        Array.from(assemblyGroepen.values())
-          .sort(function(a, b) {
-            return a.mark.localeCompare(
-              b.mark,
-              "nl-BE",
-              {
-                numeric: true,
-                sensitivity: "base"
-              }
-            );
-          });
+      const modelEntries =
+        Array.from(perModel.entries());
 
-      const titel = document.createElement("div");
+      const assembliesMap = new Map();
+      let verwerkt = 0;
+
+      for (const entry of modelEntries) {
+        const modelId = entry[0];
+        const modelDetails = entry[1];
+
+        elementResultElement.textContent =
+          "Bijbehorende merken/assemblies bepalen...\\n" +
+          (verwerkt + 1) +
+          " van " +
+          modelEntries.length +
+          " modellen verwerkt.";
+
+        const assemblies =
+          await haalAssembliesVoorModel(
+            modelId,
+            modelDetails.map(function(detail) {
+              return detail.runtimeId;
+            })
+          );
+
+        assemblies.forEach(function(assembly) {
+          const sleutel =
+            String(assembly.modelId) +
+            "|" +
+            String(assembly.runtimeId);
+
+          if (!assembliesMap.has(sleutel)) {
+            assembliesMap.set(
+              sleutel,
+              assembly
+            );
+          }
+        });
+
+        verwerkt++;
+      }
+
+      return {
+        assemblies: Array.from(
+          assembliesMap.values()
+        ),
+        matchingPartCount: details.length
+      };
+    }
+
+    function toonElementResultaten(
+      resultaat,
+      actieveCriteria
+    ) {
+      elementResultElement.innerHTML = "";
+
+      const assemblies =
+        Array.isArray(resultaat.assemblies)
+          ? resultaat.assemblies.slice()
+          : [];
+
+      assemblies.sort(function(a, b) {
+        return a.mark.localeCompare(
+          b.mark,
+          "nl-BE",
+          {
+            numeric: true,
+            sensitivity: "base"
+          }
+        );
+      });
+
+      const titel =
+        document.createElement("div");
+
       titel.className = "result-title";
       titel.textContent =
         assemblies.length +
         " merk(en)/assembly('s) gevonden";
+
       elementResultElement.appendChild(titel);
+
+      if (assemblies.length === 0) {
+        const waarschuwing =
+          document.createElement("div");
+
+        waarschuwing.className =
+          "result-info";
+
+        waarschuwing.textContent =
+          resultaat.matchingPartCount +
+          " passend(e) onderdeel/onderdelen gevonden, maar in de modelhiërarchie werd geen bovenliggende assembly met Cast Unit Mark aangetroffen. Controleer of de IFC-export een Element Assembly-relatie en Cast Unit Mark op het merk bevat.";
+
+        elementResultElement.appendChild(
+          waarschuwing
+        );
+      }
 
       assemblies.forEach(function(assembly) {
         const detailsElement =
@@ -2137,10 +2179,7 @@ function zoekEersteHerkenbareNaam(
           "search-result-summary";
 
         summary.textContent =
-          assembly.mark +
-          " — " +
-          assembly.onderdelen.length +
-          " passend(e) onderdeel/onderdelen";
+          assembly.mark;
 
         summary.addEventListener(
           "click",
@@ -2168,23 +2207,27 @@ function zoekEersteHerkenbareNaam(
         const assemblyInfo =
           document.createElement("div");
 
-        assemblyInfo.className = "match-info";
-        assemblyInfo.style.fontWeight = "bold";
+        assemblyInfo.className =
+          "match-info";
+
+        assemblyInfo.style.fontWeight =
+          "bold";
+
         assemblyInfo.textContent =
           "Merk / Cast Unit Mark: " +
           assembly.mark;
 
-        inhoud.appendChild(assemblyInfo);
+        inhoud.appendChild(
+          assemblyInfo
+        );
 
         const knop =
           document.createElement("button");
 
         knop.type = "button";
         knop.textContent =
-          "Selecteer merk/assembly " +
+          "Selecteer volledige assembly " +
           assembly.mark;
-
-        knop.style.marginBottom = "10px";
 
         knop.addEventListener(
           "click",
@@ -2200,43 +2243,6 @@ function zoekEersteHerkenbareNaam(
 
         inhoud.appendChild(knop);
 
-        assembly.onderdelen.forEach(
-          function(detail, index) {
-            const blok =
-              document.createElement("div");
-
-            blok.className = "match-info";
-
-            const kop =
-              document.createElement("div");
-
-            kop.style.fontWeight = "bold";
-            kop.style.marginBottom = "8px";
-            kop.textContent =
-              "Passend onderdeel " +
-              (index + 1);
-
-            blok.appendChild(kop);
-
-            detail.criteriaMatches.forEach(
-              function(item) {
-                const regel =
-                  document.createElement("div");
-
-                regel.style.marginBottom = "5px";
-                regel.textContent =
-                  item.label +
-                  ": " +
-                  item.match.value;
-
-                blok.appendChild(regel);
-              }
-            );
-
-            inhoud.appendChild(blok);
-          }
-        );
-
         detailsElement.appendChild(summary);
         detailsElement.appendChild(inhoud);
         elementResultElement.appendChild(
@@ -2244,30 +2250,23 @@ function zoekEersteHerkenbareNaam(
         );
       });
 
-      if (zonderAssembly.length > 0) {
-        const waarschuwing =
-          document.createElement("div");
+      const info =
+        document.createElement("div");
 
-        waarschuwing.className = "result-info";
-        waarschuwing.textContent =
-          zonderAssembly.length +
-          " passend(e) onderdeel/onderdelen konden niet aan een merk/assembly met Cast Unit Mark worden gekoppeld.";
-
-        elementResultElement.appendChild(
-          waarschuwing
-        );
-      }
-
-      const info = document.createElement("div");
       info.className = "result-info";
       info.textContent =
-        "Gecombineerde voorwaarden: " +
+        resultaat.matchingPartCount +
+        " passend(e) onderdeel/onderdelen gevonden. Zodra minstens één onderdeel aan de voorwaarden voldoet, wordt de bovenliggende assembly met Cast Unit Mark als resultaat getoond. Voorwaarden: " +
         actieveCriteria
           .map(function(item) {
-            return item.label + " = " + item.value;
+            return (
+              item.label +
+              " = " +
+              item.value
+            );
           })
           .join(", ") +
-        ". De resultaten worden weergegeven en geselecteerd als merk/assembly.";
+        ".";
 
       elementResultElement.appendChild(info);
     }
