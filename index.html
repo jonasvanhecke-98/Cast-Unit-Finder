@@ -520,38 +520,38 @@
 
       <div class="field-divider"></div>
 
-      <label for="altez-parameter-search">ALTEZ-parameter</label>
+      <label for="model-parameter-search">Parameter</label>
 
       <p class="small-info">
-        Je kunt alleen een zoektekst invullen, alleen een ALTEZ-parameter kiezen,
-        of beide combineren. Bij een combinatie wordt de zoektekst alleen binnen
-        de gekozen parameter gezocht.
+        Kies een parameter uit alle parameters die aanwezig zijn in het geladen model.
+        Je kunt ook beginnen typen om de lijst te filteren. Combineer dit eventueel
+        met de zoektekst hierboven.
       </p>
 
       <div class="profile-combobox">
         <input
-          id="altez-parameter-search"
+          id="model-parameter-search"
           type="text"
-          list="altez-parameter-options"
-          placeholder="Klik of begin de parameternaam te typen"
+          list="model-parameter-options"
+          placeholder="Klik of begin een parameternaam te typen"
           autocomplete="off"
           spellcheck="false"
         >
       </div>
 
-      <datalist id="altez-parameter-options"></datalist>
+      <datalist id="model-parameter-options"></datalist>
 
-      <div id="altez-parameter-status" class="profile-status">
-        Klik in het veld om de aanwezige ALTEZ-parameters in te lezen.
+      <div id="model-parameter-status" class="profile-status">
+        Klik in het veld om alle aanwezige parameters in te lezen.
       </div>
 
       <button
-        id="altez-parameter-search-button"
+        id="model-parameter-search-button"
         class="single-button"
         type="button"
         disabled
       >
-        Zoeken met ALTEZ-parameter
+        Zoeken met parameter
       </button>
 
       <button id="general-clear-button" class="secondary single-button" type="button" disabled>
@@ -784,9 +784,9 @@
     let beschikbareAfwerkingen = [];
     let beschikbareMaterialen = [];
 
-    let altezParametersLoaded = false;
-    let altezParametersLoadingPromise = null;
-    let beschikbareAltezParameters = [];
+    let modelParametersLoaded = false;
+    let modelParametersLoadingPromise = null;
+    let beschikbareModelParameters = [];
 
     const assemblyLookupCache = new Map();
     const ASSEMBLY_HIERARCHY_TYPE = 4;
@@ -801,21 +801,21 @@
     const generalInput =
       document.getElementById("general-search");
 
-    const altezParameterInput =
-      document.getElementById("altez-parameter-search");
+    const modelParameterInput =
+      document.getElementById("model-parameter-search");
 
-    const altezParameterOptionsElement =
-      document.getElementById("altez-parameter-options");
+    const modelParameterOptionsElement =
+      document.getElementById("model-parameter-options");
 
-    const altezParameterStatusElement =
-      document.getElementById("altez-parameter-status");
+    const modelParameterStatusElement =
+      document.getElementById("model-parameter-status");
 
 
     const generalSearchButton =
       document.getElementById("general-search-button");
 
-    const altezParameterSearchButton =
-      document.getElementById("altez-parameter-search-button");
+    const modelParameterSearchButton =
+      document.getElementById("model-parameter-search-button");
 
     const generalClearButton =
       document.getElementById("general-clear-button");
@@ -1000,27 +1000,6 @@
         .replace(/[^a-z0-9]/g, "");
     }
 
-    const ALTEZ_PROPERTY_SET_NAMES = [
-      "ALTEZ_CODERING",
-      "ALTEZ_HOEVEELHEID",
-      "ALTEZ_IFC"
-    ];
-
-    function normaliseerPropertySetVoorAltez(waarde) {
-      return String(waarde || "")
-        .trim()
-        .replace(/[\s-]+/g, "_")
-        .toLocaleUpperCase("nl-BE");
-    }
-
-    function isAltezPropertySet(setName) {
-      return ALTEZ_PROPERTY_SET_NAMES.includes(
-        normaliseerPropertySetVoorAltez(
-          setName
-        )
-      );
-    }
-
     function normaliseerTekst(waarde) {
       return String(waarde ?? "")
         .trim()
@@ -1126,7 +1105,7 @@
         statusElement.classList.add("success");
 
         generalSearchButton.disabled = false;
-        altezParameterSearchButton.disabled = false;
+        modelParameterSearchButton.disabled = false;
         elementSearchButton.disabled = false;
       } catch (error) {
         console.error(
@@ -1506,7 +1485,7 @@
 
         if (
           normaliseerPropertySetNaam(setName) !==
-          "ALTEZ_IFC"
+          "Model_IFC"
         ) {
           continue;
         }
@@ -2432,7 +2411,7 @@ function bepaalAlgemeneZoekgroep(
     }
 
 
-    function vindAltezPropertyWaarde(
+    function vindModelPropertyWaarde(
       objectProperties,
       parameterNaam
     ) {
@@ -2448,11 +2427,13 @@ function bepaalAlgemeneZoekgroep(
 
       for (const propertySet of propertySets) {
         const setName =
-          String(propertySet.set || "").trim();
-
-        if (!isAltezPropertySet(setName)) {
-          continue;
-        }
+          String(
+            propertySet.set ||
+            propertySet.name ||
+            propertySet.displayName ||
+            propertySet.propertySetName ||
+            ""
+          ).trim();
 
         const properties =
           Array.isArray(propertySet.properties)
@@ -2463,10 +2444,18 @@ function bepaalAlgemeneZoekgroep(
           const propertyName =
             String(property.name || "").trim();
 
-          if (
-            normaliseerTekst(propertyName) !==
-            gewensteNaam
-          ) {
+          const fullName =
+            setName
+              ? setName + " → " + propertyName
+              : propertyName;
+
+          const naamPast =
+            normaliseerTekst(propertyName) ===
+              gewensteNaam ||
+            normaliseerTekst(fullName) ===
+              gewensteNaam;
+
+          if (!naamPast) {
             continue;
           }
 
@@ -2500,21 +2489,21 @@ function bepaalAlgemeneZoekgroep(
       return null;
     }
 
-    async function laadBeschikbareAltezParameters() {
-      if (altezParametersLoaded) {
-        return beschikbareAltezParameters;
+    async function laadBeschikbareModelParameters() {
+      if (modelParametersLoaded) {
+        return beschikbareModelParameters;
       }
 
-      if (altezParametersLoadingPromise) {
-        return altezParametersLoadingPromise;
+      if (modelParametersLoadingPromise) {
+        return modelParametersLoadingPromise;
       }
 
-      altezParametersLoadingPromise =
+      modelParametersLoadingPromise =
         (async function() {
-          altezParameterStatusElement.textContent =
-            "Aanwezige ALTEZ-parameters inlezen...";
+          modelParameterStatusElement.textContent =
+            "Alle aanwezige parameters inlezen...";
 
-          altezParameterStatusElement.className =
+          modelParameterStatusElement.className =
             "profile-status loading";
 
           try {
@@ -2546,8 +2535,8 @@ function bepaalAlgemeneZoekgroep(
                 continue;
               }
 
-              altezParameterStatusElement.textContent =
-                "ALTEZ-parameters analyseren: model " +
+              modelParameterStatusElement.textContent =
+                "Parameters analyseren: model " +
                 (modelIndex + 1) +
                 " van " +
                 modellen.length +
@@ -2581,16 +2570,12 @@ function bepaalAlgemeneZoekgroep(
                     function(propertySet) {
                       const setName =
                         String(
-                          propertySet.set || ""
+                          propertySet.set ||
+                          propertySet.name ||
+                          propertySet.displayName ||
+                          propertySet.propertySetName ||
+                          ""
                         ).trim();
-
-                      if (
-                        !isAltezPropertySet(
-                          setName
-                        )
-                      ) {
-                        return;
-                      }
 
                       const setProperties =
                         Array.isArray(
@@ -2610,9 +2595,16 @@ function bepaalAlgemeneZoekgroep(
                             return;
                           }
 
+                          const label =
+                            setName
+                              ? setName +
+                                " → " +
+                                propertyName
+                              : propertyName;
+
                           const sleutel =
                             normaliseerTekst(
-                              propertyName
+                              label
                             );
 
                           if (
@@ -2622,7 +2614,7 @@ function bepaalAlgemeneZoekgroep(
                           ) {
                             parameterMap.set(
                               sleutel,
-                              propertyName
+                              label
                             );
                           }
                         }
@@ -2639,7 +2631,7 @@ function bepaalAlgemeneZoekgroep(
               );
             }
 
-            beschikbareAltezParameters =
+            beschikbareModelParameters =
               Array.from(
                 parameterMap.values()
               ).sort(
@@ -2655,13 +2647,13 @@ function bepaalAlgemeneZoekgroep(
                 }
               );
 
-            altezParameterOptionsElement.innerHTML =
+            modelParameterOptionsElement.innerHTML =
               "";
 
             const fragment =
               document.createDocumentFragment();
 
-            beschikbareAltezParameters.forEach(
+            beschikbareModelParameters.forEach(
               function(parameterNaam) {
                 const option =
                   document.createElement(
@@ -2677,56 +2669,56 @@ function bepaalAlgemeneZoekgroep(
               }
             );
 
-            altezParameterOptionsElement.appendChild(
+            modelParameterOptionsElement.appendChild(
               fragment
             );
 
-            altezParametersLoaded = true;
+            modelParametersLoaded = true;
 
             if (
-              beschikbareAltezParameters.length >
+              beschikbareModelParameters.length >
               0
             ) {
-              altezParameterStatusElement.textContent =
-                beschikbareAltezParameters.length +
-                " aanwezige ALTEZ-parameter(s) gevonden.";
+              modelParameterStatusElement.textContent =
+                beschikbareModelParameters.length +
+                " aanwezige parameter(s) gevonden.";
 
-              altezParameterStatusElement.className =
+              modelParameterStatusElement.className =
                 "profile-status";
             } else {
-              altezParameterStatusElement.textContent =
-                "Geen parameters gevonden in Altez_Codering, Altez_Hoeveelheid of ALTEZ_IFC.";
+              modelParameterStatusElement.textContent =
+                "Er werden geen parameters in het geladen model gevonden.";
 
-              altezParameterStatusElement.className =
+              modelParameterStatusElement.className =
                 "profile-status error";
             }
 
-            return beschikbareAltezParameters;
+            return beschikbareModelParameters;
           } catch (error) {
             console.error(
-              "ALTEZ-parameters inlezen mislukt:",
+              "Parameters inlezen mislukt:",
               error
             );
 
-            altezParameterStatusElement.textContent =
-              "De ALTEZ-parameters konden niet worden ingelezen.";
+            modelParameterStatusElement.textContent =
+              "De parameters konden niet worden ingelezen.";
 
-            altezParameterStatusElement.className =
+            modelParameterStatusElement.className =
               "profile-status error";
 
             return [];
           } finally {
-            altezParametersLoadingPromise =
+            modelParametersLoadingPromise =
               null;
           }
         })();
 
-      return altezParametersLoadingPromise;
+      return modelParametersLoadingPromise;
     }
 
-    async function zoekOpAltezParameter() {
+    async function zoekOpModelParameter() {
       const parameterNaam =
-        altezParameterInput.value.trim();
+        modelParameterInput.value.trim();
 
       const zoektekstOrigineel =
         generalInput.value.trim();
@@ -2741,12 +2733,12 @@ function bepaalAlgemeneZoekgroep(
         !zoektekstOrigineel
       ) {
         generalResultElement.textContent =
-          "Vul een zoektekst in, kies een ALTEZ-parameter, of gebruik beide.";
+          "Vul een zoektekst in, kies een parameter, of gebruik beide.";
         return;
       }
 
       /*
-       * Zonder gekozen ALTEZ-parameter blijft de gewone algemene
+       * Zonder gekozen parameter blijft de gewone algemene
        * zoekfunctie actief.
        */
       if (!parameterNaam) {
@@ -2755,7 +2747,7 @@ function bepaalAlgemeneZoekgroep(
       }
 
       generalSearchButton.disabled = true;
-      altezParameterSearchButton.disabled =
+      modelParameterSearchButton.disabled =
         true;
       generalClearButton.disabled = true;
 
@@ -2763,16 +2755,16 @@ function bepaalAlgemeneZoekgroep(
         zoektekstOrigineel
           ? "Zoeken naar \"" +
             zoektekstOrigineel +
-            "\" binnen ALTEZ-parameter \"" +
+            "\" binnen parameter \"" +
             parameterNaam +
             "\"..."
-          : "Alle objecten groeperen op ALTEZ-parameter \"" +
+          : "Alle objecten groeperen op parameter \"" +
             parameterNaam +
             "\"...";
 
       try {
-        if (!altezParametersLoaded) {
-          await laadBeschikbareAltezParameters();
+        if (!modelParametersLoaded) {
+          await laadBeschikbareModelParameters();
         }
 
         const modellen =
@@ -2804,13 +2796,13 @@ function bepaalAlgemeneZoekgroep(
 
           generalResultElement.textContent =
             zoektekstOrigineel
-              ? "Zoeken binnen ALTEZ-parameter \"" +
+              ? "Zoeken binnen parameter \"" +
                 parameterNaam +
                 "\"...\nModel " +
                 (modelIndex + 1) +
                 " van " +
                 modellen.length
-              : "ALTEZ-parameter \"" +
+              : "parameter \"" +
                 parameterNaam +
                 "\" analyseren...\nModel " +
                 (modelIndex + 1) +
@@ -2847,7 +2839,7 @@ function bepaalAlgemeneZoekgroep(
               }
 
               const waarde =
-                vindAltezPropertyWaarde(
+                vindModelPropertyWaarde(
                   objectProperties,
                   parameterNaam
                 );
@@ -2905,7 +2897,7 @@ function bepaalAlgemeneZoekgroep(
                 matches: [
                   {
                     setName:
-                      "ALTEZ",
+                      "Model",
                     propertyName:
                       parameterNaam,
                     value:
@@ -2940,15 +2932,15 @@ function bepaalAlgemeneZoekgroep(
         generalClearButton.disabled = false;
       } catch (error) {
         console.error(
-          "Zoeken met ALTEZ-parameter mislukt:",
+          "Zoeken met parameter mislukt:",
           error
         );
 
         generalResultElement.textContent =
-          "Zoeken met de ALTEZ-parameter is mislukt.";
+          "Zoeken met de parameter is mislukt.";
       } finally {
         generalSearchButton.disabled = false;
-        altezParameterSearchButton.disabled =
+        modelParameterSearchButton.disabled =
           false;
       }
     }
@@ -6111,7 +6103,7 @@ function bepaalAlgemeneZoekgroep(
       saveGeneralSearchButton.disabled = true;
 
       generalInput.value = "";
-      altezParameterInput.value = "";
+      modelParameterInput.value = "";
       generalResultElement.textContent =
         "Nog geen algemene zoekopdracht uitgevoerd.";
       generalClearButton.disabled = true;
@@ -6159,9 +6151,9 @@ function bepaalAlgemeneZoekgroep(
           !generalSearchButton.disabled
         ) {
           if (
-            altezParameterInput.value.trim()
+            modelParameterInput.value.trim()
           ) {
-            zoekOpAltezParameter();
+            zoekOpModelParameter();
           } else {
             algemeenZoeken();
           }
@@ -6174,30 +6166,30 @@ function bepaalAlgemeneZoekgroep(
       "click",
       function() {
         if (
-          altezParameterInput.value.trim()
+          modelParameterInput.value.trim()
         ) {
-          zoekOpAltezParameter();
+          zoekOpModelParameter();
         } else {
           algemeenZoeken();
         }
       }
     );
 
-    altezParameterSearchButton.addEventListener(
+    modelParameterSearchButton.addEventListener(
       "click",
-      zoekOpAltezParameter
+      zoekOpModelParameter
     );
 
-    altezParameterInput.addEventListener(
+    modelParameterInput.addEventListener(
       "change",
       function() {
         const ingevoerd =
           normaliseerTekst(
-            altezParameterInput.value
+            modelParameterInput.value
           );
 
         const bestaand =
-          beschikbareAltezParameters.find(
+          beschikbareModelParameters.find(
             function(parameterNaam) {
               return (
                 normaliseerTekst(
@@ -6208,33 +6200,33 @@ function bepaalAlgemeneZoekgroep(
           );
 
         if (bestaand) {
-          altezParameterInput.value =
+          modelParameterInput.value =
             bestaand;
         }
       }
     );
 
-    altezParameterInput.addEventListener(
+    modelParameterInput.addEventListener(
       "focus",
       function() {
         if (
           API &&
-          !altezParametersLoaded &&
-          !altezParametersLoadingPromise
+          !modelParametersLoaded &&
+          !modelParametersLoadingPromise
         ) {
-          laadBeschikbareAltezParameters();
+          laadBeschikbareModelParameters();
         }
       }
     );
 
-    altezParameterInput.addEventListener(
+    modelParameterInput.addEventListener(
       "keydown",
       function(event) {
         if (
           event.key === "Enter" &&
-          !altezParameterSearchButton.disabled
+          !modelParameterSearchButton.disabled
         ) {
-          zoekOpAltezParameter();
+          zoekOpModelParameter();
         }
       }
     );
