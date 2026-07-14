@@ -950,9 +950,30 @@
       </div>
 
       <div class="import-step">
-        <h3>1. Modelindex opbouwen</h3>
+        <h3>1. Model en prefix kiezen</h3>
+
         <p class="small-info">
-          Leest Cast Unit Mark en GUID uit alle geladen modelobjecten.
+          Kies één geladen model. Alleen assemblies/Cast Unit Marks uit dit model
+          waarvan het merknummer met de ingestelde prefix begint, worden ingelezen.
+        </p>
+
+        <label for="data-model-select">Geladen model</label>
+        <select id="data-model-select" disabled>
+          <option value="">Geladen modellen worden ingelezen...</option>
+        </select>
+
+        <label for="data-mark-prefix">Prefix Cast Unit Mark</label>
+        <input
+          id="data-mark-prefix"
+          type="text"
+          placeholder="Bijvoorbeeld XWI"
+          autocomplete="off"
+          spellcheck="false"
+        >
+
+        <p class="small-info">
+          Hoofdletters en spaties worden genegeerd. Prefix XWI vindt bijvoorbeeld
+          XWI001, XWI 002 en xwi003.
         </p>
 
         <button id="build-data-model-index-button" type="button" disabled>
@@ -960,7 +981,7 @@
         </button>
 
         <div id="data-model-index-status" class="organizer-status">
-          Nog geen modelindex opgebouwd.
+          Kies eerst een geladen model en vul een prefix in.
         </div>
       </div>
 
@@ -1471,6 +1492,12 @@
     const dataMenuView =
       document.getElementById("data-menu-view");
 
+    const dataModelSelect =
+      document.getElementById("data-model-select");
+
+    const dataMarkPrefixInput =
+      document.getElementById("data-mark-prefix");
+
     const buildDataModelIndexButton =
       document.getElementById("build-data-model-index-button");
 
@@ -1613,6 +1640,8 @@
 
     const DATA_PROPERTY_NAME =
       "U01. Vrachtnummer";
+
+    let loadedDataModels = [];
 
     let dataModelIndex =
       new Map();
@@ -1804,7 +1833,10 @@
         statusElement.classList.add("success");
 
         generalSearchButton.disabled = false;
-        buildDataModelIndexButton.disabled = false;
+
+        await laadGeladenModellenVoorDataImport();
+
+        updateDataModelIndexButtonState();
         modelParameterSearchButton.disabled = false;
         elementSearchButton.disabled = false;
       } catch (error) {
@@ -7531,6 +7563,96 @@ function bepaalAlgemeneZoekgroep(
 
 
 
+    function updateDataModelIndexButtonState() {
+      const heeftModel =
+        Boolean(dataModelSelect.value);
+
+      const heeftPrefix =
+        Boolean(
+          normaliseerImportMark(
+            dataMarkPrefixInput.value
+          )
+        );
+
+      buildDataModelIndexButton.disabled =
+        !(
+          API &&
+          heeftModel &&
+          heeftPrefix
+        );
+    }
+
+    async function laadGeladenModellenVoorDataImport() {
+      dataModelSelect.disabled = true;
+      dataModelSelect.innerHTML =
+        '<option value="">Geladen modellen worden ingelezen...</option>';
+
+      try {
+        const modellen =
+          await haalAlleModelObjecten();
+
+        loadedDataModels =
+          Array.isArray(modellen)
+            ? modellen
+            : [];
+
+        dataModelSelect.innerHTML =
+          '<option value="">Kies een geladen model</option>';
+
+        loadedDataModels.forEach(
+          function(model, index) {
+            const option =
+              document.createElement("option");
+
+            option.value =
+              String(model.modelId);
+
+            option.textContent =
+              String(
+                model.name ||
+                model.modelName ||
+                model.title ||
+                model.fileName ||
+                ("Model " + (index + 1))
+              );
+
+            dataModelSelect.appendChild(
+              option
+            );
+          }
+        );
+
+        if (loadedDataModels.length === 1) {
+          dataModelSelect.value =
+            String(
+              loadedDataModels[0].modelId
+            );
+        }
+
+        dataModelSelect.disabled =
+          loadedDataModels.length === 0;
+
+        dataModelIndexStatus.textContent =
+          loadedDataModels.length > 0
+            ? loadedDataModels.length +
+              " geladen model(len) gevonden. Kies een model en vul een prefix in."
+            : "Er werden geen geladen modellen gevonden.";
+
+        updateDataModelIndexButtonState();
+      } catch (error) {
+        console.error(
+          "Geladen modellen inlezen mislukt:",
+          error
+        );
+
+        dataModelSelect.innerHTML =
+          '<option value="">Modellen konden niet worden ingelezen</option>';
+
+        dataModelIndexStatus.textContent =
+          "De geladen modellen konden niet worden ingelezen.";
+      }
+    }
+
     function normaliseerImportMark(waarde) {
       return String(waarde ?? "")
         .toLocaleUpperCase("nl-BE")
@@ -7642,156 +7764,245 @@ function bepaalAlgemeneZoekgroep(
     }
 
     async function bouwDataModelIndex() {
+      const gekozenModelId =
+        String(
+          dataModelSelect.value || ""
+        );
+
+      const prefix =
+        normaliseerImportMark(
+          dataMarkPrefixInput.value
+        );
+
+      if (!gekozenModelId) {
+        dataModelIndexStatus.textContent =
+          "Kies eerst een geladen model.";
+        return;
+      }
+
+      if (!prefix) {
+        dataModelIndexStatus.textContent =
+          "Vul eerst een Cast Unit Mark-prefix in.";
+        return;
+      }
+
+      const model =
+        loadedDataModels.find(
+          function(item) {
+            return (
+              String(item.modelId) ===
+              gekozenModelId
+            );
+          }
+        );
+
+      if (!model) {
+        dataModelIndexStatus.textContent =
+          "Het gekozen model is niet meer beschikbaar. Lees de modellen opnieuw in.";
+        return;
+      }
+
       buildDataModelIndexButton.disabled =
         true;
 
       dataModelIndexStatus.textContent =
-        "Modelobjecten verzamelen...";
+        "Gekozen model analyseren voor prefix " +
+        prefix +
+        "...";
 
       try {
-        const modellen =
-          await haalAlleModelObjecten();
+        const runtimeIds =
+          haalObjecten(model)
+            .map(haalRuntimeId)
+            .filter(function(id) {
+              return (
+                id !== null &&
+                id !== undefined
+              );
+            });
+
+        if (runtimeIds.length === 0) {
+          dataModelIndex =
+            new Map();
+
+          dataModelIndexStatus.textContent =
+            "Het gekozen model bevat geen leesbare objecten.";
+
+          return;
+        }
+
+        const propertyResultaat =
+          await haalPropertiesEfficient(
+            model.modelId,
+            runtimeIds,
+            false
+          );
+
+        const properties =
+          propertyResultaat &&
+          Array.isArray(
+            propertyResultaat.properties
+          )
+            ? propertyResultaat.properties
+            : [];
+
+        const kandidaatObjecten = [];
+
+        properties.forEach(
+          function(objectProperties) {
+            const runtimeId =
+              haalRuntimeIdUitProperties(
+                objectProperties
+              );
+
+            const mark =
+              haalCastUnitMarkUitProperties(
+                objectProperties
+              );
+
+            if (
+              runtimeId === null ||
+              runtimeId === undefined ||
+              !mark
+            ) {
+              return;
+            }
+
+            const normaleMark =
+              normaliseerImportMark(mark);
+
+            if (
+              !normaleMark.startsWith(
+                prefix
+              )
+            ) {
+              return;
+            }
+
+            kandidaatObjecten.push({
+              runtimeId: runtimeId,
+              mark:
+                String(mark).trim()
+            });
+          }
+        );
+
+        if (kandidaatObjecten.length === 0) {
+          dataModelIndex =
+            new Map();
+
+          dataModelIndexStatus.textContent =
+            "Geen Cast Unit Marks gevonden die beginnen met prefix " +
+            prefix +
+            ".";
+
+          linkDataImportButton.disabled =
+            true;
+
+          return;
+        }
+
+        const kandidaatRuntimeIds =
+          kandidaatObjecten.map(
+            function(item) {
+              return item.runtimeId;
+            }
+          );
+
+        let converted = [];
+
+        try {
+          const convertResult =
+            await API.viewer.convertToObjectIds(
+              model.modelId,
+              kandidaatRuntimeIds
+            );
+
+          converted =
+            normaliseerConvertedObjectIds(
+              convertResult,
+              kandidaatRuntimeIds
+            );
+        } catch (error) {
+          console.warn(
+            "GUID-conversie mislukt voor het gekozen model:",
+            error
+          );
+        }
+
+        const guidPerRuntime =
+          new Map();
+
+        converted.forEach(
+          function(item) {
+            guidPerRuntime.set(
+              String(item.runtimeId),
+              String(item.guid || "")
+            );
+          }
+        );
 
         const index =
           new Map();
 
-        let gelezenObjecten = 0;
-        let gevondenMarks = 0;
+        kandidaatObjecten.forEach(
+          function(item) {
+            const sleutel =
+              normaliseerImportMark(
+                item.mark
+              );
 
-        for (
-          let modelIndex = 0;
-          modelIndex < modellen.length;
-          modelIndex++
-        ) {
-          const model =
-            modellen[modelIndex];
-
-          const runtimeIds =
-            haalObjecten(model)
-              .map(haalRuntimeId)
-              .filter(function(id) {
-                return (
-                  id !== null &&
-                  id !== undefined
-                );
-              });
-
-          if (runtimeIds.length === 0) {
-            continue;
-          }
-
-          dataModelIndexStatus.textContent =
-            "Model " +
-            (modelIndex + 1) +
-            " van " +
-            modellen.length +
-            " analyseren...";
-
-          const propertyResultaat =
-            await haalPropertiesEfficient(
-              model.modelId,
-              runtimeIds,
-              false
-            );
-
-          const properties =
-            propertyResultaat &&
-            Array.isArray(
-              propertyResultaat.properties
-            )
-              ? propertyResultaat.properties
-              : [];
-
-          let converted = [];
-
-          try {
-            const convertResult =
-              await API.viewer.convertToObjectIds(
+            const record = {
+              modelId:
                 model.modelId,
-                runtimeIds
-              );
+              runtimeId:
+                item.runtimeId,
+              guid:
+                guidPerRuntime.get(
+                  String(item.runtimeId)
+                ) || "",
+              mark:
+                item.mark
+            };
 
-            converted =
-              normaliseerConvertedObjectIds(
-                convertResult,
-                runtimeIds
+            if (!index.has(sleutel)) {
+              index.set(
+                sleutel,
+                []
               );
-          } catch (error) {
-            console.warn(
-              "GUID-conversie mislukt voor model:",
-              model.modelId,
-              error
+            }
+
+            index.get(sleutel).push(
+              record
             );
           }
-
-          const guidPerRuntime =
-            new Map();
-
-          converted.forEach(
-            function(item) {
-              guidPerRuntime.set(
-                String(item.runtimeId),
-                String(item.guid || "")
-              );
-            }
-          );
-
-          properties.forEach(
-            function(objectProperties) {
-              gelezenObjecten++;
-
-              const runtimeId =
-                haalRuntimeIdUitProperties(
-                  objectProperties
-                );
-
-              const mark =
-                haalCastUnitMarkUitProperties(
-                  objectProperties
-                );
-
-              if (!mark) {
-                return;
-              }
-
-              gevondenMarks++;
-
-              const sleutel =
-                normaliseerImportMark(
-                  mark
-                );
-
-              const record = {
-                modelId:
-                  model.modelId,
-                runtimeId:
-                  runtimeId,
-                guid:
-                  guidPerRuntime.get(
-                    String(runtimeId)
-                  ) || "",
-                mark:
-                  String(mark).trim()
-              };
-
-              if (!index.has(sleutel)) {
-                index.set(sleutel, []);
-              }
-
-              index.get(sleutel).push(
-                record
-              );
-            }
-          );
-        }
+        );
 
         dataModelIndex = index;
 
+        const uniekeMarks =
+          dataModelIndex.size;
+
+        const aantalObjecten =
+          Array.from(
+            dataModelIndex.values()
+          ).reduce(
+            function(totaal, items) {
+              return (
+                totaal +
+                items.length
+              );
+            },
+            0
+          );
+
         dataModelIndexStatus.textContent =
-          gevondenMarks +
-          " object(en) met Cast Unit Mark geïndexeerd uit " +
-          gelezenObjecten +
-          " gelezen objecten.";
+          aantalObjecten +
+          " object(en) met " +
+          uniekeMarks +
+          " unieke Cast Unit Mark(s) gevonden in het gekozen model voor prefix " +
+          prefix +
+          ".";
 
         linkDataImportButton.disabled =
           !(
@@ -7813,8 +8024,7 @@ function bepaalAlgemeneZoekgroep(
               : "onbekende fout"
           );
       } finally {
-        buildDataModelIndexButton.disabled =
-          false;
+        updateDataModelIndexButtonState();
       }
     }
 
@@ -8274,7 +8484,13 @@ function bepaalAlgemeneZoekgroep(
       );
 
       downloadTekstbestand(
-        "ALTEZ_UITVOERING_Vrachtnummer.csv",
+        "ALTEZ_UITVOERING_" +
+        (
+          normaliseerImportMark(
+            dataMarkPrefixInput.value
+          ) || "Vrachtnummer"
+        ) +
+        ".csv",
         lijnen.join("\n"),
         "text/csv;charset=utf-8"
       );
@@ -8740,6 +8956,50 @@ function bepaalAlgemeneZoekgroep(
         toonView("search-menu");
       });
 
+
+    dataModelSelect.addEventListener(
+      "change",
+      function() {
+        dataModelIndex =
+          new Map();
+
+        dataModelIndexStatus.textContent =
+          "Modelkeuze gewijzigd. Bouw de modelindex opnieuw op.";
+
+        linkDataImportButton.disabled =
+          true;
+
+        updateDataModelIndexButtonState();
+      }
+    );
+
+    dataMarkPrefixInput.addEventListener(
+      "input",
+      function() {
+        dataModelIndex =
+          new Map();
+
+        dataModelIndexStatus.textContent =
+          "Prefix gewijzigd. Bouw de modelindex opnieuw op.";
+
+        linkDataImportButton.disabled =
+          true;
+
+        updateDataModelIndexButtonState();
+      }
+    );
+
+    dataMarkPrefixInput.addEventListener(
+      "keydown",
+      function(event) {
+        if (
+          event.key === "Enter" &&
+          !buildDataModelIndexButton.disabled
+        ) {
+          bouwDataModelIndex();
+        }
+      }
+    );
 
     buildDataModelIndexButton.addEventListener(
       "click",
