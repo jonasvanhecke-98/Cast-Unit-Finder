@@ -292,6 +292,41 @@
       margin-bottom: 12px;
     }
 
+
+    .profile-combobox {
+      position: relative;
+    }
+
+    .profile-combobox input {
+      padding-right: 38px;
+    }
+
+    .profile-combobox::after {
+      content: "▼";
+      position: absolute;
+      right: 13px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 11px;
+      color: #5f6b73;
+      pointer-events: none;
+    }
+
+    .profile-status {
+      margin-top: 6px;
+      font-size: 11px;
+      line-height: 1.35;
+      color: #666;
+    }
+
+    .profile-status.loading {
+      color: #0063a3;
+    }
+
+    .profile-status.error {
+      color: #b42318;
+    }
+
     .success {
       color: #19733b !important;
     }
@@ -381,8 +416,10 @@
 
       <p class="small-info">
         Vul één of meerdere zoekvelden in. Lege velden worden genegeerd.
-        Profielen zijn niet hoofdlettergevoelig en spaties worden genegeerd.
-        Voor lengte geldt een tolerantie van ±10 mm. Wanneer meerdere velden
+        Bij Profiel kun je kiezen uit de profielen in het geladen model of
+        beginnen typen om de lijst te filteren. Profielen zijn niet
+        hoofdlettergevoelig en spaties worden genegeerd. Voor lengte geldt
+        een tolerantie van ±10 mm. Wanneer meerdere velden
         zijn ingevuld, moeten alle ingevulde voorwaarden overeenkomen.
       </p>
 
@@ -397,13 +434,23 @@
       >
 
       <label for="element-profile" style="margin-top: 12px;">Profiel</label>
-      <input
-        id="element-profile"
-        type="text"
-        placeholder="Bijvoorbeeld HEA200"
-        autocomplete="off"
-        spellcheck="false"
-      >
+
+      <div class="profile-combobox">
+        <input
+          id="element-profile"
+          type="text"
+          list="profile-options"
+          placeholder="Typ bijvoorbeeld HEA of kies een profiel"
+          autocomplete="off"
+          spellcheck="false"
+        >
+      </div>
+
+      <datalist id="profile-options"></datalist>
+
+      <div id="profile-status" class="profile-status">
+        Profielen worden uit het geladen model opgehaald zodra je deze functie opent.
+      </div>
 
       <label for="element-length" style="margin-top: 12px;">Lengte</label>
       <input
@@ -463,6 +510,10 @@
     const PROPERTY_BATCH_SIZE = 500;
     const MAX_PARALLEL_REQUESTS = 5;
 
+    let profileOptionsLoaded = false;
+    let profileOptionsLoadingPromise = null;
+    let beschikbareProfielen = [];
+
     const statusElement =
       document.getElementById("status");
 
@@ -491,6 +542,12 @@
 
     const elementProfileInput =
       document.getElementById("element-profile");
+
+    const profileOptionsElement =
+      document.getElementById("profile-options");
+
+    const profileStatusElement =
+      document.getElementById("profile-status");
 
     const elementLengthInput =
       document.getElementById("element-length");
@@ -1403,6 +1460,239 @@ function zoekEersteHerkenbareNaam(
         .trim();
     }
 
+    function haalPropertyWaardenOpNaam(
+      objectProperties,
+      gewensteNamen
+    ) {
+      const waarden = [];
+      const gewensteNamenNormaal =
+        gewensteNamen.map(normaliseerTekst);
+
+      const propertySets =
+        Array.isArray(objectProperties.properties)
+          ? objectProperties.properties
+          : [];
+
+      for (const propertySet of propertySets) {
+        const setName =
+          String(propertySet.set || "").trim();
+
+        const properties =
+          Array.isArray(propertySet.properties)
+            ? propertySet.properties
+            : [];
+
+        for (const property of properties) {
+          const propertyName =
+            String(property.name || "").trim();
+
+          const fullName =
+            setName
+              ? setName + "." + propertyName
+              : propertyName;
+
+          const naamPast =
+            gewensteNamenNormaal.includes(
+              normaliseerTekst(propertyName)
+            ) ||
+            gewensteNamenNormaal.includes(
+              normaliseerTekst(fullName)
+            );
+
+          if (!naamPast) {
+            continue;
+          }
+
+          const waarde =
+            String(property.value ?? "").trim();
+
+          if (waarde) {
+            waarden.push(waarde);
+          }
+        }
+      }
+
+      return waarden;
+    }
+
+    function sorteerProfielen(a, b) {
+      return a.localeCompare(
+        b,
+        "nl-BE",
+        {
+          numeric: true,
+          sensitivity: "base"
+        }
+      );
+    }
+
+    function vulProfielKeuzelijst(profielen) {
+      profileOptionsElement.innerHTML = "";
+
+      const fragment =
+        document.createDocumentFragment();
+
+      profielen.forEach(function(profiel) {
+        const option =
+          document.createElement("option");
+
+        option.value = profiel;
+        fragment.appendChild(option);
+      });
+
+      profileOptionsElement.appendChild(fragment);
+    }
+
+    async function laadBeschikbareProfielen() {
+      if (profileOptionsLoaded) {
+        return beschikbareProfielen;
+      }
+
+      if (profileOptionsLoadingPromise) {
+        return profileOptionsLoadingPromise;
+      }
+
+      profileOptionsLoadingPromise =
+        (async function() {
+          profileStatusElement.textContent =
+            "Profielen uit het geladen model analyseren...";
+
+          profileStatusElement.className =
+            "profile-status loading";
+
+          try {
+            const alleObjecten =
+              await API.viewer.getObjects();
+
+            const profielCriterium =
+              elementCriteria.find(function(item) {
+                return item.key === "profile";
+              });
+
+            const profielenPerNormaleWaarde =
+              new Map();
+
+            for (
+              let modelIndex = 0;
+              modelIndex < alleObjecten.length;
+              modelIndex++
+            ) {
+              const model =
+                alleObjecten[modelIndex];
+
+              const runtimeIds =
+                haalObjecten(model)
+                  .map(haalRuntimeId)
+                  .filter(function(id) {
+                    return (
+                      id !== null &&
+                      id !== undefined
+                    );
+                  });
+
+              if (runtimeIds.length === 0) {
+                continue;
+              }
+
+              profileStatusElement.textContent =
+                "Profielen analyseren: model " +
+                (modelIndex + 1) +
+                " van " +
+                alleObjecten.length +
+                "...";
+
+              const properties =
+                await haalPropertiesEfficient(
+                  model.modelId,
+                  runtimeIds,
+                  false
+                );
+
+              properties.forEach(
+                function(objectProperties) {
+                  const waarden =
+                    haalPropertyWaardenOpNaam(
+                      objectProperties,
+                      profielCriterium.names
+                    );
+
+                  waarden.forEach(function(waarde) {
+                    const sleutel =
+                      normaliseerProfiel(waarde);
+
+                    if (
+                      sleutel &&
+                      !profielenPerNormaleWaarde.has(
+                        sleutel
+                      )
+                    ) {
+                      profielenPerNormaleWaarde.set(
+                        sleutel,
+                        waarde
+                      );
+                    }
+                  });
+                }
+              );
+            }
+
+            beschikbareProfielen =
+              Array.from(
+                profielenPerNormaleWaarde.values()
+              ).sort(sorteerProfielen);
+
+            vulProfielKeuzelijst(
+              beschikbareProfielen
+            );
+
+            profileOptionsLoaded = true;
+
+            if (beschikbareProfielen.length > 0) {
+              profileStatusElement.textContent =
+                beschikbareProfielen.length +
+                " uniek(e) profiel(en) gevonden. " +
+                "Klik in het veld of begin te typen om de lijst te filteren.";
+
+              profileStatusElement.className =
+                "profile-status";
+            } else {
+              profileStatusElement.textContent =
+                "Er werden geen herkenbare profielparameters in het geladen model gevonden.";
+
+              profileStatusElement.className =
+                "profile-status error";
+            }
+
+            if (
+              elementResultElement.textContent
+                .includes("delen verwerkt")
+            ) {
+              elementResultElement.textContent =
+                "Nog geen elementzoekopdracht uitgevoerd.";
+            }
+
+            return beschikbareProfielen;
+          } catch (error) {
+            console.error(
+              "Profielen laden mislukt:",
+              error
+            );
+
+            profileStatusElement.textContent =
+              "De profielen konden niet automatisch worden ingelezen. Je kunt nog steeds zelf een profiel typen.";
+
+            profileStatusElement.className =
+              "profile-status error";
+
+            return [];
+          } finally {
+            profileOptionsLoadingPromise = null;
+          }
+        })();
+
+      return profileOptionsLoadingPromise;
+    }
+
     function leesLengteInMillimeter(waarde) {
       const tekst = String(waarde ?? "")
         .trim()
@@ -1619,7 +1909,7 @@ function zoekEersteHerkenbareNaam(
       );
     }
 
-    async function voerMetConcurrencyUit(taken, maximum, uitvoerder) {
+    async function voerMetConcurrencyUit(taken, maximum, uitvoerder, toonVoortgang = true) {
       let volgendeIndex = 0;
       let voltooid = 0;
 
@@ -1631,9 +1921,11 @@ function zoekEersteHerkenbareNaam(
           await uitvoerder(taken[index], index);
           voltooid++;
 
-          elementResultElement.textContent =
-            "Elementen analyseren...\n" +
-            voltooid + " van " + taken.length + " delen verwerkt.";
+          if (toonVoortgang) {
+            elementResultElement.textContent =
+              "Elementen analyseren...\n" +
+              voltooid + " van " + taken.length + " delen verwerkt.";
+          }
         }
       }
 
@@ -1645,7 +1937,7 @@ function zoekEersteHerkenbareNaam(
       );
     }
 
-    async function haalPropertiesEfficient(modelId, runtimeIds) {
+    async function haalPropertiesEfficient(modelId, runtimeIds, toonVoortgang = true) {
       const gevonden = [];
       const ontbrekendeIds = [];
 
@@ -1680,7 +1972,8 @@ function zoekEersteHerkenbareNaam(
 
             batchResultaten[batchIndex] =
               Array.isArray(properties) ? properties : [];
-          }
+          },
+          toonVoortgang
         );
 
         batchResultaten.forEach(function(properties) {
@@ -1999,6 +2292,44 @@ function zoekEersteHerkenbareNaam(
       zoekElementen
     );
 
+    elementProfileInput.addEventListener(
+      "change",
+      function() {
+        const ingevoerd =
+          normaliseerProfiel(
+            elementProfileInput.value
+          );
+
+        const bestaandProfiel =
+          beschikbareProfielen.find(
+            function(profiel) {
+              return (
+                normaliseerProfiel(profiel) ===
+                ingevoerd
+              );
+            }
+          );
+
+        if (bestaandProfiel) {
+          elementProfileInput.value =
+            bestaandProfiel;
+        }
+      }
+    );
+
+    elementProfileInput.addEventListener(
+      "focus",
+      function() {
+        if (
+          API &&
+          !profileOptionsLoaded &&
+          !profileOptionsLoadingPromise
+        ) {
+          laadBeschikbareProfielen();
+        }
+      }
+    );
+
     elementClearButton.addEventListener(
       "click",
       wisElementZoeken
@@ -2025,8 +2356,13 @@ function zoekEersteHerkenbareNaam(
       });
 
     document.getElementById("open-elements-button")
-      .addEventListener("click", function() {
+      .addEventListener("click", async function() {
         toonView("elements");
+        markInput.focus();
+
+        if (API) {
+          await laadBeschikbareProfielen();
+        }
       });
 
     document.getElementById("back-from-general")
