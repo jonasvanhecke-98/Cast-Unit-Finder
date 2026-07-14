@@ -47,14 +47,6 @@
       border-radius: 6px;
     }
 
-    .general-search-card {
-      border-left: 5px solid #5f6b73;
-    }
-
-    .cast-unit-card {
-      border-left: 5px solid #0063a3;
-    }
-
     label {
       display: block;
       margin-bottom: 7px;
@@ -107,12 +99,19 @@
       background: #d4d7d9;
     }
 
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
     .single-button {
       margin-top: 10px;
     }
 
-    .clear-panel {
-      margin-bottom: 14px;
+    .cast-unit-card {
+      border-left: 5px solid #0063a3;
     }
 
     .inline-result {
@@ -128,7 +127,7 @@
       font-size: 13px;
       font-weight: bold;
       color: #33424d;
-      background: #eef1f3;
+      background: #eaf1f5;
       border-bottom: 1px solid #d8dadd;
     }
 
@@ -139,6 +138,26 @@
       color: #666;
     }
 
+    .result-panel {
+      margin-top: 14px;
+      overflow: hidden;
+      background: white;
+      border: 1px solid #d8dadd;
+      border-radius: 7px;
+    }
+
+    .general-result-panel {
+      border-left: 5px solid #5f6b73;
+    }
+
+    .result-panel-header {
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: bold;
+      background: #eef1f3;
+      border-bottom: 1px solid #d8dadd;
+    }
+
     .result-content {
       padding: 14px;
       min-height: 80px;
@@ -147,132 +166,130 @@
     }
 
     .result-title {
-      margin-bottom: 12px;
-      font-size: 18px;
+      margin-bottom: 10px;
+      font-size: 19px;
       font-weight: bold;
     }
 
     .result-info {
       margin-top: 12px;
       font-size: 12px;
-      line-height: 1.4;
       color: #666;
     }
 
     .result-weight {
       margin-bottom: 7px;
-      font-size: 14px;
+      font-size: 15px;
     }
 
-    .main-group {
-      margin-bottom: 10px;
-      overflow: hidden;
-      background: white;
-      border: 1px solid #c7ccd0;
-      border-radius: 6px;
-    }
-
-    .main-group[open] {
-      border-color: #0063a3;
-    }
-
-    .main-group-summary {
-      padding: 12px;
-      font-size: 14px;
-      font-weight: bold;
-      cursor: pointer;
-      user-select: none;
-      background: #e8ecef;
-    }
-
-    .main-group-summary:hover {
-      background: #dfe8ee;
-    }
-
-    .main-group-content {
-      padding: 10px;
-      border-top: 1px solid #d8dadd;
-    }
-
-    .sub-group {
+    .search-result {
       margin-bottom: 8px;
       overflow: hidden;
+      background: white;
       border: 1px solid #d8dadd;
       border-radius: 5px;
     }
 
-    .sub-group:last-child {
-      margin-bottom: 0;
+    .search-result[open] {
+      border-color: #0063a3;
     }
 
-    .sub-group[open] {
-      border-color: #5685a3;
-    }
-
-    .sub-group-summary {
-      padding: 10px 12px;
-      font-size: 13px;
+    .search-result-summary {
+      padding: 11px 12px;
       font-weight: bold;
       cursor: pointer;
       user-select: none;
-      background: #f4f6f7;
+      background: #f6f7f8;
     }
 
-    .sub-group-summary:hover {
+    .search-result-summary:hover {
       background: #e9f2f8;
     }
 
-    .sub-group-content {
-      padding: 10px;
+    .search-result-summary.is-active {
+      color: #ffffff;
+      background: #0063a3;
+    }
+
+    .search-result-summary.selection-error {
+      color: #ffffff;
+      background: #b42318;
+    }
+
+    .search-result-details {
+      padding: 10px 12px;
       border-top: 1px solid #d8dadd;
     }
 
-    .element-card {
-      margin-bottom: 8px;
-      padding: 10px;
+    .match-info {
+      margin-bottom: 10px;
+      padding: 8px;
       font-size: 12px;
-      background: #f8f9fa;
-      border: 1px solid #e0e3e5;
+      background: #f4f5f6;
       border-radius: 4px;
     }
 
-    .element-card:last-child {
-      margin-bottom: 0;
-    }
-
-    .element-title {
-      margin-bottom: 7px;
+    .altez-title {
+      margin-bottom: 8px;
+      font-size: 12px;
       font-weight: bold;
+      color: #555;
     }
 
-    .element-property {
+    .altez-property {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: 8px;
-      padding: 4px 0;
-      border-top: 1px solid #e4e6e8;
+      gap: 10px;
+      padding: 7px 0;
+      border-top: 1px solid #eceeef;
+      font-size: 12px;
     }
 
-    .element-property-name {
+    .altez-property-name {
       overflow-wrap: anywhere;
       color: #555;
     }
 
-    .element-property-value {
+    .altez-property-value {
       overflow-wrap: anywhere;
       font-weight: bold;
     }
 
-    .element-button {
-      margin-top: 9px;
-      padding: 8px 10px;
+    .no-altez-properties {
       font-size: 12px;
+      color: #777;
     }
 
-    .group-button {
-      margin-bottom: 10px;
-      padding: 8px 10px;
+
+    .view {
+      display: none;
+    }
+
+    .view.active {
+      display: block;
+    }
+
+    .menu-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .menu-button {
+      min-height: 58px;
+      text-align: left;
+      font-weight: bold;
+    }
+
+    .menu-button span {
+      display: block;
+      margin-top: 4px;
       font-size: 12px;
+      font-weight: normal;
+      opacity: 0.9;
+    }
+
+    .back-button {
+      margin-bottom: 12px;
     }
 
     .success {
@@ -292,98 +309,107 @@
     Verbinding met Trimble Connect controleren...
   </p>
 
-  <section class="panel general-search-card">
-    <h2>Algemeen zoeken</h2>
+  <section id="menu-view" class="view active">
+    <div class="panel">
+      <h2>Kies een zoekfunctie</h2>
 
-    <p class="small-info">
-      Doorzoekt alle parameterwaarden en groepeert de gevonden objecten
-      grof op gemeenschappelijke eigenschappen zoals Product Name, Type,
-      Material en Layer.
-    </p>
+      <p class="small-info">
+        Kies hieronder welke zoekfunctie je wilt openen.
+      </p>
 
-    <label for="general-search">
-      Zoektekst
-    </label>
+      <div class="menu-grid">
+        <button id="open-general-button" class="menu-button" type="button">
+          Algemeen zoeken
+          <span>Zoek in alle parameterwaarden en groepeer de resultaten grof.</span>
+        </button>
 
-    <input
-      id="general-search"
-      type="text"
-      placeholder="Bijvoorbeeld beton, profiel, fase..."
-      autocomplete="off"
-      spellcheck="false"
-    >
-
-    <button
-      id="general-search-button"
-      class="single-button"
-      type="button"
-      disabled
-    >
-      Algemeen zoeken
-    </button>
-
-    <div class="inline-result">
-      <div class="inline-result-header">
-        Resultaat algemeen zoeken
-      </div>
-
-      <div id="general-result" class="result-content">
-        Nog geen algemene zoekopdracht uitgevoerd.
+        <button id="open-cast-button" class="menu-button" type="button">
+          Zoeken op Cast Unit Mark
+          <span>Zoek uitsluitend op de specifieke Cast Unit Mark-parameter.</span>
+        </button>
       </div>
     </div>
   </section>
 
-  <section class="panel cast-unit-card">
-    <h2>Zoeken op Cast Unit Mark</h2>
-
-    <p class="small-info">
-      Zoekt uitsluitend op de specifieke parameter Assembly/Cast unit Mark
-      of Cast unit Mark.
-    </p>
-
-    <label for="cast-unit-mark">
-      Assembly/Cast unit Mark
-    </label>
-
-    <input
-      id="cast-unit-mark"
-      type="text"
-      placeholder="Bijvoorbeeld K10"
-      autocomplete="off"
-      autocapitalize="characters"
-      spellcheck="false"
-    >
-
-    <button
-      id="mark-search-button"
-      class="single-button"
-      type="button"
-      disabled
-    >
-      Zoek Cast Unit Mark
+  <section id="general-view" class="view">
+    <button id="back-from-general" class="secondary back-button" type="button">
+      Terug naar keuzemenu
     </button>
 
-    <div class="inline-result">
-      <div class="inline-result-header">
-        Resultaat Cast Unit Mark
-      </div>
+    <section class="panel">
+      <h2>Algemeen zoeken</h2>
 
-      <div id="cast-result" class="result-content">
-        Nog geen Cast Unit Mark gezocht.
-      </div>
-    </div>
+      <p class="small-info">
+        Zoekt de ingegeven tekst in alle parameterwaarden van alle geladen
+        modelobjecten en groepeert de resultaten grof.
+      </p>
+
+      <label for="general-search">Zoektekst</label>
+
+      <input
+        id="general-search"
+        type="text"
+        placeholder="Bijvoorbeeld beton, profiel, fase..."
+        autocomplete="off"
+        spellcheck="false"
+      >
+
+      <button id="general-search-button" class="single-button" type="button" disabled>
+        Algemeen zoeken
+      </button>
+
+      <button id="general-clear-button" class="secondary single-button" type="button" disabled>
+        Algemeen zoekresultaat wissen
+      </button>
+
+      <section class="result-panel general-result-panel">
+        <div class="result-panel-header">Resultaat algemeen zoeken</div>
+        <div id="general-result" class="result-content">
+          Nog geen algemene zoekopdracht uitgevoerd.
+        </div>
+      </section>
+    </section>
   </section>
 
-  <div class="clear-panel">
-    <button
-      id="clear-button"
-      class="secondary"
-      type="button"
-      disabled
-    >
-      Alles wissen
+  <section id="cast-view" class="view">
+    <button id="back-from-cast" class="secondary back-button" type="button">
+      Terug naar keuzemenu
     </button>
-  </div>
+
+    <section class="panel cast-unit-card">
+      <h2>Zoeken op Cast Unit Mark</h2>
+
+      <p class="small-info">
+        Zoekt uitsluitend op Assembly/Cast unit Mark of Cast unit Mark.
+      </p>
+
+      <label for="cast-unit-mark">Assembly/Cast unit Mark</label>
+
+      <input
+        id="cast-unit-mark"
+        type="text"
+        placeholder="Bijvoorbeeld K10"
+        autocomplete="off"
+        autocapitalize="characters"
+        spellcheck="false"
+      >
+
+      <button id="mark-search-button" class="single-button" type="button" disabled>
+        Zoek Cast Unit Mark
+      </button>
+
+      <button id="cast-clear-button" class="secondary single-button" type="button" disabled>
+        Cast Unit Mark-resultaat wissen
+      </button>
+
+      <div class="inline-result">
+        <div class="inline-result-header">Resultaat</div>
+        <div id="cast-result" class="result-content">
+          Nog geen Cast Unit Mark gezocht.
+        </div>
+      </div>
+    </section>
+  </section>
 
   <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
 
@@ -405,8 +431,20 @@
     const generalSearchButton =
       document.getElementById("general-search-button");
 
-    const clearButton =
-      document.getElementById("clear-button");
+    const generalClearButton =
+      document.getElementById("general-clear-button");
+
+    const castClearButton =
+      document.getElementById("cast-clear-button");
+
+    const menuView =
+      document.getElementById("menu-view");
+
+    const generalView =
+      document.getElementById("general-view");
+
+    const castView =
+      document.getElementById("cast-view");
 
     const castResultElement =
       document.getElementById("cast-result");
@@ -426,76 +464,6 @@
       "Assembly/Cast unit weight",
       "Tekla Assembly.Cast unit weight",
       "Cast unit weight"
-    ];
-
-    const hoofdgroepPropertyNames = [
-      "Product Name",
-      "Product name",
-      "ProductName",
-      "Product",
-      "Object Type",
-      "Object type",
-      "ObjectType",
-      "Type Name",
-      "Type name",
-      "TypeName",
-      "Type",
-      "Family and Type",
-      "Family",
-      "Classification",
-      "Class",
-      "Category",
-      "Entity",
-      "Element Type",
-      "Element type",
-      "ElementType"
-    ];
-
-    const subgroepPropertyNames = [
-      "Material",
-      "Material Name",
-      "Material name",
-      "MaterialName",
-      "Layer",
-      "Layer Name",
-      "Layer name",
-      "LayerName",
-      "Profile",
-      "Profile Name",
-      "Profile name",
-      "ProfileName",
-      "Predefined Type",
-      "Predefined type",
-      "PredefinedType",
-      "Description",
-      "Building Storey",
-      "Building storey",
-      "Storey",
-      "Level",
-      "Phase"
-    ];
-
-    const zichtbareDetailPropertyNames = [
-      "Product Name",
-      "Product name",
-      "ProductName",
-      "Type",
-      "Type Name",
-      "Type name",
-      "Object Type",
-      "Object type",
-      "Material",
-      "Material Name",
-      "Material name",
-      "Layer",
-      "Layer Name",
-      "Layer name",
-      "Profile",
-      "Description",
-      "Assembly/Cast unit Mark",
-      "Cast unit Mark",
-      "Mark",
-      "Position"
     ];
 
     function normaliseerTekst(waarde) {
@@ -566,37 +534,6 @@
       };
     }
 
-    function maakResultatenVanDetails(details) {
-      const perModel = new Map();
-
-      details.forEach(function(detail) {
-        if (!perModel.has(detail.modelId)) {
-          perModel.set(detail.modelId, []);
-        }
-
-        perModel
-          .get(detail.modelId)
-          .push(detail.runtimeId);
-      });
-
-      return Array.from(perModel.entries())
-        .map(function(entry) {
-          return {
-            modelId: entry[0],
-
-            objects: entry[1]
-              .filter(function(runtimeId, index, array) {
-                return array.indexOf(runtimeId) === index;
-              })
-              .map(function(runtimeId) {
-                return {
-                  id: runtimeId
-                };
-              })
-          };
-        });
-    }
-
     async function connectToTrimble() {
       try {
         API = await TrimbleConnectWorkspace.connect(
@@ -637,13 +574,6 @@
     async function selecteerEnZoom(resultaten) {
       const selector =
         maakSelector(resultaten);
-
-      if (
-        !selector.modelObjectIds ||
-        selector.modelObjectIds.length === 0
-      ) {
-        return;
-      }
 
       await API.viewer.setSelection(
         selector,
@@ -698,9 +628,10 @@
       }
     }
 
-    function haalAlleProperties(objectProperties) {
-      const resultaat = [];
-
+    function zoekPropertyWaarde(
+      objectProperties,
+      gewensteNamen
+    ) {
       const propertySets =
         Array.isArray(objectProperties.properties)
           ? objectProperties.properties
@@ -719,76 +650,25 @@
           const propertyName =
             String(property.name || "").trim();
 
-          const value =
-            String(property.value ?? "").trim();
+          const volledigeNaam =
+            setName
+              ? setName + "." + propertyName
+              : propertyName;
 
-          resultaat.push({
-            setName: setName,
-            propertyName: propertyName,
-            fullName:
-              setName
-                ? setName + "." + propertyName
-                : propertyName,
-            value: value
-          });
-        }
-      }
+          const gevonden =
+            gewensteNamen.some(
+              function(gewensteNaam) {
+                return (
+                  normaliseerTekst(gewensteNaam) ===
+                    normaliseerTekst(propertyName) ||
+                  normaliseerTekst(gewensteNaam) ===
+                    normaliseerTekst(volledigeNaam)
+                );
+              }
+            );
 
-      return resultaat;
-    }
-
-    function zoekPropertyWaarde(
-      objectProperties,
-      gewensteNamen
-    ) {
-      const properties =
-        haalAlleProperties(objectProperties);
-
-      for (const gewensteNaam of gewensteNamen) {
-        const gewensteNaamNormaal =
-          normaliseerTekst(gewensteNaam);
-
-        for (const property of properties) {
-          if (
-            normaliseerTekst(property.propertyName) ===
-              gewensteNaamNormaal ||
-            normaliseerTekst(property.fullName) ===
-              gewensteNaamNormaal
-          ) {
-            if (property.value) {
-              return property.value;
-            }
-          }
-        }
-      }
-
-      return null;
-    }
-
-    function zoekPropertyMetNaam(
-      objectProperties,
-      gewensteNamen
-    ) {
-      const properties =
-        haalAlleProperties(objectProperties);
-
-      for (const gewensteNaam of gewensteNamen) {
-        const gewensteNaamNormaal =
-          normaliseerTekst(gewensteNaam);
-
-        for (const property of properties) {
-          if (
-            normaliseerTekst(property.propertyName) ===
-              gewensteNaamNormaal ||
-            normaliseerTekst(property.fullName) ===
-              gewensteNaamNormaal
-          ) {
-            if (property.value) {
-              return {
-                naam: property.propertyName,
-                waarde: property.value
-              };
-            }
+          if (gevonden) {
+            return property.value;
           }
         }
       }
@@ -859,7 +739,7 @@
 
         if (telObjecten(gevondenResultaten) === 0) {
           castResultElement.textContent =
-            "Geen object gevonden met Cast Unit Mark " +
+            "Geen object gevonden voor " +
             mark +
             ".";
 
@@ -882,10 +762,6 @@
                   id !== undefined
                 );
               });
-
-          if (runtimeIds.length === 0) {
-            continue;
-          }
 
           const properties =
             await API.viewer.getObjectProperties(
@@ -953,13 +829,12 @@
 
         info.textContent =
           gevondenElementen.length +
-          " object(en) gevonden via de specifieke parameter " +
-          gebruikteProperty +
-          ".";
+          " object(en) gevonden via " +
+          gebruikteProperty;
 
         castResultElement.appendChild(info);
 
-        clearButton.disabled = false;
+        castClearButton.disabled = false;
       } catch (error) {
         console.error(
           "Zoeken op Cast Unit Mark mislukt:",
@@ -967,7 +842,7 @@
         );
 
         castResultElement.textContent =
-          "Er ging iets fout tijdens het zoeken op Cast Unit Mark.";
+          "Er ging iets fout tijdens het zoeken.";
       } finally {
         markSearchButton.disabled = false;
         generalSearchButton.disabled = false;
@@ -996,176 +871,151 @@
     ) {
       const matches = [];
 
-      const properties =
-        haalAlleProperties(objectProperties);
+      const propertySets =
+        Array.isArray(objectProperties.properties)
+          ? objectProperties.properties
+          : [];
 
-      for (const property of properties) {
-        if (
-          normaliseerTekst(property.value)
-            .includes(zoektekst)
-        ) {
-          matches.push({
-            setName: property.setName,
-            propertyName: property.propertyName,
-            value: property.value
-          });
+      for (const propertySet of propertySets) {
+        const setName =
+          String(propertySet.set || "").trim();
+
+        const properties =
+          Array.isArray(propertySet.properties)
+            ? propertySet.properties
+            : [];
+
+        for (const property of properties) {
+          const waarde =
+            String(property.value ?? "");
+
+          if (
+            normaliseerTekst(waarde)
+              .includes(zoektekst)
+          ) {
+            matches.push({
+              setName: setName,
+              propertyName:
+                String(property.name || ""),
+              value: waarde
+            });
+          }
         }
       }
 
       return matches;
     }
 
-    function bepaalHoofdgroep(objectProperties) {
-      const gevonden =
-        zoekPropertyMetNaam(
-          objectProperties,
-          hoofdgroepPropertyNames
-        );
-
-      if (gevonden) {
-        return {
-          naam: gevonden.waarde,
-          bron: gevonden.naam
-        };
-      }
-
-      const materiaal =
-        zoekPropertyMetNaam(
-          objectProperties,
-          [
-            "Material",
-            "Material Name",
-            "Material name",
-            "MaterialName"
-          ]
-        );
-
-      if (materiaal) {
-        return {
-          naam: materiaal.waarde,
-          bron: materiaal.naam
-        };
-      }
-
-      const layer =
-        zoekPropertyMetNaam(
-          objectProperties,
-          [
-            "Layer",
-            "Layer Name",
-            "Layer name",
-            "LayerName"
-          ]
-        );
-
-      if (layer) {
-        return {
-          naam: layer.waarde,
-          bron: layer.naam
-        };
-      }
-
-      return {
-        naam: "Overige objecten",
-        bron: "Geen gemeenschappelijke hoofdparameter"
-      };
+    function normaliseerPropertySetNaam(waarde) {
+      return String(waarde || "")
+        .trim()
+        .replace(/[\s-]+/g, "_")
+        .toLocaleUpperCase("nl-BE");
     }
 
-    function bepaalSubgroep(
-      objectProperties,
-      hoofdgroep
-    ) {
-      const properties =
-        haalAlleProperties(objectProperties);
-
-      for (const gewensteNaam of subgroepPropertyNames) {
-        const gewensteNaamNormaal =
-          normaliseerTekst(gewensteNaam);
-
-        for (const property of properties) {
-          const naamKomtOvereen =
-            normaliseerTekst(property.propertyName) ===
-              gewensteNaamNormaal ||
-            normaliseerTekst(property.fullName) ===
-              gewensteNaamNormaal;
-
-          if (!naamKomtOvereen || !property.value) {
-            continue;
-          }
-
-          if (
-            normaliseerTekst(property.value) ===
-            normaliseerTekst(hoofdgroep.naam)
-          ) {
-            continue;
-          }
-
-          return {
-            naam: property.value,
-            bron: property.propertyName
-          };
-        }
-      }
-
-      return {
-        naam: "Niet verder onderverdeeld",
-        bron: "Geen gemeenschappelijke subparameter"
-      };
-    }
-
-    function haalZichtbareDetailProperties(
+    function haalAltezIfcProperties(
       objectProperties
     ) {
-      const resultaat = [];
-      const toegevoegdeNamen = new Set();
+      const gevondenProperties = [];
 
-      for (const gewensteNaam of zichtbareDetailPropertyNames) {
-        const gevonden =
-          zoekPropertyMetNaam(
-            objectProperties,
-            [gewensteNaam]
-          );
+      const propertySets =
+        Array.isArray(objectProperties.properties)
+          ? objectProperties.properties
+          : [];
 
-        if (!gevonden) {
+      for (const propertySet of propertySets) {
+        const setName =
+          String(propertySet.set || "").trim();
+
+        if (
+          normaliseerPropertySetNaam(setName) !==
+          "ALTEZ_IFC"
+        ) {
           continue;
         }
 
-        const sleutel =
-          normaliseerTekst(
-            gevonden.naam + "|" + gevonden.waarde
-          );
+        const properties =
+          Array.isArray(propertySet.properties)
+            ? propertySet.properties
+            : [];
 
-        if (toegevoegdeNamen.has(sleutel)) {
-          continue;
-        }
-
-        toegevoegdeNamen.add(sleutel);
-
-        resultaat.push({
-          name: gevonden.naam,
-          value: gevonden.waarde
-        });
-
-        if (resultaat.length >= 8) {
-          break;
+        for (const property of properties) {
+          gevondenProperties.push({
+            name: String(property.name || ""),
+            value: String(property.value ?? "")
+          });
         }
       }
 
-      return resultaat;
+      return gevondenProperties;
     }
 
-    function maakPropertyRij(property) {
+function zoekEersteHerkenbareNaam(
+  objectProperties,
+  index
+) {
+  const mogelijkeNamen = [
+    "Product Name",
+    "Product name",
+    "ProductName",
+    "Object Type",
+    "Object type",
+    "Type Name",
+    "Type name",
+    "Type",
+    "Family and Type",
+    "Family",
+    "Category",
+    "Class",
+    "Material",
+    "Layer",
+    "Name",
+    "Naam"
+  ];
+
+  const propertySets =
+    Array.isArray(objectProperties.properties)
+      ? objectProperties.properties
+      : [];
+
+  for (const gewensteNaam of mogelijkeNamen) {
+    for (const propertySet of propertySets) {
+      const properties =
+        Array.isArray(propertySet.properties)
+          ? propertySet.properties
+          : [];
+
+      for (const property of properties) {
+        if (
+          normaliseerTekst(property.name) ===
+          normaliseerTekst(gewensteNaam)
+        ) {
+          const waarde =
+            String(property.value ?? "").trim();
+
+          if (waarde) {
+            return waarde;
+          }
+        }
+      }
+    }
+  }
+
+  return "Overige objecten";
+}
+
+    function maakAltezPropertyRij(property) {
       const rij =
         document.createElement("div");
 
       rij.className =
-        "element-property";
+        "altez-property";
 
       const naam =
         document.createElement("div");
 
       naam.className =
-        "element-property-name";
+        "altez-property-name";
 
       naam.textContent =
         property.name || "Naamloos";
@@ -1174,7 +1024,7 @@
         document.createElement("div");
 
       waarde.className =
-        "element-property-value";
+        "altez-property-value";
 
       waarde.textContent =
         property.value || "—";
@@ -1183,13 +1033,6 @@
       rij.appendChild(waarde);
 
       return rij;
-    }
-
-    async function selecteerDetails(details) {
-      const resultaten =
-        maakResultatenVanDetails(details);
-
-      await selecteerEnZoom(resultaten);
     }
 
     function toonAlgemeneZoekresultaten(
@@ -1202,353 +1045,222 @@
         document.createElement("div");
 
       titel.className = "result-title";
-
       titel.textContent =
         "Zoekresultaten: " +
         zoektekstOrigineel;
 
       generalResultElement.appendChild(titel);
 
-      const hoofdgroepen = new Map();
+      /*
+       * Groepeer op exact dezelfde zichtbare naam.
+       */
+      const groepen = new Map();
 
-      gevondenDetails.forEach(function(detail) {
-        const hoofdgroep =
-          bepaalHoofdgroep(
-            detail.objectProperties
-          );
-
-        const subgroep =
-          bepaalSubgroep(
-            detail.objectProperties,
-            hoofdgroep
-          );
-
-        const hoofdSleutel =
-          normaliseerTekst(
-            hoofdgroep.naam
-          );
-
-        const subSleutel =
-          normaliseerTekst(
-            subgroep.naam
-          );
-
-        if (!hoofdgroepen.has(hoofdSleutel)) {
-          hoofdgroepen.set(
-            hoofdSleutel,
-            {
-              naam: hoofdgroep.naam,
-              bron: hoofdgroep.bron,
-              elementen: [],
-              subgroepen: new Map()
-            }
-          );
-        }
-
-        const hoofdgroepData =
-          hoofdgroepen.get(hoofdSleutel);
-
-        hoofdgroepData.elementen.push(detail);
-
-        if (
-          !hoofdgroepData.subgroepen.has(
-            subSleutel
-          )
-        ) {
-          hoofdgroepData.subgroepen.set(
-            subSleutel,
-            {
-              naam: subgroep.naam,
-              bron: subgroep.bron,
-              elementen: []
-            }
-          );
-        }
-
-        hoofdgroepData
-          .subgroepen
-          .get(subSleutel)
-          .elementen
-          .push(detail);
-      });
-
-      const gesorteerdeHoofdgroepen =
-        Array.from(
-          hoofdgroepen.values()
-        ).sort(
-          function(a, b) {
-            return (
-              b.elementen.length -
-              a.elementen.length
+      gevondenDetails.forEach(
+        function(detail, index) {
+          const naam =
+            zoekEersteHerkenbareNaam(
+              detail.objectProperties,
+              index
             );
-          }
-        );
 
-      gesorteerdeHoofdgroepen.forEach(
-        function(hoofdgroep) {
-          const hoofdDetails =
+          const sleutel =
+            normaliseerTekst(naam);
+
+          if (!groepen.has(sleutel)) {
+            groepen.set(sleutel, {
+              naam: naam,
+              elementen: []
+            });
+          }
+
+          groepen
+            .get(sleutel)
+            .elementen
+            .push(detail);
+        }
+      );
+
+      groepen.forEach(
+        function(groep) {
+          const detailsElement =
             document.createElement("details");
 
-          hoofdDetails.className =
-            "main-group";
+          detailsElement.className =
+            "search-result";
 
-          const hoofdSummary =
+          const summary =
             document.createElement("summary");
 
-          hoofdSummary.className =
-            "main-group-summary";
+          summary.className =
+            "search-result-summary";
 
-          hoofdSummary.textContent =
-            hoofdgroep.naam +
+          summary.textContent =
+            groep.naam +
             " — " +
-            hoofdgroep.elementen.length +
-            " object(en)";
+            groep.elementen.length +
+            " element(en)";
 
-          const hoofdInhoud =
+          const inhoud =
             document.createElement("div");
 
-          hoofdInhoud.className =
-            "main-group-content";
+          inhoud.className =
+            "search-result-details";
 
-          const hoofdSelecteerKnop =
-            document.createElement("button");
-
-          hoofdSelecteerKnop.type =
-            "button";
-
-          hoofdSelecteerKnop.className =
-            "group-button";
-
-          hoofdSelecteerKnop.textContent =
-            "Selecteer volledige hoofdgroep";
-
-          hoofdSelecteerKnop.addEventListener(
-            "click",
-            async function(event) {
-              event.stopPropagation();
-
-              try {
-                await selecteerDetails(
-                  hoofdgroep.elementen
-                );
-              } catch (error) {
-                console.error(
-                  "Hoofdgroep selecteren mislukt:",
-                  error
-                );
-              }
-            }
-          );
-
-          hoofdInhoud.appendChild(
-            hoofdSelecteerKnop
-          );
-
-          const gesorteerdeSubgroepen =
-            Array.from(
-              hoofdgroep.subgroepen.values()
-            ).sort(
-              function(a, b) {
-                return (
-                  b.elementen.length -
-                  a.elementen.length
-                );
-              }
-            );
-
-          gesorteerdeSubgroepen.forEach(
-            function(subgroep) {
-              const subDetails =
-                document.createElement("details");
-
-              subDetails.className =
-                "sub-group";
-
-              const subSummary =
-                document.createElement("summary");
-
-              subSummary.className =
-                "sub-group-summary";
-
-              subSummary.textContent =
-                subgroep.naam +
-                " — " +
-                subgroep.elementen.length +
-                " object(en)";
-
-              const subInhoud =
+          groep.elementen.forEach(
+            function(detail, elementIndex) {
+              const elementBlok =
                 document.createElement("div");
 
-              subInhoud.className =
-                "sub-group-content";
+              elementBlok.className =
+                "match-info";
 
-              const subSelecteerKnop =
+              const elementTitel =
+                document.createElement("div");
+
+              elementTitel.style.fontWeight =
+                "bold";
+
+              elementTitel.style.marginBottom =
+                "8px";
+
+              elementTitel.textContent =
+                "Element " +
+                (elementIndex + 1);
+
+              elementBlok.appendChild(
+                elementTitel
+              );
+
+              if (
+                Array.isArray(detail.matches) &&
+                detail.matches.length > 0
+              ) {
+                const eersteMatch =
+                  detail.matches[0];
+
+                const matchInfo =
+                  document.createElement("div");
+
+                matchInfo.style.marginBottom =
+                  "8px";
+
+                matchInfo.textContent =
+                  "Gevonden in: " +
+                  (
+                    eersteMatch.setName
+                      ? eersteMatch.setName + " → "
+                      : ""
+                  ) +
+                  eersteMatch.propertyName +
+                  "\nWaarde: " +
+                  eersteMatch.value;
+
+                elementBlok.appendChild(
+                  matchInfo
+                );
+              }
+
+              const selecteerKnop =
                 document.createElement("button");
 
-              subSelecteerKnop.type =
+              selecteerKnop.type =
                 "button";
 
-              subSelecteerKnop.className =
-                "group-button";
+              selecteerKnop.textContent =
+                "Selecteer dit element";
 
-              subSelecteerKnop.textContent =
-                "Selecteer deze subgroep";
+              selecteerKnop.style.marginTop =
+                "10px";
 
-              subSelecteerKnop.addEventListener(
+              selecteerKnop.addEventListener(
                 "click",
                 async function(event) {
                   event.stopPropagation();
 
                   try {
-                    await selecteerDetails(
-                      subgroep.elementen
+                    await selecteerEnZoomNaarEenObject(
+                      detail.modelId,
+                      detail.runtimeId
                     );
                   } catch (error) {
                     console.error(
-                      "Subgroep selecteren mislukt:",
+                      "Element selecteren mislukt:",
                       error
                     );
                   }
                 }
               );
 
-              subInhoud.appendChild(
-                subSelecteerKnop
+              elementBlok.appendChild(
+                selecteerKnop
               );
 
-              subgroep.elementen.forEach(
-                function(detail, index) {
-                  const elementCard =
-                    document.createElement("div");
-
-                  elementCard.className =
-                    "element-card";
-
-                  const elementTitel =
-                    document.createElement("div");
-
-                  elementTitel.className =
-                    "element-title";
-
-                  elementTitel.textContent =
-                    "Element " +
-                    (index + 1);
-
-                  elementCard.appendChild(
-                    elementTitel
-                  );
-
-                  const eigenschappen =
-                    haalZichtbareDetailProperties(
-                      detail.objectProperties
-                    );
-
-                  eigenschappen.forEach(
-                    function(property) {
-                      elementCard.appendChild(
-                        maakPropertyRij(property)
-                      );
-                    }
-                  );
-
-                  if (
-                    Array.isArray(detail.matches) &&
-                    detail.matches.length > 0
-                  ) {
-                    const match =
-                      detail.matches[0];
-
-                    elementCard.appendChild(
-                      maakPropertyRij({
-                        name:
-                          "Zoekmatch: " +
-                          (
-                            match.setName
-                              ? match.setName + " → "
-                              : ""
-                          ) +
-                          match.propertyName,
-
-                        value: match.value
-                      })
-                    );
-                  }
-
-                  const selecteerKnop =
-                    document.createElement("button");
-
-                  selecteerKnop.type =
-                    "button";
-
-                  selecteerKnop.className =
-                    "element-button";
-
-                  selecteerKnop.textContent =
-                    "Selecteer dit element";
-
-                  selecteerKnop.addEventListener(
-                    "click",
-                    async function(event) {
-                      event.stopPropagation();
-
-                      try {
-                        await selecteerEnZoomNaarEenObject(
-                          detail.modelId,
-                          detail.runtimeId
-                        );
-                      } catch (error) {
-                        console.error(
-                          "Element selecteren mislukt:",
-                          error
-                        );
-                      }
-                    }
-                  );
-
-                  elementCard.appendChild(
-                    selecteerKnop
-                  );
-
-                  subInhoud.appendChild(
-                    elementCard
-                  );
-                }
-              );
-
-              subDetails.appendChild(
-                subSummary
-              );
-
-              subDetails.appendChild(
-                subInhoud
-              );
-
-              hoofdInhoud.appendChild(
-                subDetails
+              inhoud.appendChild(
+                elementBlok
               );
             }
           );
 
-          hoofdDetails.appendChild(
-            hoofdSummary
+          summary.addEventListener(
+            "click",
+            async function() {
+              try {
+                const perModel =
+                  new Map();
+
+                groep.elementen.forEach(
+                  function(detail) {
+                    if (!perModel.has(detail.modelId)) {
+                      perModel.set(detail.modelId, []);
+                    }
+
+                    perModel
+                      .get(detail.modelId)
+                      .push(detail.runtimeId);
+                  }
+                );
+
+                const resultaten =
+                  Array.from(
+                    perModel.entries()
+                  ).map(
+                    function(entry) {
+                      return {
+                        modelId: entry[0],
+                        objects:
+                          entry[1].map(
+                            function(id) {
+                              return { id: id };
+                            }
+                          )
+                      };
+                    }
+                  );
+
+                await selecteerEnZoom(
+                  resultaten
+                );
+              } catch (error) {
+                console.error(
+                  "Groep selecteren mislukt:",
+                  error
+                );
+              }
+            }
           );
 
-          hoofdDetails.appendChild(
-            hoofdInhoud
+          detailsElement.appendChild(
+            summary
+          );
+
+          detailsElement.appendChild(
+            inhoud
           );
 
           generalResultElement.appendChild(
-            hoofdDetails
+            detailsElement
           );
-        }
-      );
-
-      let totaalSubgroepen = 0;
-
-      gesorteerdeHoofdgroepen.forEach(
-        function(hoofdgroep) {
-          totaalSubgroepen +=
-            hoofdgroep.subgroepen.size;
         }
       );
 
@@ -1561,10 +1273,8 @@
       info.textContent =
         gevondenDetails.length +
         " object(en) verdeeld over " +
-        hoofdgroepen.size +
-        " grove hoofdgroep(en) en " +
-        totaalSubgroepen +
-        " subgroep(en).";
+        groepen.size +
+        " groep(en).";
 
       generalResultElement.appendChild(
         info
@@ -1589,12 +1299,12 @@
 
       markSearchButton.disabled = true;
       generalSearchButton.disabled = true;
-      clearButton.disabled = true;
+      generalClearButton.disabled = true;
 
       generalResultElement.textContent =
         "Alle modelparameters doorzoeken naar \"" +
         zoektekstOrigineel +
-        "\"...\n\nDe gevonden objecten worden daarna grof gegroepeerd.";
+        "\"...\n\nDit kan bij een groot model even duren.";
 
       try {
         const alleObjecten =
@@ -1699,7 +1409,7 @@
           gevondenDetails
         );
 
-        clearButton.disabled = false;
+        generalClearButton.disabled = false;
       } catch (error) {
         console.error(
           "Algemeen zoeken mislukt:",
@@ -1715,18 +1425,7 @@
       }
     }
 
-    async function wisResultaten() {
-      markInput.value = "";
-      generalInput.value = "";
-
-      castResultElement.textContent =
-        "Nog geen Cast Unit Mark gezocht.";
-
-      generalResultElement.textContent =
-        "Nog geen algemene zoekopdracht uitgevoerd.";
-
-      clearButton.disabled = true;
-
+    async function wisSelectie() {
       try {
         if (API) {
           await API.viewer.setSelection(
@@ -1742,8 +1441,44 @@
           error
         );
       }
+    }
 
+    async function wisAlgemeenZoeken() {
+      generalInput.value = "";
+      generalResultElement.textContent =
+        "Nog geen algemene zoekopdracht uitgevoerd.";
+      generalClearButton.disabled = true;
+      await wisSelectie();
       generalInput.focus();
+    }
+
+    async function wisCastUnitZoeken() {
+      markInput.value = "";
+      castResultElement.textContent =
+        "Nog geen Cast Unit Mark gezocht.";
+      castClearButton.disabled = true;
+      await wisSelectie();
+      markInput.focus();
+    }
+
+    function toonView(viewNaam) {
+      menuView.classList.remove("active");
+      generalView.classList.remove("active");
+      castView.classList.remove("active");
+
+      if (viewNaam === "general") {
+        generalView.classList.add("active");
+        generalInput.focus();
+        return;
+      }
+
+      if (viewNaam === "cast") {
+        castView.classList.add("active");
+        markInput.focus();
+        return;
+      }
+
+      menuView.classList.add("active");
     }
 
     markInput.addEventListener(
@@ -1790,10 +1525,35 @@
       algemeenZoeken
     );
 
-    clearButton.addEventListener(
+    generalClearButton.addEventListener(
       "click",
-      wisResultaten
+      wisAlgemeenZoeken
     );
+
+    castClearButton.addEventListener(
+      "click",
+      wisCastUnitZoeken
+    );
+
+    document.getElementById("open-general-button")
+      .addEventListener("click", function() {
+        toonView("general");
+      });
+
+    document.getElementById("open-cast-button")
+      .addEventListener("click", function() {
+        toonView("cast");
+      });
+
+    document.getElementById("back-from-general")
+      .addEventListener("click", function() {
+        toonView("menu");
+      });
+
+    document.getElementById("back-from-cast")
+      .addEventListener("click", function() {
+        toonView("menu");
+      });
 
     connectToTrimble();
   </script>
