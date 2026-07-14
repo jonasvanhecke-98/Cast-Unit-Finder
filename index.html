@@ -653,6 +653,117 @@
       }
     }
 
+
+    .import-step {
+      margin-top: 14px;
+      padding: 14px;
+      background: #fbfcfc;
+      border: 1px solid #e1e8ea;
+      border-radius: 10px;
+    }
+
+    .import-step h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+    }
+
+    .import-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .import-summary {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .import-stat {
+      padding: 10px;
+      background: #fff;
+      border: 1px solid #e1e8ea;
+      border-radius: 8px;
+    }
+
+    .import-stat-value {
+      display: block;
+      font-size: 18px;
+      font-weight: 750;
+      color: #1d4f5a;
+    }
+
+    .import-stat-label {
+      display: block;
+      margin-top: 2px;
+      font-size: 11px;
+      color: #718087;
+    }
+
+    .import-table-wrap {
+      max-height: 340px;
+      margin-top: 12px;
+      overflow: auto;
+      border: 1px solid #e1e8ea;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .import-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    .import-table th,
+    .import-table td {
+      padding: 7px 8px;
+      text-align: left;
+      border-bottom: 1px solid #edf1f2;
+      white-space: nowrap;
+    }
+
+    .import-table th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f3f7f7;
+      color: #365963;
+    }
+
+    .status-ok {
+      color: #147a4b;
+      font-weight: 700;
+    }
+
+    .status-warning {
+      color: #a15c00;
+      font-weight: 700;
+    }
+
+    .status-error {
+      color: #b42318;
+      font-weight: 700;
+    }
+
+    .api-warning {
+      margin-top: 12px;
+      padding: 11px;
+      background: #fff8e8;
+      border: 1px solid #efd99f;
+      border-radius: 8px;
+      color: #72520d;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
     .success {
       color: #19733b !important;
     }
@@ -667,6 +778,9 @@
       display: none !important;
     }
   </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
 </head>
 
 <body>
@@ -704,6 +818,15 @@
           </span>
           <span class="tool-card-tag">Basisstructuur</span>
         </button>
+        <button id="open-data-module-button" class="tool-card" type="button">
+          <span class="tool-card-title">Data verrijken</span>
+          <span class="tool-card-description">
+            Importeer Excelgegevens, koppel ze via Cast Unit Mark aan model-GUID's
+            en bereid aangepaste eigenschappen voor.
+          </span>
+          <span class="tool-card-tag">Nieuwe module</span>
+        </button>
+
 
         <button id="open-calculation-module-button" class="tool-card" type="button">
           <span class="tool-card-title">Calculatie</span>
@@ -806,6 +929,132 @@
         De analysemodule is alvast structureel voorzien. De eerstvolgende logische
         functie is Eigenschappenanalyse: aanwezige parameters inventariseren,
         ontbrekende waarden tonen en doorklikken naar de betreffende objecten.
+      </div>
+    </div>
+  </section>
+
+
+  <section id="data-menu-view" class="view">
+    <button id="back-from-data-menu" class="secondary back-button" type="button">
+      Terug naar Altez Tools
+    </button>
+
+    <div class="panel">
+      <div class="module-header">
+        <span class="module-eyebrow">Module</span>
+        <h2>Data verrijken</h2>
+        <p class="module-subtitle">
+          Importeer een Excelbestand met Cast Unit Mark en Vrachtnummer.
+          Altez Tools koppelt de regels aan de GUID's uit het geladen model.
+        </p>
+      </div>
+
+      <div class="import-step">
+        <h3>1. Modelindex opbouwen</h3>
+        <p class="small-info">
+          Leest Cast Unit Mark en GUID uit alle geladen modelobjecten.
+        </p>
+
+        <button id="build-data-model-index-button" type="button" disabled>
+          Modelindex opbouwen
+        </button>
+
+        <div id="data-model-index-status" class="organizer-status">
+          Nog geen modelindex opgebouwd.
+        </div>
+      </div>
+
+      <div class="import-step">
+        <h3>2. Excelbestand kiezen</h3>
+
+        <input
+          id="data-import-file"
+          type="file"
+          accept=".xlsx,.xls,.csv"
+        >
+
+        <label for="data-import-sheet">Werkblad</label>
+        <select id="data-import-sheet" disabled>
+          <option value="">Kies eerst een bestand</option>
+        </select>
+
+        <div class="import-grid">
+          <div>
+            <label for="data-import-mark-column">Kolom Cast Unit Mark</label>
+            <select id="data-import-mark-column" disabled>
+              <option value="">Kies kolom</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="data-import-truck-column">Kolom Vrachtnummer</label>
+            <select id="data-import-truck-column" disabled>
+              <option value="">Kies kolom</option>
+            </select>
+          </div>
+        </div>
+
+        <button
+          id="link-data-import-button"
+          class="single-button"
+          type="button"
+          disabled
+        >
+          Excel koppelen aan model
+        </button>
+      </div>
+
+      <div class="import-step">
+        <h3>3. Controle</h3>
+
+        <div id="data-import-summary" class="import-summary"></div>
+
+        <div class="import-table-wrap">
+          <table class="import-table">
+            <thead>
+              <tr>
+                <th>Cast Unit Mark</th>
+                <th>Vrachtnummer</th>
+                <th>GUID</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="data-import-preview-body">
+              <tr>
+                <td colspan="4">Nog geen gegevens gekoppeld.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="button-row">
+          <button
+            id="download-data-import-csv-button"
+            type="button"
+            disabled
+          >
+            Gekoppelde CSV downloaden
+          </button>
+
+          <button
+            id="write-data-import-button"
+            type="button"
+            disabled
+          >
+            Schrijf naar Trimble Connect
+          </button>
+        </div>
+
+        <div id="data-import-write-status" class="organizer-status"></div>
+
+        <div class="api-warning">
+          Doel: <strong>ALTEZ_UITVOERING → U01. Vrachtnummer</strong>.
+          De Excel- en modelkoppeling werkt volledig in deze extensie.
+          Het rechtstreeks aanmaken en schrijven van de propertyset vereist een
+          geregistreerde Trimble Property Set-integratie met de juiste API-toegang.
+          Zonder die adapter kun je de gekoppelde CSV downloaden en via de bestaande
+          importworkflow gebruiken.
+        </div>
       </div>
     </div>
   </section>
@@ -1219,6 +1468,45 @@
     const calculationMenuView =
       document.getElementById("calculation-menu-view");
 
+    const dataMenuView =
+      document.getElementById("data-menu-view");
+
+    const buildDataModelIndexButton =
+      document.getElementById("build-data-model-index-button");
+
+    const dataModelIndexStatus =
+      document.getElementById("data-model-index-status");
+
+    const dataImportFileInput =
+      document.getElementById("data-import-file");
+
+    const dataImportSheetSelect =
+      document.getElementById("data-import-sheet");
+
+    const dataImportMarkColumnSelect =
+      document.getElementById("data-import-mark-column");
+
+    const dataImportTruckColumnSelect =
+      document.getElementById("data-import-truck-column");
+
+    const linkDataImportButton =
+      document.getElementById("link-data-import-button");
+
+    const dataImportSummary =
+      document.getElementById("data-import-summary");
+
+    const dataImportPreviewBody =
+      document.getElementById("data-import-preview-body");
+
+    const downloadDataImportCsvButton =
+      document.getElementById("download-data-import-csv-button");
+
+    const writeDataImportButton =
+      document.getElementById("write-data-import-button");
+
+    const dataImportWriteStatus =
+      document.getElementById("data-import-write-status");
+
     const savedSearchesView =
       document.getElementById("saved-searches-view");
 
@@ -1319,6 +1607,19 @@
       { r: 77, g: 124, b: 15, a: 255, hex: "#4d7c0f" },
       { r: 75, g: 85, b: 99, a: 255, hex: "#4b5563" }
     ];
+
+    const DATA_PSET_NAME =
+      "ALTEZ_UITVOERING";
+
+    const DATA_PROPERTY_NAME =
+      "U01. Vrachtnummer";
+
+    let dataModelIndex =
+      new Map();
+
+    let dataWorkbook = null;
+    let dataWorksheetRows = [];
+    let dataImportResult = [];
 
     let currentGeneralQuery = "";
     let currentGeneralGroups = [];
@@ -1503,6 +1804,7 @@
         statusElement.classList.add("success");
 
         generalSearchButton.disabled = false;
+        buildDataModelIndexButton.disabled = false;
         modelParameterSearchButton.disabled = false;
         elementSearchButton.disabled = false;
       } catch (error) {
@@ -7228,12 +7530,861 @@ function bepaalAlgemeneZoekgroep(
     }
 
 
+
+    function normaliseerImportMark(waarde) {
+      return String(waarde ?? "")
+        .toLocaleUpperCase("nl-BE")
+        .replace(/\s+/g, "")
+        .trim();
+    }
+
+    function escapeCsvValue(waarde) {
+      const tekst =
+        String(waarde ?? "");
+
+      if (
+        tekst.includes(";") ||
+        tekst.includes('"') ||
+        tekst.includes("\n")
+      ) {
+        return (
+          '"' +
+          tekst.replace(/"/g, '""') +
+          '"'
+        );
+      }
+
+      return tekst;
+    }
+
+    function downloadTekstbestand(
+      bestandsnaam,
+      inhoud,
+      mimeType
+    ) {
+      const blob =
+        new Blob(
+          [inhoud],
+          {
+            type:
+              mimeType ||
+              "text/plain;charset=utf-8"
+          }
+        );
+
+      const url =
+        URL.createObjectURL(blob);
+
+      const link =
+        document.createElement("a");
+
+      link.href = url;
+      link.download = bestandsnaam;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      setTimeout(
+        function() {
+          URL.revokeObjectURL(url);
+        },
+        1000
+      );
+    }
+
+    function normaliseerConvertedObjectIds(
+      resultaat,
+      runtimeIds
+    ) {
+      if (Array.isArray(resultaat)) {
+        return resultaat.map(
+          function(item, index) {
+            if (
+              typeof item === "string"
+            ) {
+              return {
+                runtimeId:
+                  runtimeIds[index],
+                guid: item
+              };
+            }
+
+            return {
+              runtimeId:
+                item.runtimeId ??
+                item.objectRuntimeId ??
+                item.id ??
+                runtimeIds[index],
+              guid:
+                item.objectId ??
+                item.externalId ??
+                item.guid ??
+                item.id ??
+                ""
+            };
+          }
+        );
+      }
+
+      if (
+        resultaat &&
+        Array.isArray(
+          resultaat.objectIds
+        )
+      ) {
+        return normaliseerConvertedObjectIds(
+          resultaat.objectIds,
+          runtimeIds
+        );
+      }
+
+      return [];
+    }
+
+    async function bouwDataModelIndex() {
+      buildDataModelIndexButton.disabled =
+        true;
+
+      dataModelIndexStatus.textContent =
+        "Modelobjecten verzamelen...";
+
+      try {
+        const modellen =
+          await haalAlleModelObjecten();
+
+        const index =
+          new Map();
+
+        let gelezenObjecten = 0;
+        let gevondenMarks = 0;
+
+        for (
+          let modelIndex = 0;
+          modelIndex < modellen.length;
+          modelIndex++
+        ) {
+          const model =
+            modellen[modelIndex];
+
+          const runtimeIds =
+            haalObjecten(model)
+              .map(haalRuntimeId)
+              .filter(function(id) {
+                return (
+                  id !== null &&
+                  id !== undefined
+                );
+              });
+
+          if (runtimeIds.length === 0) {
+            continue;
+          }
+
+          dataModelIndexStatus.textContent =
+            "Model " +
+            (modelIndex + 1) +
+            " van " +
+            modellen.length +
+            " analyseren...";
+
+          const propertyResultaat =
+            await haalPropertiesEfficient(
+              model.modelId,
+              runtimeIds,
+              false
+            );
+
+          const properties =
+            propertyResultaat &&
+            Array.isArray(
+              propertyResultaat.properties
+            )
+              ? propertyResultaat.properties
+              : [];
+
+          let converted = [];
+
+          try {
+            const convertResult =
+              await API.viewer.convertToObjectIds(
+                model.modelId,
+                runtimeIds
+              );
+
+            converted =
+              normaliseerConvertedObjectIds(
+                convertResult,
+                runtimeIds
+              );
+          } catch (error) {
+            console.warn(
+              "GUID-conversie mislukt voor model:",
+              model.modelId,
+              error
+            );
+          }
+
+          const guidPerRuntime =
+            new Map();
+
+          converted.forEach(
+            function(item) {
+              guidPerRuntime.set(
+                String(item.runtimeId),
+                String(item.guid || "")
+              );
+            }
+          );
+
+          properties.forEach(
+            function(objectProperties) {
+              gelezenObjecten++;
+
+              const runtimeId =
+                haalRuntimeIdUitProperties(
+                  objectProperties
+                );
+
+              const mark =
+                haalCastUnitMarkUitProperties(
+                  objectProperties
+                );
+
+              if (!mark) {
+                return;
+              }
+
+              gevondenMarks++;
+
+              const sleutel =
+                normaliseerImportMark(
+                  mark
+                );
+
+              const record = {
+                modelId:
+                  model.modelId,
+                runtimeId:
+                  runtimeId,
+                guid:
+                  guidPerRuntime.get(
+                    String(runtimeId)
+                  ) || "",
+                mark:
+                  String(mark).trim()
+              };
+
+              if (!index.has(sleutel)) {
+                index.set(sleutel, []);
+              }
+
+              index.get(sleutel).push(
+                record
+              );
+            }
+          );
+        }
+
+        dataModelIndex = index;
+
+        dataModelIndexStatus.textContent =
+          gevondenMarks +
+          " object(en) met Cast Unit Mark geïndexeerd uit " +
+          gelezenObjecten +
+          " gelezen objecten.";
+
+        linkDataImportButton.disabled =
+          !(
+            dataWorksheetRows.length > 0 &&
+            dataImportMarkColumnSelect.value &&
+            dataImportTruckColumnSelect.value
+          );
+      } catch (error) {
+        console.error(
+          "Modelindex opbouwen mislukt:",
+          error
+        );
+
+        dataModelIndexStatus.textContent =
+          "Modelindex opbouwen is mislukt: " +
+          (
+            error && error.message
+              ? error.message
+              : "onbekende fout"
+          );
+      } finally {
+        buildDataModelIndexButton.disabled =
+          false;
+      }
+    }
+
+    function vulImportKolommen(headers) {
+      const selects = [
+        dataImportMarkColumnSelect,
+        dataImportTruckColumnSelect
+      ];
+
+      selects.forEach(
+        function(select) {
+          select.innerHTML =
+            '<option value="">Kies kolom</option>';
+
+          headers.forEach(
+            function(header) {
+              const option =
+                document.createElement(
+                  "option"
+                );
+
+              option.value = header;
+              option.textContent = header;
+
+              select.appendChild(option);
+            }
+          );
+
+          select.disabled = false;
+        }
+      );
+
+      const markVoorstel =
+        headers.find(
+          function(header) {
+            const normaal =
+              normaliseerTekst(header);
+
+            return (
+              normaal.includes(
+                "cast unit mark"
+              ) ||
+              normaal.includes(
+                "elementnummer"
+              ) ||
+              normaal === "mark"
+            );
+          }
+        );
+
+      const vrachtVoorstel =
+        headers.find(
+          function(header) {
+            return normaliseerTekst(
+              header
+            ).includes(
+              "vrachtnummer"
+            );
+          }
+        );
+
+      if (markVoorstel) {
+        dataImportMarkColumnSelect.value =
+          markVoorstel;
+      }
+
+      if (vrachtVoorstel) {
+        dataImportTruckColumnSelect.value =
+          vrachtVoorstel;
+      }
+
+      linkDataImportButton.disabled =
+        !(
+          dataModelIndex.size > 0 &&
+          dataWorksheetRows.length > 0 &&
+          dataImportMarkColumnSelect.value &&
+          dataImportTruckColumnSelect.value
+        );
+    }
+
+    function laadImportWerkblad(sheetName) {
+      if (
+        !dataWorkbook ||
+        !sheetName
+      ) {
+        return;
+      }
+
+      const worksheet =
+        dataWorkbook.Sheets[sheetName];
+
+      dataWorksheetRows =
+        XLSX.utils.sheet_to_json(
+          worksheet,
+          {
+            defval: "",
+            raw: false
+          }
+        );
+
+      const headers =
+        dataWorksheetRows.length > 0
+          ? Object.keys(
+              dataWorksheetRows[0]
+            )
+          : [];
+
+      vulImportKolommen(headers);
+    }
+
+    async function leesDataImportBestand(file) {
+      if (!file) {
+        return;
+      }
+
+      if (
+        typeof XLSX === "undefined"
+      ) {
+        dataImportWriteStatus.textContent =
+          "De Excel-library kon niet worden geladen.";
+        return;
+      }
+
+      const buffer =
+        await file.arrayBuffer();
+
+      dataWorkbook =
+        XLSX.read(
+          buffer,
+          {
+            type: "array"
+          }
+        );
+
+      dataImportSheetSelect.innerHTML =
+        "";
+
+      dataWorkbook.SheetNames.forEach(
+        function(sheetName) {
+          const option =
+            document.createElement(
+              "option"
+            );
+
+          option.value = sheetName;
+          option.textContent = sheetName;
+
+          dataImportSheetSelect.appendChild(
+            option
+          );
+        }
+      );
+
+      dataImportSheetSelect.disabled =
+        false;
+
+      if (
+        dataWorkbook.SheetNames.length > 0
+      ) {
+        dataImportSheetSelect.value =
+          dataWorkbook.SheetNames[0];
+
+        laadImportWerkblad(
+          dataWorkbook.SheetNames[0]
+        );
+      }
+    }
+
+    function toonDataImportSamenvatting(
+      resultaat
+    ) {
+      const stats = {
+        totaal:
+          resultaat.length,
+        gekoppeld:
+          resultaat.filter(
+            function(item) {
+              return (
+                item.status ===
+                "Gekoppeld"
+              );
+            }
+          ).length,
+        nietGevonden:
+          resultaat.filter(
+            function(item) {
+              return (
+                item.status ===
+                "Niet gevonden"
+              );
+            }
+          ).length,
+        problemen:
+          resultaat.filter(
+            function(item) {
+              return (
+                item.status !==
+                "Gekoppeld"
+              );
+            }
+          ).length
+      };
+
+      dataImportSummary.innerHTML = "";
+
+      [
+        ["Excelregels", stats.totaal],
+        ["Gekoppeld", stats.gekoppeld],
+        ["Niet gevonden", stats.nietGevonden],
+        ["Problemen", stats.problemen]
+      ].forEach(
+        function(item) {
+          const card =
+            document.createElement("div");
+
+          card.className =
+            "import-stat";
+
+          card.innerHTML =
+            '<span class="import-stat-value">' +
+            item[1] +
+            '</span>' +
+            '<span class="import-stat-label">' +
+            item[0] +
+            '</span>';
+
+          dataImportSummary.appendChild(
+            card
+          );
+        }
+      );
+    }
+
+    function toonDataImportPreview(
+      resultaat
+    ) {
+      dataImportPreviewBody.innerHTML =
+        "";
+
+      resultaat
+        .slice(0, 1000)
+        .forEach(
+          function(item) {
+            const row =
+              document.createElement(
+                "tr"
+              );
+
+            const statusClass =
+              item.status === "Gekoppeld"
+                ? "status-ok"
+                : item.status ===
+                    "Niet gevonden"
+                  ? "status-error"
+                  : "status-warning";
+
+            row.innerHTML =
+              "<td>" +
+              escapeCsvValue(
+                item.mark
+              ) +
+              "</td>" +
+              "<td>" +
+              escapeCsvValue(
+                item.vrachtnummer
+              ) +
+              "</td>" +
+              "<td>" +
+              escapeCsvValue(
+                item.guid
+              ) +
+              "</td>" +
+              '<td class="' +
+              statusClass +
+              '">' +
+              item.status +
+              "</td>";
+
+            dataImportPreviewBody.appendChild(
+              row
+            );
+          }
+        );
+
+      if (resultaat.length === 0) {
+        dataImportPreviewBody.innerHTML =
+          '<tr><td colspan="4">Geen regels gevonden.</td></tr>';
+      }
+    }
+
+    function koppelDataImport() {
+      const markColumn =
+        dataImportMarkColumnSelect.value;
+
+      const truckColumn =
+        dataImportTruckColumnSelect.value;
+
+      if (
+        !markColumn ||
+        !truckColumn
+      ) {
+        return;
+      }
+
+      const resultaat = [];
+
+      dataWorksheetRows.forEach(
+        function(row) {
+          const mark =
+            String(
+              row[markColumn] ?? ""
+            ).trim();
+
+          const vrachtnummer =
+            String(
+              row[truckColumn] ?? ""
+            ).trim();
+
+          if (!mark) {
+            resultaat.push({
+              mark: "",
+              vrachtnummer:
+                vrachtnummer,
+              guid: "",
+              status:
+                "Cast Unit Mark ontbreekt"
+            });
+
+            return;
+          }
+
+          if (!vrachtnummer) {
+            resultaat.push({
+              mark: mark,
+              vrachtnummer: "",
+              guid: "",
+              status:
+                "Vrachtnummer ontbreekt"
+            });
+
+            return;
+          }
+
+          const matches =
+            dataModelIndex.get(
+              normaliseerImportMark(
+                mark
+              )
+            ) || [];
+
+          if (matches.length === 0) {
+            resultaat.push({
+              mark: mark,
+              vrachtnummer:
+                vrachtnummer,
+              guid: "",
+              status:
+                "Niet gevonden"
+            });
+
+            return;
+          }
+
+          matches.forEach(
+            function(match) {
+              resultaat.push({
+                mark:
+                  match.mark,
+                vrachtnummer:
+                  vrachtnummer,
+                guid:
+                  match.guid,
+                modelId:
+                  match.modelId,
+                runtimeId:
+                  match.runtimeId,
+                status:
+                  match.guid
+                    ? "Gekoppeld"
+                    : "GUID ontbreekt"
+              });
+            }
+          );
+        }
+      );
+
+      dataImportResult = resultaat;
+
+      toonDataImportSamenvatting(
+        resultaat
+      );
+
+      toonDataImportPreview(
+        resultaat
+      );
+
+      const geldigeRegels =
+        resultaat.filter(
+          function(item) {
+            return (
+              item.status ===
+              "Gekoppeld"
+            );
+          }
+        );
+
+      downloadDataImportCsvButton.disabled =
+        geldigeRegels.length === 0;
+
+      writeDataImportButton.disabled =
+        geldigeRegels.length === 0;
+
+      dataImportWriteStatus.textContent =
+        geldigeRegels.length +
+        " regel(s) klaar voor " +
+        DATA_PSET_NAME +
+        " → " +
+        DATA_PROPERTY_NAME +
+        ".";
+    }
+
+    function downloadDataImportCsv() {
+      const regels =
+        dataImportResult.filter(
+          function(item) {
+            return (
+              item.status ===
+              "Gekoppeld"
+            );
+          }
+        );
+
+      const lijnen = [
+        [
+          "GUID",
+          "Cast Unit Mark",
+          DATA_PROPERTY_NAME
+        ].join(";")
+      ];
+
+      regels.forEach(
+        function(item) {
+          lijnen.push(
+            [
+              escapeCsvValue(
+                item.guid
+              ),
+              escapeCsvValue(
+                item.mark
+              ),
+              escapeCsvValue(
+                item.vrachtnummer
+              )
+            ].join(";")
+          );
+        }
+      );
+
+      downloadTekstbestand(
+        "ALTEZ_UITVOERING_Vrachtnummer.csv",
+        lijnen.join("\n"),
+        "text/csv;charset=utf-8"
+      );
+    }
+
+    async function schrijfDataNaarTrimble() {
+      const regels =
+        dataImportResult.filter(
+          function(item) {
+            return (
+              item.status ===
+              "Gekoppeld"
+            );
+          }
+        );
+
+      if (regels.length === 0) {
+        return;
+      }
+
+      /*
+       * Officiële Property Set-integraties moeten de Trimble-specifieke
+       * bibliotheek-, definitie-, instance-, link- en access-control-
+       * conventies volgen. Daarom is het schrijfdeel bewust als adapter
+       * geïsoleerd.
+       *
+       * Een geregistreerde integratie kan deze functie beschikbaar maken:
+       *
+       * window.ALTEZ_PSET_ADAPTER.write({
+       *   api,
+       *   project,
+       *   propertySetName,
+       *   propertyName,
+       *   rows
+       * })
+       */
+      if (
+        !window.ALTEZ_PSET_ADAPTER ||
+        typeof window.ALTEZ_PSET_ADAPTER.write !==
+          "function"
+      ) {
+        dataImportWriteStatus.textContent =
+          "De Excel-koppeling is klaar, maar de Trimble Property Set-schrijfadapter " +
+          "is nog niet geconfigureerd. Download voorlopig de gekoppelde CSV.";
+
+        return;
+      }
+
+      writeDataImportButton.disabled =
+        true;
+
+      dataImportWriteStatus.textContent =
+        "Toegang tot Trimble Connect aanvragen...";
+
+      try {
+        const token =
+          await API.extension.requestPermission(
+            "accesstoken"
+          );
+
+        const project =
+          await API.project.getProject();
+
+        dataImportWriteStatus.textContent =
+          "Propertyset aanmaken of bijwerken...";
+
+        const resultaat =
+          await window.ALTEZ_PSET_ADAPTER.write({
+            api: API,
+            accessToken: token,
+            project: project,
+            propertySetName:
+              DATA_PSET_NAME,
+            propertyName:
+              DATA_PROPERTY_NAME,
+            rows: regels
+          });
+
+        dataImportWriteStatus.textContent =
+          resultaat &&
+          resultaat.message
+            ? resultaat.message
+            : regels.length +
+              " waarde(n) naar Trimble Connect geschreven.";
+      } catch (error) {
+        console.error(
+          "Data schrijven mislukt:",
+          error
+        );
+
+        dataImportWriteStatus.textContent =
+          "Schrijven naar Trimble Connect is mislukt: " +
+          (
+            error && error.message
+              ? error.message
+              : "onbekende fout"
+          );
+      } finally {
+        writeDataImportButton.disabled =
+          false;
+      }
+    }
+
     function toonView(viewNaam) {
       const views = [
         menuView,
         searchMenuView,
         analysisMenuView,
         calculationMenuView,
+        dataMenuView,
         savedSearchesView,
         generalView,
         elementsView
@@ -7252,6 +8403,12 @@ function bepaalAlgemeneZoekgroep(
 
       if (viewNaam === "analysis-menu") {
         analysisMenuView.classList.add("active");
+        return;
+      }
+
+
+      if (viewNaam === "data-menu") {
+        dataMenuView.classList.add("active");
         return;
       }
 
@@ -7527,6 +8684,16 @@ function bepaalAlgemeneZoekgroep(
         toonView("calculation-menu");
       });
 
+    document.getElementById("open-data-module-button")
+      .addEventListener("click", function() {
+        toonView("data-menu");
+      });
+
+    document.getElementById("back-from-data-menu")
+      .addEventListener("click", function() {
+        toonView("menu");
+      });
+
     document.getElementById("back-from-search-menu")
       .addEventListener("click", function() {
         toonView("menu");
@@ -7572,6 +8739,69 @@ function bepaalAlgemeneZoekgroep(
       .addEventListener("click", function() {
         toonView("search-menu");
       });
+
+
+    buildDataModelIndexButton.addEventListener(
+      "click",
+      bouwDataModelIndex
+    );
+
+    dataImportFileInput.addEventListener(
+      "change",
+      async function() {
+        const file =
+          dataImportFileInput.files &&
+          dataImportFileInput.files[0];
+
+        if (file) {
+          await leesDataImportBestand(file);
+        }
+      }
+    );
+
+    dataImportSheetSelect.addEventListener(
+      "change",
+      function() {
+        laadImportWerkblad(
+          dataImportSheetSelect.value
+        );
+      }
+    );
+
+    [
+      dataImportMarkColumnSelect,
+      dataImportTruckColumnSelect
+    ].forEach(
+      function(select) {
+        select.addEventListener(
+          "change",
+          function() {
+            linkDataImportButton.disabled =
+              !(
+                dataModelIndex.size > 0 &&
+                dataWorksheetRows.length > 0 &&
+                dataImportMarkColumnSelect.value &&
+                dataImportTruckColumnSelect.value
+              );
+          }
+        );
+      }
+    );
+
+    linkDataImportButton.addEventListener(
+      "click",
+      koppelDataImport
+    );
+
+    downloadDataImportCsvButton.addEventListener(
+      "click",
+      downloadDataImportCsv
+    );
+
+    writeDataImportButton.addEventListener(
+      "click",
+      schrijfDataNaarTrimble
+    );
 
     connectToTrimble();
   </script>
