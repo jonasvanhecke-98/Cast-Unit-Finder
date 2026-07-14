@@ -2287,12 +2287,17 @@ function zoekEersteHerkenbareNaam(
       const uniekeKandidaatIds =
         Array.from(new Set(kandidaatIds));
 
-      const properties =
+      const propertyResultaat =
         await haalPropertiesEfficient(
           modelId,
           uniekeKandidaatIds,
           false
         );
+
+      const properties =
+        Array.isArray(propertyResultaat.properties)
+          ? propertyResultaat.properties
+          : [];
 
       const assemblies = new Map();
 
@@ -3212,8 +3217,14 @@ function zoekEersteHerkenbareNaam(
           error
         );
 
+        const foutmelding =
+          error && error.message
+            ? String(error.message)
+            : "Onbekende fout";
+
         elementResultElement.textContent =
-          "De gecombineerde zoekactie is mislukt. Bekijk eventueel F12 → Console.";
+          "De gecombineerde zoekactie is mislukt.\n\nTechnische melding: " +
+          foutmelding;
 
         verbergZoekVoortgang();
       } finally {
