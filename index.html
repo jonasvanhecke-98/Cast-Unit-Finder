@@ -381,8 +381,9 @@
 
       <p class="small-info">
         Vul één of meerdere zoekvelden in. Lege velden worden genegeerd.
-        Wanneer meerdere velden zijn ingevuld, worden alleen resultaten getoond
-        die aan alle ingevulde voorwaarden voldoen.
+        Profielen zijn niet hoofdlettergevoelig en spaties worden genegeerd.
+        Voor lengte geldt een tolerantie van ±10 mm. Wanneer meerdere velden
+        zijn ingevuld, moeten alle ingevulde voorwaarden overeenkomen.
       </p>
 
       <label for="cast-unit-mark">Cast Unit Mark</label>
@@ -1195,7 +1196,6 @@ function zoekEersteHerkenbareNaam(
         return;
       }
 
-      markSearchButton.disabled = true;
       generalSearchButton.disabled = true;
       generalClearButton.disabled = true;
 
@@ -1318,7 +1318,6 @@ function zoekEersteHerkenbareNaam(
           "De algemene zoekactie is mislukt." +
           "\nBekijk eventueel F12 → Console.";
       } finally {
-        markSearchButton.disabled = false;
         generalSearchButton.disabled = false;
       }
     }
@@ -1388,12 +1387,70 @@ function zoekEersteHerkenbareNaam(
       }
     ];
 
-    function haalPropertyMatches(objectProperties, gewensteNamen, zoekwaarde) {
+    function normaliseerProfiel(waarde) {
+      return String(waarde ?? "")
+        .toLocaleLowerCase("nl-BE")
+        .replace(/\s+/g, "")
+        .trim();
+    }
+
+    function leesLengteInMillimeter(waarde) {
+      const tekst = String(waarde ?? "")
+        .trim()
+        .toLocaleLowerCase("nl-BE")
+        .replace(/,/g, ".");
+
+      const match = tekst.match(/-?\d+(?:\.\d+)?/);
+      if (!match) {
+        return null;
+      }
+
+      let getal = Number(match[0]);
+      if (!Number.isFinite(getal)) {
+        return null;
+      }
+
+      if (/\bcm\b/.test(tekst)) {
+        getal *= 10;
+      } else if (/\bm\b/.test(tekst) && !/\bmm\b/.test(tekst)) {
+        getal *= 1000;
+      }
+
+      return getal;
+    }
+
+    function waardeVoldoetAanCriterium(criteriumKey, propertyWaarde, zoekwaarde) {
+      if (criteriumKey === "profile") {
+        const profielWaarde = normaliseerProfiel(propertyWaarde);
+        const profielZoekwaarde = normaliseerProfiel(zoekwaarde);
+
+        return profielZoekwaarde !== "" &&
+          profielWaarde.includes(profielZoekwaarde);
+      }
+
+      if (criteriumKey === "length") {
+        const gevondenLengte = leesLengteInMillimeter(propertyWaarde);
+        const gevraagdeLengte = leesLengteInMillimeter(zoekwaarde);
+
+        return gevondenLengte !== null &&
+          gevraagdeLengte !== null &&
+          Math.abs(gevondenLengte - gevraagdeLengte) <= 10;
+      }
+
+      return normaliseerTekst(propertyWaarde)
+        .includes(normaliseerTekst(zoekwaarde));
+    }
+
+    function haalPropertyMatches(
+      objectProperties,
+      gewensteNamen,
+      zoekwaarde,
+      criteriumKey
+    ) {
       const resultaten = [];
       const propertySets = Array.isArray(objectProperties.properties)
         ? objectProperties.properties
         : [];
-      const zoekNormaal = normaliseerTekst(zoekwaarde);
 
       for (const propertySet of propertySets) {
         const setName = String(propertySet.set || "").trim();
@@ -1412,8 +1469,13 @@ function zoekEersteHerkenbareNaam(
           if (!naamPast) continue;
 
           const value = String(property.value ?? "").trim();
-          if (normaliseerTekst(value).includes(zoekNormaal)) {
-            resultaten.push({ setName: setName, propertyName: propertyName, value: value });
+
+          if (waardeVoldoetAanCriterium(criteriumKey, value, zoekwaarde)) {
+            resultaten.push({
+              setName: setName,
+              propertyName: propertyName,
+              value: value
+            });
           }
         }
       }
@@ -1428,7 +1490,8 @@ function zoekEersteHerkenbareNaam(
         const matches = haalPropertyMatches(
           objectProperties,
           criterium.names,
-          criterium.value
+          criterium.value,
+          criterium.key
         );
 
         if (matches.length === 0) return null;
