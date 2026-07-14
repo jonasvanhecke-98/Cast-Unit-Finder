@@ -461,6 +461,9 @@
       </p>
 
       <label for="cast-unit-mark">Cast Unit Mark</label>
+      <p class="small-info">
+        Zoek rechtstreeks op het merk- of assemblynummer.
+      </p>
       <input
         id="cast-unit-mark"
         type="text"
@@ -471,6 +474,10 @@
       >
 
       <label for="element-profile" style="margin-top: 12px;">Profiel</label>
+      <p class="small-info">
+        Kies een profiel uit het geladen model of begin te typen.
+        Hoofdletters en spaties worden genegeerd.
+      </p>
 
       <div class="profile-combobox">
         <input
@@ -490,6 +497,9 @@
       </div>
 
       <label for="element-length" style="margin-top: 12px;">Lengte</label>
+      <p class="small-info">
+        Zoek op lengte met een tolerantie van ±10 mm.
+      </p>
       <input
         id="element-length"
         type="text"
@@ -499,6 +509,9 @@
       >
 
       <label for="element-finish" style="margin-top: 12px;">Afwerking (Finish)</label>
+      <p class="small-info">
+        Kies een aanwezige afwerking of begin te typen om de lijst te filteren.
+      </p>
 
       <div class="profile-combobox">
         <input
@@ -517,6 +530,9 @@
       </div>
 
       <label for="element-material" style="margin-top: 12px;">Staalklasse (Material)</label>
+      <p class="small-info">
+        Kies een aanwezige staalklasse of materiaalwaarde uit het model.
+      </p>
 
       <div class="profile-combobox">
         <input
@@ -533,6 +549,10 @@
       <div id="material-status" class="profile-status">
         Klik in het veld om aanwezige staalklassen in te lezen.
       </div>
+
+      <p class="small-info" style="margin-top: 14px;">
+        Resultaten worden per merk/assembly getoond met Cast Unit Mark en gewicht in kg.
+      </p>
 
       <button id="element-search-button" class="single-button" type="button" disabled>
         Element(en) zoeken
@@ -947,23 +967,112 @@
       return null;
     }
 
-    function formatteerGewicht(waarde) {
+    function parseerGewichtNaarKg(waarde) {
       if (
         waarde === null ||
         waarde === undefined ||
-        waarde === ""
+        String(waarde).trim() === ""
       ) {
+        return null;
+      }
+
+      const origineleTekst =
+        String(waarde).trim();
+
+      const heeftTonEenheid =
+        /(?:\bton(?:ne)?s?\b|\bt\b)/i
+          .test(origineleTekst);
+
+      const heeftKgEenheid =
+        /\bkg\b/i.test(origineleTekst);
+
+      let numeriekeTekst =
+        origineleTekst
+          .replace(/\s+/g, "")
+          .replace(/(?:kilogram(?:men)?|kg|tonnes?|tons?|t)/gi, "")
+          .replace(/[^0-9,.-]/g, "");
+
+      if (!numeriekeTekst) {
+        return null;
+      }
+
+      const laatsteKomma =
+        numeriekeTekst.lastIndexOf(",");
+
+      const laatstePunt =
+        numeriekeTekst.lastIndexOf(".");
+
+      if (
+        laatsteKomma >= 0 &&
+        laatstePunt >= 0
+      ) {
+        /*
+         * Het laatste scheidingsteken is het decimaalteken;
+         * het andere wordt als duizendtalseparator verwijderd.
+         */
+        if (laatsteKomma > laatstePunt) {
+          numeriekeTekst =
+            numeriekeTekst
+              .replace(/\./g, "")
+              .replace(",", ".");
+        } else {
+          numeriekeTekst =
+            numeriekeTekst.replace(/,/g, "");
+        }
+      } else if (laatsteKomma >= 0) {
+        numeriekeTekst =
+          numeriekeTekst.replace(",", ".");
+      } else if (
+        laatstePunt >= 0 &&
+        !heeftTonEenheid
+      ) {
+        const delen =
+          numeriekeTekst.split(".");
+
+        /*
+         * Zonder eenheid behandelen we 1.058 als 1058 kg,
+         * overeenkomstig de Tekla-notatie in het model.
+         */
+        if (
+          delen.length === 2 &&
+          delen[1].length === 3
+        ) {
+          numeriekeTekst =
+            delen[0] + delen[1];
+        }
+      }
+
+      const getal =
+        Number(numeriekeTekst);
+
+      if (!Number.isFinite(getal)) {
+        return null;
+      }
+
+      if (heeftTonEenheid && !heeftKgEenheid) {
+        return getal * 1000;
+      }
+
+      /*
+       * Een waarde zonder eenheid wordt als kilogram behandeld.
+       */
+      return getal;
+    }
+
+    function formatteerGewicht(waarde) {
+      const kilogram =
+        parseerGewichtNaarKg(waarde);
+
+      if (kilogram === null) {
         return "niet gevonden";
       }
 
-      const tekst =
-        String(waarde).trim();
-
-      if (/(kg|ton|tonne|t)$/i.test(tekst)) {
-        return tekst;
-      }
-
-      return tekst + " t";
+      return new Intl.NumberFormat(
+        "nl-BE",
+        {
+          maximumFractionDigits: 1
+        }
+      ).format(kilogram) + " kg";
     }
 
     function verdeelInGroepen(array, grootte) {
@@ -2654,6 +2763,162 @@ function zoekEersteHerkenbareNaam(
       };
     }
 
+    async function laadVolledigeAssemblySelectie(
+      assembly
+    ) {
+      if (assembly.selectieResultaten) {
+        return assembly.selectieResultaten;
+      }
+
+      const selectieResultaten =
+        await zoekVolledigeAssemblySelectie(
+          assembly.modelId,
+          assembly.mark
+        );
+
+      if (telObjecten(selectieResultaten) > 0) {
+        assembly.selectieResultaten =
+          selectieResultaten;
+      } else if (
+        Array.isArray(assembly.passendeOnderdelen) &&
+        assembly.passendeOnderdelen.length > 0
+      ) {
+        assembly.selectieResultaten =
+          maakResultatenVanDetails(
+            assembly.passendeOnderdelen
+          );
+      } else {
+        assembly.selectieResultaten = [
+          {
+            modelId: assembly.modelId,
+            objects: [
+              {
+                id: assembly.runtimeId
+              }
+            ]
+          }
+        ];
+      }
+
+      return assembly.selectieResultaten;
+    }
+
+    function combineerSelectieResultaten(
+      resultaatLijsten
+    ) {
+      const perModel = new Map();
+
+      resultaatLijsten.forEach(
+        function(resultaten) {
+          if (!Array.isArray(resultaten)) {
+            return;
+          }
+
+          resultaten.forEach(function(model) {
+            if (!perModel.has(model.modelId)) {
+              perModel.set(
+                model.modelId,
+                new Set()
+              );
+            }
+
+            haalObjecten(model)
+              .map(haalRuntimeId)
+              .filter(function(id) {
+                return (
+                  id !== null &&
+                  id !== undefined
+                );
+              })
+              .forEach(function(id) {
+                perModel
+                  .get(model.modelId)
+                  .add(id);
+              });
+          });
+        }
+      );
+
+      return Array.from(perModel.entries())
+        .map(function(entry) {
+          return {
+            modelId: entry[0],
+            objects:
+              Array.from(entry[1])
+                .map(function(id) {
+                  return { id: id };
+                })
+          };
+        });
+    }
+
+    async function selecteerAlleAssemblies(
+      assemblies,
+      knop
+    ) {
+      const origineleTekst =
+        knop.textContent;
+
+      try {
+        knop.disabled = true;
+
+        const alleSelecties = [];
+
+        for (
+          let index = 0;
+          index < assemblies.length;
+          index++
+        ) {
+          knop.textContent =
+            "Assemblies laden " +
+            (index + 1) +
+            "/" +
+            assemblies.length +
+            "...";
+
+          const selectie =
+            await laadVolledigeAssemblySelectie(
+              assemblies[index]
+            );
+
+          alleSelecties.push(selectie);
+
+          if (index % 5 === 0) {
+            await new Promise(function(resolve) {
+              setTimeout(resolve, 0);
+            });
+          }
+        }
+
+        const gecombineerd =
+          combineerSelectieResultaten(
+            alleSelecties
+          );
+
+        await selecteerEnZoom(
+          gecombineerd
+        );
+
+        knop.textContent =
+          assemblies.length +
+          " resultaten geselecteerd";
+      } catch (error) {
+        console.error(
+          "Alle assemblies selecteren mislukt:",
+          error
+        );
+
+        knop.textContent =
+          "Alle resultaten selecteren mislukt";
+      } finally {
+        setTimeout(function() {
+          knop.disabled = false;
+          knop.textContent =
+            origineleTekst;
+        }, 1200);
+      }
+    }
+
     async function selecteerVolledigeAssembly(
       assembly,
       knop
@@ -2668,40 +2933,13 @@ function zoekEersteHerkenbareNaam(
             "Assembly laden...";
         }
 
-        if (!assembly.selectieResultaten) {
-          const selectieResultaten =
-            await zoekVolledigeAssemblySelectie(
-              assembly.modelId,
-              assembly.mark
-            );
-
-          if (telObjecten(selectieResultaten) > 0) {
-            assembly.selectieResultaten =
-              selectieResultaten;
-          } else if (
-            Array.isArray(assembly.passendeOnderdelen) &&
-            assembly.passendeOnderdelen.length > 0
-          ) {
-            assembly.selectieResultaten =
-              maakResultatenVanDetails(
-                assembly.passendeOnderdelen
-              );
-          } else {
-            assembly.selectieResultaten = [
-              {
-                modelId: assembly.modelId,
-                objects: [
-                  {
-                    id: assembly.runtimeId
-                  }
-                ]
-              }
-            ];
-          }
-        }
+        const selectieResultaten =
+          await laadVolledigeAssemblySelectie(
+            assembly
+          );
 
         await selecteerEnZoom(
-          assembly.selectieResultaten
+          selectieResultaten
         );
       } catch (error) {
         console.error(
@@ -2757,6 +2995,39 @@ function zoekEersteHerkenbareNaam(
             " merken/assemblies gevonden";
 
       elementResultElement.appendChild(titel);
+
+      if (assemblies.length > 1) {
+        const selecteerAllesKnop =
+          document.createElement("button");
+
+        selecteerAllesKnop.type = "button";
+        selecteerAllesKnop.className =
+          "single-button";
+
+        selecteerAllesKnop.style.marginBottom =
+          "12px";
+
+        selecteerAllesKnop.textContent =
+          "Selecteer alle " +
+          assemblies.length +
+          " resultaten";
+
+        selecteerAllesKnop.addEventListener(
+          "click",
+          async function(event) {
+            event.stopPropagation();
+
+            await selecteerAlleAssemblies(
+              assemblies,
+              selecteerAllesKnop
+            );
+          }
+        );
+
+        elementResultElement.appendChild(
+          selecteerAllesKnop
+        );
+      }
 
       if (assemblies.length === 0) {
         const waarschuwing =
