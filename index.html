@@ -370,6 +370,101 @@
       transition: width 160ms ease;
     }
 
+
+    .organizer-tools {
+      display: grid;
+      gap: 8px;
+      margin: 0 0 12px;
+      padding: 10px;
+      background: #f4f6f7;
+      border: 1px solid #d8dadd;
+      border-radius: 6px;
+    }
+
+    .organizer-tools-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .organizer-status {
+      font-size: 12px;
+      line-height: 1.4;
+      color: #555;
+    }
+
+    .legend-panel {
+      margin-bottom: 12px;
+      padding: 10px;
+      background: #fff;
+      border: 1px solid #d8dadd;
+      border-radius: 6px;
+    }
+
+    .legend-title {
+      margin-bottom: 7px;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .legend-row {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      padding: 5px 0;
+      font-size: 12px;
+      border-top: 1px solid #eceeef;
+    }
+
+    .legend-row:first-of-type {
+      border-top: 0;
+    }
+
+    .legend-swatch,
+    .group-swatch {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 1px solid rgba(0, 0, 0, 0.25);
+      border-radius: 3px;
+    }
+
+    .group-swatch {
+      margin-right: 7px;
+      vertical-align: -2px;
+    }
+
+    .saved-search-panel {
+      margin-top: 14px;
+      padding: 12px;
+      background: #f8fafb;
+      border: 1px solid #d8dadd;
+      border-radius: 6px;
+    }
+
+    .saved-search-panel h3 {
+      margin: 0 0 10px;
+      font-size: 14px;
+    }
+
+    .saved-search-panel select {
+      width: 100%;
+      margin-top: 8px;
+      padding: 10px;
+      border: 1px solid #aeb2b7;
+      border-radius: 4px;
+      background: white;
+      font: inherit;
+    }
+
+    .saved-search-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
     .success {
       color: #19733b !important;
     }
@@ -446,6 +541,51 @@
           Nog geen algemene zoekopdracht uitgevoerd.
         </div>
       </section>
+
+      <div class="saved-search-panel">
+        <h3>Opgeslagen zoekopdrachten</h3>
+
+        <input
+          id="saved-search-name"
+          type="text"
+          placeholder="Naam van de zoekopdracht"
+          autocomplete="off"
+        >
+
+        <button
+          id="save-general-search-button"
+          class="single-button"
+          type="button"
+          disabled
+        >
+          Huidige zoekopdracht opslaan
+        </button>
+
+        <select id="saved-search-select">
+          <option value="">Kies een opgeslagen zoekopdracht</option>
+        </select>
+
+        <div class="saved-search-actions">
+          <button
+            id="load-saved-search-button"
+            type="button"
+            disabled
+          >
+            Openen
+          </button>
+
+          <button
+            id="delete-saved-search-button"
+            class="secondary"
+            type="button"
+            disabled
+          >
+            Verwijderen
+          </button>
+        </div>
+
+        <div id="saved-search-message" class="organizer-status"></div>
+      </div>
     </section>
   </section>
 
@@ -708,6 +848,45 @@
 
     const generalResultElement =
       document.getElementById("general-result");
+
+    const savedSearchNameInput =
+      document.getElementById("saved-search-name");
+
+    const saveGeneralSearchButton =
+      document.getElementById("save-general-search-button");
+
+    const savedSearchSelect =
+      document.getElementById("saved-search-select");
+
+    const loadSavedSearchButton =
+      document.getElementById("load-saved-search-button");
+
+    const deleteSavedSearchButton =
+      document.getElementById("delete-saved-search-button");
+
+    const savedSearchMessageElement =
+      document.getElementById("saved-search-message");
+
+    const SAVED_SEARCH_STORAGE_KEY =
+      "altez-saved-general-searches-v1";
+
+    const GROUP_COLORS = [
+      { r: 230, g: 57, b: 70, a: 255, hex: "#e63946" },
+      { r: 29, g: 78, b: 216, a: 255, hex: "#1d4ed8" },
+      { r: 22, g: 163, b: 74, a: 255, hex: "#16a34a" },
+      { r: 245, g: 158, b: 11, a: 255, hex: "#f59e0b" },
+      { r: 147, g: 51, b: 234, a: 255, hex: "#9333ea" },
+      { r: 8, g: 145, b: 178, a: 255, hex: "#0891b2" },
+      { r: 234, g: 88, b: 12, a: 255, hex: "#ea580c" },
+      { r: 190, g: 24, b: 93, a: 255, hex: "#be185d" },
+      { r: 77, g: 124, b: 15, a: 255, hex: "#4d7c0f" },
+      { r: 75, g: 85, b: 99, a: 255, hex: "#4b5563" }
+    ];
+
+    let currentGeneralQuery = "";
+    let currentGeneralGroups = [];
+    let coloredSelectors = [];
+    let createdMarkupIds = [];
 
     const markPropertyNames = [
       "Tekla Assembly.Assembly/Cast unit Mark",
@@ -1360,6 +1539,549 @@ function bepaalAlgemeneZoekgroep(
       return rij;
     }
 
+
+    function selectorVanDetails(details) {
+      const perModel = new Map();
+
+      details.forEach(function(detail) {
+        if (
+          detail.runtimeId === null ||
+          detail.runtimeId === undefined
+        ) {
+          return;
+        }
+
+        if (!perModel.has(detail.modelId)) {
+          perModel.set(detail.modelId, []);
+        }
+
+        perModel.get(detail.modelId)
+          .push(detail.runtimeId);
+      });
+
+      return {
+        modelObjectIds:
+          Array.from(perModel.entries())
+            .map(function(entry) {
+              return {
+                modelId: entry[0],
+                objectRuntimeIds:
+                  Array.from(new Set(entry[1]))
+              };
+            })
+            .filter(function(item) {
+              return item.objectRuntimeIds.length > 0;
+            })
+      };
+    }
+
+    async function resetGeneralColors() {
+      for (const selector of coloredSelectors) {
+        try {
+          await API.viewer.setObjectState(
+            selector,
+            { color: "reset" }
+          );
+        } catch (error) {
+          console.warn("Kleur resetten mislukt:", error);
+        }
+      }
+
+      coloredSelectors = [];
+    }
+
+    async function removeGroupLabels() {
+      if (
+        API &&
+        API.markup &&
+        createdMarkupIds.length > 0
+      ) {
+        try {
+          await API.markup.removeMarkups(
+            createdMarkupIds
+          );
+        } catch (error) {
+          console.warn("Labels verwijderen mislukt:", error);
+        }
+      }
+
+      createdMarkupIds = [];
+    }
+
+    function renderLegend(container, groups) {
+      container.innerHTML = "";
+
+      const title =
+        document.createElement("div");
+
+      title.className = "legend-title";
+      title.textContent = "Legenda";
+
+      container.appendChild(title);
+
+      groups.forEach(function(group) {
+        const row =
+          document.createElement("div");
+
+        row.className = "legend-row";
+
+        const swatch =
+          document.createElement("span");
+
+        swatch.className = "legend-swatch";
+        swatch.style.backgroundColor =
+          group.color.hex;
+
+        const name =
+          document.createElement("span");
+
+        name.textContent = group.value;
+
+        const count =
+          document.createElement("span");
+
+        count.textContent =
+          group.elementen.length;
+
+        row.appendChild(swatch);
+        row.appendChild(name);
+        row.appendChild(count);
+
+        container.appendChild(row);
+      });
+    }
+
+    async function colorGeneralGroups(
+      groups,
+      legend,
+      status
+    ) {
+      await resetGeneralColors();
+
+      status.textContent =
+        "Groepen inkleuren...";
+
+      for (
+        let index = 0;
+        index < groups.length;
+        index++
+      ) {
+        const group = groups[index];
+        const selector =
+          selectorVanDetails(
+            group.elementen
+          );
+
+        if (
+          !selector.modelObjectIds ||
+          selector.modelObjectIds.length === 0
+        ) {
+          continue;
+        }
+
+        const color =
+          GROUP_COLORS[
+            index % GROUP_COLORS.length
+          ];
+
+        group.color = color;
+
+        await API.viewer.setObjectState(
+          selector,
+          {
+            color: {
+              r: color.r,
+              g: color.g,
+              b: color.b,
+              a: color.a
+            }
+          }
+        );
+
+        coloredSelectors.push(selector);
+      }
+
+      renderLegend(legend, groups);
+
+      status.textContent =
+        groups.length +
+        " groep(en) ingekleurd.";
+    }
+
+    function mergeBox(total, box) {
+      if (!box || !box.min || !box.max) {
+        return total;
+      }
+
+      if (!total) {
+        return {
+          min: { ...box.min },
+          max: { ...box.max }
+        };
+      }
+
+      total.min.x = Math.min(total.min.x, box.min.x);
+      total.min.y = Math.min(total.min.y, box.min.y);
+      total.min.z = Math.min(total.min.z, box.min.z);
+      total.max.x = Math.max(total.max.x, box.max.x);
+      total.max.y = Math.max(total.max.y, box.max.y);
+      total.max.z = Math.max(total.max.z, box.max.z);
+
+      return total;
+    }
+
+    async function getGroupBoundingBox(group) {
+      const selector =
+        selectorVanDetails(
+          group.elementen
+        );
+
+      let totalBox = null;
+      let firstModelId = null;
+      let firstObjectId = null;
+
+      for (const model of selector.modelObjectIds) {
+        if (!model.objectRuntimeIds.length) {
+          continue;
+        }
+
+        if (firstModelId === null) {
+          firstModelId = model.modelId;
+          firstObjectId =
+            model.objectRuntimeIds[0];
+        }
+
+        const ids =
+          model.objectRuntimeIds.length <= 300
+            ? model.objectRuntimeIds
+            : model.objectRuntimeIds.filter(
+                function(id, index) {
+                  const step =
+                    Math.ceil(
+                      model.objectRuntimeIds.length /
+                      300
+                    );
+
+                  return index % step === 0;
+                }
+              );
+
+        const boxes =
+          await API.viewer.getObjectBoundingBoxes(
+            model.modelId,
+            ids
+          );
+
+        if (!Array.isArray(boxes)) {
+          continue;
+        }
+
+        boxes.forEach(function(item) {
+          totalBox =
+            mergeBox(
+              totalBox,
+              item.boundingBox
+            );
+        });
+      }
+
+      return {
+        box: totalBox,
+        modelId: firstModelId,
+        objectId: firstObjectId
+      };
+    }
+
+    async function showGroupLabelsOutside(
+      groups,
+      status
+    ) {
+      if (
+        !API.markup ||
+        typeof API.markup.addTextMarkup !==
+          "function"
+      ) {
+        status.textContent =
+          "3D-labels worden niet ondersteund in deze Trimble-versie.";
+        return;
+      }
+
+      await removeGroupLabels();
+
+      status.textContent =
+        "Groepslabels plaatsen...";
+
+      const markups = [];
+
+      for (
+        let index = 0;
+        index < groups.length;
+        index++
+      ) {
+        const group = groups[index];
+
+        try {
+          const result =
+            await getGroupBoundingBox(group);
+
+          const box = result.box;
+
+          if (!box) {
+            continue;
+          }
+
+          const centerX =
+            (box.min.x + box.max.x) / 2;
+          const centerY =
+            (box.min.y + box.max.y) / 2;
+          const centerZ =
+            (box.min.z + box.max.z) / 2;
+
+          const sizeX =
+            Math.max(
+              Math.abs(box.max.x - box.min.x),
+              1
+            );
+
+          const sizeY =
+            Math.max(
+              Math.abs(box.max.y - box.min.y),
+              1
+            );
+
+          const margin =
+            Math.max(
+              sizeX * 0.2,
+              sizeY * 0.15,
+              1
+            );
+
+          const right =
+            index % 2 === 0;
+
+          const labelX =
+            right
+              ? box.max.x + margin
+              : box.min.x - margin;
+
+          const labelY =
+            box.max.y +
+            margin +
+            (index % 5) * margin * 0.35;
+
+          const color =
+            group.color ||
+            GROUP_COLORS[
+              index % GROUP_COLORS.length
+            ];
+
+          markups.push({
+            text:
+              group.value +
+              " — " +
+              group.elementen.length +
+              " element(en)",
+            color: {
+              r: color.r,
+              g: color.g,
+              b: color.b,
+              a: 255
+            },
+            start: {
+              positionX: labelX * 1000,
+              positionY: labelY * 1000,
+              positionZ: centerZ * 1000,
+              modelId: result.modelId,
+              objectId: result.objectId
+            },
+            end: {
+              positionX: centerX * 1000,
+              positionY: centerY * 1000,
+              positionZ: centerZ * 1000,
+              modelId: result.modelId,
+              objectId: result.objectId
+            }
+          });
+        } catch (error) {
+          console.warn(
+            "Label overgeslagen voor " +
+            group.value +
+            ":",
+            error
+          );
+        }
+      }
+
+      if (markups.length === 0) {
+        status.textContent =
+          "Er konden geen labelposities worden bepaald.";
+        return;
+      }
+
+      try {
+        const result =
+          await API.markup.addTextMarkup(
+            markups
+          );
+
+        createdMarkupIds =
+          Array.isArray(result)
+            ? result
+                .map(function(item) {
+                  return item.id;
+                })
+                .filter(function(id) {
+                  return (
+                    id !== null &&
+                    id !== undefined
+                  );
+                })
+            : [];
+
+        status.textContent =
+          markups.length +
+          " label(s) buiten de geometrie geplaatst.";
+      } catch (error) {
+        console.error("Labels plaatsen mislukt:", error);
+
+        status.textContent =
+          "Kleuren en legenda werken, maar de 3D-labels konden niet worden geplaatst.";
+      }
+    }
+
+    function readSavedSearches() {
+      try {
+        const raw =
+          localStorage.getItem(
+            SAVED_SEARCH_STORAGE_KEY
+          );
+
+        const parsed =
+          raw ? JSON.parse(raw) : [];
+
+        return Array.isArray(parsed)
+          ? parsed
+          : [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function writeSavedSearches(items) {
+      localStorage.setItem(
+        SAVED_SEARCH_STORAGE_KEY,
+        JSON.stringify(items)
+      );
+    }
+
+    function refreshSavedSearches() {
+      const items =
+        readSavedSearches();
+
+      savedSearchSelect.innerHTML =
+        '<option value="">Kies een opgeslagen zoekopdracht</option>';
+
+      items.forEach(function(item) {
+        const option =
+          document.createElement("option");
+
+        option.value = item.id;
+        option.textContent =
+          item.name +
+          " — " +
+          item.query;
+
+        savedSearchSelect.appendChild(option);
+      });
+
+      loadSavedSearchButton.disabled = true;
+      deleteSavedSearchButton.disabled = true;
+    }
+
+    function saveCurrentGeneralSearch() {
+      const name =
+        savedSearchNameInput.value.trim();
+
+      if (!currentGeneralQuery) {
+        savedSearchMessageElement.textContent =
+          "Voer eerst een algemene zoekopdracht uit.";
+        return;
+      }
+
+      if (!name) {
+        savedSearchMessageElement.textContent =
+          "Vul eerst een naam in.";
+        return;
+      }
+
+      const items =
+        readSavedSearches();
+
+      items.push({
+        id:
+          Date.now().toString(36) +
+          "-" +
+          Math.random().toString(36).slice(2, 8),
+        name: name,
+        query: currentGeneralQuery,
+        savedAt: new Date().toISOString()
+      });
+
+      writeSavedSearches(items);
+
+      savedSearchNameInput.value = "";
+      savedSearchMessageElement.textContent =
+        "Zoekopdracht lokaal opgeslagen.";
+
+      refreshSavedSearches();
+    }
+
+    async function openSavedSearch() {
+      const item =
+        readSavedSearches()
+          .find(function(saved) {
+            return (
+              saved.id ===
+              savedSearchSelect.value
+            );
+          });
+
+      if (!item) {
+        return;
+      }
+
+      generalInput.value = item.query;
+
+      savedSearchMessageElement.textContent =
+        "Opgeslagen zoekopdracht uitvoeren...";
+
+      await algemeenZoeken();
+
+      savedSearchMessageElement.textContent =
+        "Opgeslagen zoekopdracht geopend.";
+    }
+
+    function deleteSavedSearch() {
+      const id =
+        savedSearchSelect.value;
+
+      if (!id) {
+        return;
+      }
+
+      writeSavedSearches(
+        readSavedSearches()
+          .filter(function(item) {
+            return item.id !== id;
+          })
+      );
+
+      savedSearchMessageElement.textContent =
+        "Zoekopdracht verwijderd.";
+
+      refreshSavedSearches();
+    }
+
     function toonAlgemeneZoekresultaten(
       zoektekstOrigineel,
       gevondenDetails
@@ -1483,6 +2205,155 @@ function bepaalAlgemeneZoekgroep(
         );
 
       gesorteerdeGroepen.forEach(
+        function(groep, index) {
+          groep.color =
+            GROUP_COLORS[
+              index % GROUP_COLORS.length
+            ];
+        }
+      );
+
+      currentGeneralQuery =
+        zoektekstOrigineel;
+
+      currentGeneralGroups =
+        gesorteerdeGroepen;
+
+      saveGeneralSearchButton.disabled =
+        false;
+
+      const tools =
+        document.createElement("div");
+
+      tools.className =
+        "organizer-tools";
+
+      const toolsRow =
+        document.createElement("div");
+
+      toolsRow.className =
+        "organizer-tools-row";
+
+      const colorButton =
+        document.createElement("button");
+
+      colorButton.type = "button";
+      colorButton.textContent =
+        "Kleur groepen in";
+
+      const labelButton =
+        document.createElement("button");
+
+      labelButton.type = "button";
+      labelButton.textContent =
+        "Toon labels buiten geometrie";
+
+      const resetButton =
+        document.createElement("button");
+
+      resetButton.type = "button";
+      resetButton.className = "secondary";
+      resetButton.textContent =
+        "Kleuren en labels wissen";
+
+      toolsRow.appendChild(colorButton);
+      toolsRow.appendChild(labelButton);
+
+      tools.appendChild(toolsRow);
+      tools.appendChild(resetButton);
+
+      const organizerStatus =
+        document.createElement("div");
+
+      organizerStatus.className =
+        "organizer-status";
+
+      tools.appendChild(organizerStatus);
+
+      const legend =
+        document.createElement("div");
+
+      legend.className =
+        "legend-panel";
+
+      renderLegend(
+        legend,
+        gesorteerdeGroepen
+      );
+
+      colorButton.addEventListener(
+        "click",
+        async function() {
+          colorButton.disabled = true;
+
+          try {
+            await colorGeneralGroups(
+              gesorteerdeGroepen,
+              legend,
+              organizerStatus
+            );
+          } catch (error) {
+            console.error(error);
+            organizerStatus.textContent =
+              "Groepen inkleuren is mislukt.";
+          } finally {
+            colorButton.disabled = false;
+          }
+        }
+      );
+
+      labelButton.addEventListener(
+        "click",
+        async function() {
+          labelButton.disabled = true;
+
+          try {
+            if (coloredSelectors.length === 0) {
+              await colorGeneralGroups(
+                gesorteerdeGroepen,
+                legend,
+                organizerStatus
+              );
+            }
+
+            await showGroupLabelsOutside(
+              gesorteerdeGroepen,
+              organizerStatus
+            );
+          } catch (error) {
+            console.error(error);
+            organizerStatus.textContent =
+              "Labels tonen is mislukt.";
+          } finally {
+            labelButton.disabled = false;
+          }
+        }
+      );
+
+      resetButton.addEventListener(
+        "click",
+        async function() {
+          resetButton.disabled = true;
+
+          await resetGeneralColors();
+          await removeGroupLabels();
+
+          organizerStatus.textContent =
+            "Kleuren en labels gewist.";
+
+          resetButton.disabled = false;
+        }
+      );
+
+      generalResultElement.appendChild(
+        tools
+      );
+
+      generalResultElement.appendChild(
+        legend
+      );
+
+      gesorteerdeGroepen.forEach(
         function(groep) {
           const detailsElement =
             document.createElement("details");
@@ -1496,11 +2367,26 @@ function bepaalAlgemeneZoekgroep(
           summary.className =
             "search-result-summary";
 
-          summary.textContent =
+          const swatch =
+            document.createElement("span");
+
+          swatch.className =
+            "group-swatch";
+
+          swatch.style.backgroundColor =
+            groep.color.hex;
+
+          const summaryText =
+            document.createElement("span");
+
+          summaryText.textContent =
             groep.value +
             " — " +
             groep.elementen.length +
             " element(en)";
+
+          summary.appendChild(swatch);
+          summary.appendChild(summaryText);
 
           const inhoud =
             document.createElement("div");
@@ -4241,6 +5127,13 @@ function bepaalAlgemeneZoekgroep(
     }
 
     async function wisAlgemeenZoeken() {
+      await resetGeneralColors();
+      await removeGroupLabels();
+
+      currentGeneralQuery = "";
+      currentGeneralGroups = [];
+      saveGeneralSearchButton.disabled = true;
+
       generalInput.value = "";
       generalResultElement.textContent =
         "Nog geen algemene zoekopdracht uitgevoerd.";
@@ -4303,6 +5196,37 @@ function bepaalAlgemeneZoekgroep(
       "click",
       wisAlgemeenZoeken
     );
+
+    saveGeneralSearchButton.addEventListener(
+      "click",
+      saveCurrentGeneralSearch
+    );
+
+    savedSearchSelect.addEventListener(
+      "change",
+      function() {
+        const hasSelection =
+          Boolean(savedSearchSelect.value);
+
+        loadSavedSearchButton.disabled =
+          !hasSelection;
+
+        deleteSavedSearchButton.disabled =
+          !hasSelection;
+      }
+    );
+
+    loadSavedSearchButton.addEventListener(
+      "click",
+      openSavedSearch
+    );
+
+    deleteSavedSearchButton.addEventListener(
+      "click",
+      deleteSavedSearch
+    );
+
+    refreshSavedSearches();
 
 
 
