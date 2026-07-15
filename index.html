@@ -929,7 +929,7 @@
           <span class="tool-card-title">Kleur op gewicht</span>
           <span class="tool-card-description">
             Groepeer en kleur automatisch op Tekla Assembly → Cast unit Mark.
-            Het bijbehorende Cast unit Weight bepaalt de gewichtsklasse:
+            Tekla Assembly → Assembly/Cast unit weight bepaalt de gewichtsklasse:
             1–5 ton groen, 5–10 ton geel en boven 10 ton rood.
           </span>
 
@@ -1957,8 +1957,42 @@ const profileOptionsElement =
         return null;
       }
 
+      let raw = waarde;
+
+      if (
+        raw &&
+        typeof raw === "object"
+      ) {
+        const objectValue =
+          raw.value ??
+          raw.displayValue ??
+          raw.formattedValue ??
+          raw.text ??
+          null;
+
+        const objectUnit =
+          raw.unit ??
+          raw.symbol ??
+          "";
+
+        if (
+          objectValue === null ||
+          objectValue === undefined
+        ) {
+          return null;
+        }
+
+        raw =
+          String(objectValue) +
+          (
+            objectUnit
+              ? " " + String(objectUnit)
+              : ""
+          );
+      }
+
       const origineel =
-        String(waarde)
+        String(raw)
           .trim()
           .toLocaleLowerCase("nl-BE");
 
@@ -1967,59 +2001,68 @@ const profileOptionsElement =
       }
 
       const compact =
-        origineel.replace(/\s+/g, "");
+        origineel
+          .replace(/\s+/g, "")
+          .replace(/−/g, "-");
 
-      const heeftTonEenheid =
-        /(?:ton|tonne|tonnes|t)$/.test(
-          compact
+      const tonMatch =
+        compact.match(
+          /^([-+]?\d+(?:[.,]\d+)?)\s*(?:t|ton|tonne|tonnes)$/
         );
 
-      const heeftKgEenheid =
-        /(?:kg|kilogram|kilograms)$/.test(
-          compact
-        );
-
-      let nummerTekst =
-        compact.replace(
-          /(?:kilograms|kilogram|tonnes|tonne|ton|kg|t)$/g,
-          ""
-        );
-
-      /*
-       * Ondersteun zowel 1.058T als 1,058T.
-       * Bij een ton-eenheid is de komma of punt het decimaalteken.
-       */
-      if (heeftTonEenheid) {
-        nummerTekst =
-          nummerTekst.replace(",", ".");
-
+      if (tonMatch) {
         const ton =
-          Number(nummerTekst);
+          Number(
+            tonMatch[1].replace(
+              ",",
+              "."
+            )
+          );
 
         return Number.isFinite(ton)
           ? ton * 1000
           : null;
       }
 
-      /*
-       * Bij kg kunnen punten of komma's duizendtallen zijn.
-       */
-      if (heeftKgEenheid) {
-        nummerTekst =
-          nummerTekst
-            .replace(/\.(?=\d{3}(?:\D|$))/g, "")
-            .replace(",", ".");
+      const kgMatch =
+        compact.match(
+          /^([-+]?\d+(?:[.,]\d+)?)\s*(?:kg|kilogram|kilograms)$/
+        );
 
-        const kg =
-          Number(nummerTekst);
+      if (kgMatch) {
+        let tekst =
+          kgMatch[1];
+
+        if (
+          /^\d{1,3}(?:\.\d{3})+$/.test(
+            tekst
+          )
+        ) {
+          tekst = tekst.replace(/\./g, "");
+        } else {
+          tekst = tekst.replace(",", ".");
+        }
+
+        const kg = Number(tekst);
 
         return Number.isFinite(kg)
           ? kg
           : null;
       }
 
-      nummerTekst =
-        nummerTekst.replace(",", ".");
+      let nummerTekst = compact;
+
+      if (
+        /^\d{1,3}(?:\.\d{3})+$/.test(
+          nummerTekst
+        )
+      ) {
+        nummerTekst =
+          nummerTekst.replace(/\./g, "");
+      } else {
+        nummerTekst =
+          nummerTekst.replace(",", ".");
+      }
 
       const nummer =
         Number(nummerTekst);
@@ -2028,11 +2071,6 @@ const profileOptionsElement =
         return null;
       }
 
-      /*
-       * Waarden zonder eenheid:
-       * 1.058 wordt meestal door Tekla als tonwaarde aangeleverd;
-       * 1058 wordt als kilogram geïnterpreteerd.
-       */
       return nummer > 0 && nummer < 100
         ? nummer * 1000
         : nummer;
@@ -9207,6 +9245,131 @@ function bepaalAlgemeneZoekgroep(
       };
     }
 
+    function haalAssemblyCastUnitWeightUitProperties(
+      objectProperties
+    ) {
+      const propertySets =
+        Array.isArray(
+          objectProperties &&
+          objectProperties.properties
+        )
+          ? objectProperties.properties
+          : [];
+
+      const gewensteVolledigeNamen = [
+        "teklaassemblyassemblycastunitweight",
+        "assemblycastunitweight"
+      ];
+
+      for (const propertySet of propertySets) {
+        const setName =
+          String(
+            propertySet.set ||
+            propertySet.name ||
+            propertySet.displayName ||
+            propertySet.propertySetName ||
+            ""
+          ).trim();
+
+        const setNormaal =
+          normaliseerEigenschapsNaam(
+            setName
+          );
+
+        const properties =
+          Array.isArray(
+            propertySet.properties
+          )
+            ? propertySet.properties
+            : [];
+
+        for (const property of properties) {
+          const propertyName =
+            String(
+              property.name ||
+              property.displayName ||
+              property.label ||
+              ""
+            ).trim();
+
+          const propertyNormaal =
+            normaliseerEigenschapsNaam(
+              propertyName
+            );
+
+          const volledigeNaam =
+            normaliseerEigenschapsNaam(
+              setName + "." + propertyName
+            );
+
+          const isGewensteProperty =
+            gewensteVolledigeNamen.includes(
+              volledigeNaam
+            ) ||
+            (
+              setNormaal.includes(
+                "teklaassembly"
+              ) &&
+              propertyNormaal ===
+                "assemblycastunitweight"
+            ) ||
+            propertyNormaal ===
+              "assemblycastunitweight";
+
+          if (!isGewensteProperty) {
+            continue;
+          }
+
+          const rawValue =
+            property.value;
+
+          if (
+            rawValue &&
+            typeof rawValue === "object"
+          ) {
+            const objectValue =
+              rawValue.value ??
+              rawValue.displayValue ??
+              rawValue.formattedValue ??
+              rawValue.text ??
+              null;
+
+            const unit =
+              rawValue.unit ??
+              rawValue.symbol ??
+              "";
+
+            if (
+              objectValue !== null &&
+              objectValue !== undefined &&
+              String(objectValue).trim() !== ""
+            ) {
+              return (
+                String(objectValue).trim() +
+                (
+                  unit
+                    ? " " + String(unit).trim()
+                    : ""
+                )
+              ).trim();
+            }
+          }
+
+          if (
+            rawValue !== null &&
+            rawValue !== undefined &&
+            String(rawValue).trim() !== ""
+          ) {
+            return String(rawValue).trim();
+          }
+        }
+      }
+
+      return haalCastUnitWeightUitProperties(
+        objectProperties
+      );
+    }
+
     async function quickColorByWeight() {
       quickWeightColorButton.disabled =
         true;
@@ -9214,7 +9377,7 @@ function bepaalAlgemeneZoekgroep(
       quickWeightResult.innerHTML = "";
 
       quickWeightStatus.textContent =
-        "Tekla Assembly → Cast unit Mark en Cast unit Weight inlezen...";
+        "Tekla Assembly → Cast unit Mark en Assembly/Cast unit weight inlezen...";
 
       try {
         if (!filterOptionsLoaded) {
@@ -9233,14 +9396,13 @@ function bepaalAlgemeneZoekgroep(
         quickWeightMarkupIds = [];
 
         /*
-         * Eerst per Cast unit Mark één assemblygroep opbouwen.
-         * Daarmee staat deze snelactie volledig los van Element(en) zoeken.
+         * Eerst alle objecten per Cast Unit Mark verzamelen.
+         * Het gewicht hoeft maar op één object binnen dezelfde assembly
+         * aanwezig te zijn. Daarna krijgt de volledige assembly dezelfde
+         * gewichtsklasse.
          */
         const assemblies =
           new Map();
-
-        const ontbrekendGewichtDetails =
-          [];
 
         objectPropertiesCache.forEach(
           function(
@@ -9261,35 +9423,12 @@ function bepaalAlgemeneZoekgroep(
               return;
             }
 
-            const gewichtWaarde =
-              haalCastUnitWeightUitProperties(
-                objectProperties
-              );
-
-            const gewichtKg =
-              parseerGewichtNaarKg(
-                gewichtWaarde
-              );
-
             const detail =
               maakDetailUitCacheSleutel(
                 cacheKey
               );
 
             if (!detail) {
-              return;
-            }
-
-            const klasse =
-              bepaalGewichtsklasse(
-                gewichtKg
-              );
-
-            if (!klasse) {
-              ontbrekendGewichtDetails.push(
-                detail
-              );
-
               return;
             }
 
@@ -9303,19 +9442,52 @@ function bepaalAlgemeneZoekgroep(
                 markSleutel,
                 {
                   mark: mark,
-                  gewichtKg:
-                    gewichtKg,
-                  klasse:
-                    klasse,
-                  details: []
+                  details: [],
+                  gewichtBronwaarden: [],
+                  gewichtKg: null,
+                  klasse: null
                 }
               );
             }
 
-            assemblies
-              .get(markSleutel)
-              .details
-              .push(detail);
+            const assembly =
+              assemblies.get(markSleutel);
+
+            assembly.details.push(detail);
+
+            const gewichtWaarde =
+              haalAssemblyCastUnitWeightUitProperties(
+                objectProperties
+              );
+
+            if (
+              gewichtWaarde !== null &&
+              gewichtWaarde !== undefined &&
+              String(gewichtWaarde).trim() !== ""
+            ) {
+              const gewichtKg =
+                parseerGewichtNaarKg(
+                  gewichtWaarde
+                );
+
+              assembly.gewichtBronwaarden.push(
+                String(gewichtWaarde).trim()
+              );
+
+              if (
+                gewichtKg !== null &&
+                Number.isFinite(gewichtKg) &&
+                gewichtKg > 0
+              ) {
+                assembly.gewichtKg =
+                  gewichtKg;
+
+                assembly.klasse =
+                  bepaalGewichtsklasse(
+                    gewichtKg
+                  );
+              }
+            }
           }
         );
 
@@ -9368,8 +9540,26 @@ function bepaalAlgemeneZoekgroep(
             ]
           ]);
 
+        const ontbrekendGewichtDetails =
+          [];
+
+        const ontbrekendeMarks =
+          new Set();
+
         assemblies.forEach(
           function(assembly) {
+            if (!assembly.klasse) {
+              ontbrekendeMarks.add(
+                assembly.mark
+              );
+
+              ontbrekendGewichtDetails.push(
+                ...assembly.details
+              );
+
+              return;
+            }
+
             const groep =
               gewichtsgroepen.get(
                 assembly.klasse.sleutel
@@ -9406,12 +9596,14 @@ function bepaalAlgemeneZoekgroep(
                   color: groep.kleur,
                   propertyNames:
                     new Set([
-                      "Tekla Assembly → Cast unit Mark / Cast unit Weight"
+                      "Tekla Assembly → Assembly/Cast unit weight"
                     ]),
                   matchTypes:
                     new Set([
                       "parameterName"
                     ]),
+                  assemblyMarks:
+                    Array.from(groep.marks),
                   isSystemRemainder: false,
                   isHidden: false
                 };
@@ -9419,8 +9611,7 @@ function bepaalAlgemeneZoekgroep(
             );
 
         if (
-          ontbrekendGewichtDetails.length >
-          0
+          ontbrekendGewichtDetails.length > 0
         ) {
           componentGroepen.push({
             value:
@@ -9436,21 +9627,38 @@ function bepaalAlgemeneZoekgroep(
             },
             propertyNames:
               new Set([
-                "Tekla Assembly → Cast unit Mark / Cast unit Weight"
+                "Tekla Assembly → Assembly/Cast unit weight"
               ]),
             matchTypes:
               new Set([
                 "missing"
               ]),
+            assemblyMarks:
+              Array.from(
+                ontbrekendeMarks
+              ),
             isSystemRemainder: true,
             isHidden: false
           });
         }
 
-        if (componentGroepen.length === 0) {
+        const geldigeAssemblies =
+          Array.from(
+            assemblies.values()
+          ).filter(
+            function(assembly) {
+              return Boolean(
+                assembly.klasse
+              );
+            }
+          );
+
+        if (geldigeAssemblies.length === 0) {
           quickWeightStatus.textContent =
-            "Geen assemblies gevonden met zowel een Cast unit Mark als een bruikbaar Cast unit Weight. " +
-            "Ondersteunde gewichten zijn bijvoorbeeld 1.058T, 1058 kg of 1058.";
+            "Geen assemblies gevonden met een bruikbare waarde onder " +
+            "Tekla Assembly → Assembly/Cast unit weight. " +
+            "Een waarde zoals 1.000 t wordt als 1000 kg gelezen.";
+
           return;
         }
 
@@ -9460,7 +9668,8 @@ function bepaalAlgemeneZoekgroep(
           quickWeightResult,
           componentGroepen,
           {
-            objectAantal: assemblies.size,
+            objectAantal:
+              geldigeAssemblies.length,
             toonElementDetails: false,
             statusTekst:
               "Gewichtsgroepen worden automatisch gekleurd en gelabeld."
@@ -9468,7 +9677,7 @@ function bepaalAlgemeneZoekgroep(
         );
 
         quickWeightStatus.textContent =
-          assemblies.size +
+          geldigeAssemblies.length +
           " assemblymark(s) kleuren...";
 
         await colorGeneralGroups(
@@ -9477,7 +9686,7 @@ function bepaalAlgemeneZoekgroep(
         );
 
         quickWeightStatus.textContent =
-          assemblies.size +
+          geldigeAssemblies.length +
           " assemblymark(s) kleuren voltooid. Labels plaatsen...";
 
         await removeGroupLabels();
@@ -9491,9 +9700,11 @@ function bepaalAlgemeneZoekgroep(
           false;
 
         quickWeightStatus.textContent =
-          assemblies.size +
-          " assemblymark(s) ingekleurd met labels buiten het model. " +
-          "Assemblies zonder bruikbaar gewicht staan grijs en transparant.";
+          geldigeAssemblies.length +
+          " assemblymark(s) ingekleurd volgens " +
+          "Tekla Assembly → Assembly/Cast unit weight. " +
+          ontbrekendeMarks.size +
+          " merk(en) zonder bruikbaar gewicht staan grijs en transparant.";
       } catch (error) {
         console.error(
           "Kleur op gewicht mislukt:",
