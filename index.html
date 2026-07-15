@@ -994,6 +994,14 @@
           <option value="">Geladen modellen worden ingelezen...</option>
         </select>
 
+        <button
+          id="refresh-data-models-button"
+          class="secondary single-button"
+          type="button"
+        >
+          Geladen modellen vernieuwen
+        </button>
+
         <label for="data-mark-prefix">Prefix Cast Unit Mark</label>
         <input
           id="data-mark-prefix"
@@ -1474,6 +1482,9 @@
     const dataModelSelect =
       document.getElementById("data-model-select");
 
+    const refreshDataModelsButton =
+      document.getElementById("refresh-data-models-button");
+
     const dataMarkPrefixInput =
       document.getElementById("data-mark-prefix");
 
@@ -1941,93 +1952,90 @@ const profileOptionsElement =
     function parseerGewichtNaarKg(waarde) {
       if (
         waarde === null ||
-        waarde === undefined ||
-        String(waarde).trim() === ""
+        waarde === undefined
       ) {
         return null;
       }
 
-      const origineleTekst =
-        String(waarde).trim();
+      const origineel =
+        String(waarde)
+          .trim()
+          .toLocaleLowerCase("nl-BE");
+
+      if (!origineel) {
+        return null;
+      }
+
+      const compact =
+        origineel.replace(/\s+/g, "");
 
       const heeftTonEenheid =
-        /(?:\bton(?:ne)?s?\b|\bt\b)/i
-          .test(origineleTekst);
+        /(?:ton|tonne|tonnes|t)$/.test(
+          compact
+        );
 
       const heeftKgEenheid =
-        /\bkg\b/i.test(origineleTekst);
+        /(?:kg|kilogram|kilograms)$/.test(
+          compact
+        );
 
-      let numeriekeTekst =
-        origineleTekst
-          .replace(/\s+/g, "")
-          .replace(/(?:kilogram(?:men)?|kg|tonnes?|tons?|t)/gi, "")
-          .replace(/[^0-9,.-]/g, "");
+      let nummerTekst =
+        compact.replace(
+          /(?:kilograms|kilogram|tonnes|tonne|ton|kg|t)$/g,
+          ""
+        );
 
-      if (!numeriekeTekst) {
-        return null;
-      }
+      /*
+       * Ondersteun zowel 1.058T als 1,058T.
+       * Bij een ton-eenheid is de komma of punt het decimaalteken.
+       */
+      if (heeftTonEenheid) {
+        nummerTekst =
+          nummerTekst.replace(",", ".");
 
-      const laatsteKomma =
-        numeriekeTekst.lastIndexOf(",");
+        const ton =
+          Number(nummerTekst);
 
-      const laatstePunt =
-        numeriekeTekst.lastIndexOf(".");
-
-      if (
-        laatsteKomma >= 0 &&
-        laatstePunt >= 0
-      ) {
-        /*
-         * Het laatste scheidingsteken is het decimaalteken;
-         * het andere wordt als duizendtalseparator verwijderd.
-         */
-        if (laatsteKomma > laatstePunt) {
-          numeriekeTekst =
-            numeriekeTekst
-              .replace(/\./g, "")
-              .replace(",", ".");
-        } else {
-          numeriekeTekst =
-            numeriekeTekst.replace(/,/g, "");
-        }
-      } else if (laatsteKomma >= 0) {
-        numeriekeTekst =
-          numeriekeTekst.replace(",", ".");
-      } else if (
-        laatstePunt >= 0 &&
-        !heeftTonEenheid
-      ) {
-        const delen =
-          numeriekeTekst.split(".");
-
-        /*
-         * Zonder eenheid behandelen we 1.058 als 1058 kg,
-         * overeenkomstig de Tekla-notatie in het model.
-         */
-        if (
-          delen.length === 2 &&
-          delen[1].length === 3
-        ) {
-          numeriekeTekst =
-            delen[0] + delen[1];
-        }
-      }
-
-      const getal =
-        Number(numeriekeTekst);
-
-      if (!Number.isFinite(getal)) {
-        return null;
-      }
-
-      if (heeftTonEenheid && !heeftKgEenheid) {
-        return getal * 1000;
+        return Number.isFinite(ton)
+          ? ton * 1000
+          : null;
       }
 
       /*
-       * Een waarde zonder eenheid wordt als kilogram behandeld.
+       * Bij kg kunnen punten of komma's duizendtallen zijn.
        */
-      return getal;
+      if (heeftKgEenheid) {
+        nummerTekst =
+          nummerTekst
+            .replace(/\.(?=\d{3}(?:\D|$))/g, "")
+            .replace(",", ".");
+
+        const kg =
+          Number(nummerTekst);
+
+        return Number.isFinite(kg)
+          ? kg
+          : null;
+      }
+
+      nummerTekst =
+        nummerTekst.replace(",", ".");
+
+      const nummer =
+        Number(nummerTekst);
+
+      if (!Number.isFinite(nummer)) {
+        return null;
+      }
+
+      /*
+       * Waarden zonder eenheid:
+       * 1.058 wordt meestal door Tekla als tonwaarde aangeleverd;
+       * 1058 wordt als kilogram geïnterpreteerd.
+       */
+      return nummer > 0 && nummer < 100
+        ? nummer * 1000
+        : nummer;
     }
 
     function formatteerGewicht(waarde) {
@@ -7394,148 +7402,122 @@ function bepaalAlgemeneZoekgroep(
 
     async function laadGeladenModellenVoorDataImport() {
       dataModelSelect.disabled = true;
-
+      refreshDataModelsButton.disabled = true;
       dataModelSelect.innerHTML =
-        '<option value="">Geladen model wordt ingelezen...</option>';
+        '<option value="">Geladen modellen worden ingelezen...</option>';
+      dataModelIndexStatus.textContent =
+        "De actieve 3D-viewer wordt gecontroleerd op geladen modellen...";
 
       try {
-        /*
-         * Belangrijk:
-         * haalAlleModelObjecten() gebruikt de objecten die werkelijk
-         * aanwezig zijn in de actieve 3D-viewer. Daardoor komen modellen
-         * die alleen in het project bestaan, maar niet geladen zijn,
-         * niet in deze dropdown terecht.
-         */
-        const objectModellen =
-          await haalAlleModelObjecten();
+        let objectModellen = [];
 
-        const uniekeGeladenModellen =
-          new Map();
+        for (let poging = 1; poging <= 3; poging++) {
+          const resultaat = await API.viewer.getObjects();
 
-        objectModellen.forEach(
-          function(model, index) {
-            const modelId =
-              haalModelIdVoorDataImport(
-                model
-              );
+          objectModellen = Array.isArray(resultaat)
+            ? resultaat
+            : resultaat && Array.isArray(resultaat.models)
+              ? resultaat.models
+              : [];
 
-            if (
-              modelId === null ||
-              modelId === undefined
-            ) {
-              return;
-            }
+          objectModellen = objectModellen.filter(function(model) {
+            return model &&
+              model.modelId !== null &&
+              model.modelId !== undefined &&
+              Array.isArray(model.objects) &&
+              model.objects.length > 0;
+          });
 
-            const objecten =
-              haalObjecten(model);
+          if (objectModellen.length > 0) {
+            break;
+          }
 
-            if (
-              !Array.isArray(objecten) ||
-              objecten.length === 0
-            ) {
-              return;
-            }
+          if (poging < 3) {
+            dataModelIndexStatus.textContent =
+              "De viewer laadt nog. Nieuwe poging " +
+              (poging + 1) +
+              " van 3...";
+            await new Promise(function(resolve) {
+              setTimeout(resolve, 900);
+            });
+          }
+        }
 
-            const sleutel =
-              String(modelId);
+        const modelNamen = new Map();
 
-            if (
-              !uniekeGeladenModellen.has(
-                sleutel
-              )
-            ) {
-              uniekeGeladenModellen.set(
-                sleutel,
-                {
-                  ...model,
-                  modelId: modelId,
-                  name:
-                    haalModelNaamVoorDataImport(
-                      model,
-                      index
-                    )
+        try {
+          if (API.viewer && typeof API.viewer.getModels === "function") {
+            const modellen = await API.viewer.getModels();
+            if (Array.isArray(modellen)) {
+              modellen.forEach(function(model) {
+                const id = model && (model.id ?? model.modelId);
+                if (id !== null && id !== undefined) {
+                  modelNamen.set(
+                    String(id),
+                    String(model.name || model.fileName || model.title || id)
+                  );
                 }
-              );
+              });
             }
           }
-        );
+        } catch (error) {
+          console.warn("Modelnamen ophalen is niet gelukt:", error);
+        }
 
-        loadedDataModels =
-          Array.from(
-            uniekeGeladenModellen.values()
-          );
+        loadedDataModels = objectModellen.map(function(model, index) {
+          return {
+            ...model,
+            modelId: model.modelId,
+            name:
+              modelNamen.get(String(model.modelId)) ||
+              model.name ||
+              model.modelName ||
+              ("Geladen model " + (index + 1))
+          };
+        });
 
+        cachedAllObjects = objectModellen;
         dataModelSelect.innerHTML =
           '<option value="">Kies een geladen model</option>';
 
-        loadedDataModels.forEach(
-          function(model) {
-            const option =
-              document.createElement(
-                "option"
-              );
+        loadedDataModels.forEach(function(model) {
+          const option = document.createElement("option");
+          option.value = String(model.modelId);
+          option.textContent = model.name;
+          dataModelSelect.appendChild(option);
+        });
 
-            option.value =
-              String(model.modelId);
-
-            option.textContent =
-              model.name;
-
-            dataModelSelect.appendChild(
-              option
-            );
-          }
-        );
-
-        if (
-          loadedDataModels.length === 1
-        ) {
-          dataModelSelect.value =
-            String(
-              loadedDataModels[0].modelId
-            );
+        if (loadedDataModels.length === 1) {
+          dataModelSelect.value = String(loadedDataModels[0].modelId);
         }
 
-        dataModelSelect.disabled =
-          loadedDataModels.length === 0;
+        dataModelSelect.disabled = loadedDataModels.length === 0;
 
-        if (
-          loadedDataModels.length === 0
-        ) {
+        if (loadedDataModels.length === 0) {
           dataModelIndexStatus.textContent =
-            "Er werd geen geladen model met objecten gevonden.";
-        } else if (
-          loadedDataModels.length === 1
-        ) {
+            "Er werd nog geen model met objecten in de actieve 3D-viewer gevonden. " +
+            "Laad eerst het model en klik daarna op 'Geladen modellen vernieuwen'.";
+        } else if (loadedDataModels.length === 1) {
           dataModelIndexStatus.textContent =
-            "Het geladen model is automatisch geselecteerd. Vul nu een prefix in.";
+            "Het enige geladen model is automatisch geselecteerd. Vul nu een prefix in.";
         } else {
           dataModelIndexStatus.textContent =
             loadedDataModels.length +
-            " werkelijk geladen modellen gevonden. Kies het gewenste model en vul een prefix in.";
+            " geladen modellen met objecten gevonden. Kies het gewenste model en vul een prefix in.";
         }
 
         updateDataModelIndexButtonState();
       } catch (error) {
-        console.error(
-          "Geladen modellen inlezen mislukt:",
-          error
-        );
-
+        console.error("Geladen modellen inlezen mislukt:", error);
         loadedDataModels = [];
-
+        dataModelSelect.disabled = true;
         dataModelSelect.innerHTML =
-          '<option value="">Geladen model kon niet worden ingelezen</option>';
-
+          '<option value="">Geladen modellen konden niet worden ingelezen</option>';
         dataModelIndexStatus.textContent =
-          "Het geladen model kon niet worden ingelezen: " +
-          (
-            error && error.message
-              ? error.message
-              : "onbekende fout"
-          );
-
-        updateDataModelIndexButtonState();
+          "De geladen modellen konden niet worden ingelezen: " +
+          (error && error.message ? error.message : "onbekende fout");
+      } finally {
+        refreshDataModelsButton.disabled = false;
       }
     }
 
@@ -7672,7 +7654,7 @@ function bepaalAlgemeneZoekgroep(
         return;
       }
 
-      const gekozenModelMeta =
+      const model =
         loadedDataModels.find(
           function(item) {
             return (
@@ -7682,19 +7664,11 @@ function bepaalAlgemeneZoekgroep(
           }
         );
 
-      if (!gekozenModelMeta) {
+      if (!model) {
         dataModelIndexStatus.textContent =
-          "Het gekozen model is niet meer beschikbaar. Lees de modellen opnieuw in.";
+          "Het gekozen geladen model is niet meer beschikbaar. Klik op 'Geladen modellen vernieuwen'.";
         return;
       }
-
-      /*
-       * Het gekozen model in loadedDataModels bevat reeds de objectstructuur
-       * uit de actieve 3D-viewer. We gebruiken die rechtstreeks, zodat een
-       * tweede modelopvraging geen afwijkende model-ID of lege structuur kan geven.
-       */
-      const model =
-        gekozenModelMeta;
 
       const gekozenObjecten =
         haalObjecten(model);
@@ -8985,6 +8959,9 @@ function bepaalAlgemeneZoekgroep(
         const groepen =
           new Map();
 
+        const ontbrekendeFinishDetails =
+          [];
+
         objectPropertiesCache.forEach(
           function(
             objectProperties,
@@ -9002,16 +8979,20 @@ function bepaalAlgemeneZoekgroep(
                 finishWaarde ?? ""
               ).trim();
 
-            if (!finish) {
-              return;
-            }
-
             const detail =
               maakDetailUitCacheSleutel(
                 cacheKey
               );
 
             if (!detail) {
+              return;
+            }
+
+            if (!finish) {
+              ontbrekendeFinishDetails.push(
+                detail
+              );
+
               return;
             }
 
@@ -9080,30 +9061,79 @@ function bepaalAlgemeneZoekgroep(
             }
           );
 
+        if (
+          ontbrekendeFinishDetails.length >
+          0
+        ) {
+          componentGroepen.push({
+            value:
+              "Niet ingevuld / parameter ontbreekt",
+            elementen:
+              ontbrekendeFinishDetails,
+            color: {
+              r: 160,
+              g: 160,
+              b: 160,
+              a: 255,
+              hex: "#a0a0a0"
+            },
+            propertyNames:
+              new Set([
+                "Tekla Common → Finish"
+              ]),
+            matchTypes:
+              new Set([
+                "missing"
+              ]),
+            isSystemRemainder: true,
+            isHidden: false
+          });
+        }
+
         quickFinishResult.innerHTML = "";
 
-        const component =
-          renderGroepsComponent(
-            quickFinishResult,
-            componentGroepen,
-            {
-              objectAantal:
-                componentGroepen.reduce(
-                  function(totaal, groep) {
-                    return totaal +
-                      groep.elementen.length;
-                  },
-                  0
-                ),
-              toonElementDetails: false,
-              statusTekst:
-                "Gereed om groepen te kleuren, labelen of beheren."
-            }
-          );
+        renderGroepsComponent(
+          quickFinishResult,
+          componentGroepen,
+          {
+            objectAantal:
+              componentGroepen.reduce(
+                function(totaal, groep) {
+                  return totaal +
+                    groep.elementen.length;
+                },
+                0
+              ),
+            toonElementDetails: false,
+            statusTekst:
+              "Groepen worden automatisch gekleurd en gelabeld."
+          }
+        );
 
         quickFinishStatus.textContent =
           groepLijst.length +
-          " afwerkingsgroep(en) opgebouwd.";
+          " afwerkingsgroep(en) kleuren...";
+
+        await colorGeneralGroups(
+          componentGroepen,
+          quickFinishStatus
+        );
+
+        quickFinishStatus.textContent =
+          groepLijst.length +
+          " afwerkingsgroep(en) kleuren voltooid. Labels plaatsen...";
+
+        await removeGroupLabels();
+
+        await showGroupLabelsOutside(
+          componentGroepen,
+          quickFinishStatus
+        );
+
+        quickFinishStatus.textContent =
+          groepLijst.length +
+          " afwerkingsgroep(en) ingekleurd met labels buiten het model. " +
+          "Objecten zonder Finish staan grijs en transparant.";
 
         quickFinishResetButton.disabled =
           false;
@@ -9209,16 +9239,17 @@ function bepaalAlgemeneZoekgroep(
         const assemblies =
           new Map();
 
+        const ontbrekendGewichtDetails =
+          [];
+
         objectPropertiesCache.forEach(
           function(
             objectProperties,
             cacheKey
           ) {
             const markWaarde =
-              leesPropertyUitSpecifiekeSet(
-                objectProperties,
-                "Tekla Assembly",
-                "Cast unit Mark"
+              haalCastUnitMarkUitProperties(
+                objectProperties
               );
 
             const mark =
@@ -9231,25 +9262,14 @@ function bepaalAlgemeneZoekgroep(
             }
 
             const gewichtWaarde =
-              leesPropertyUitSpecifiekeSet(
-                objectProperties,
-                "Tekla Assembly",
-                "Cast unit Weight"
+              haalCastUnitWeightUitProperties(
+                objectProperties
               );
 
             const gewichtKg =
-              normaliseerGewichtNaarKg(
+              parseerGewichtNaarKg(
                 gewichtWaarde
               );
-
-            const klasse =
-              bepaalGewichtsklasse(
-                gewichtKg
-              );
-
-            if (!klasse) {
-              return;
-            }
 
             const detail =
               maakDetailUitCacheSleutel(
@@ -9257,6 +9277,19 @@ function bepaalAlgemeneZoekgroep(
               );
 
             if (!detail) {
+              return;
+            }
+
+            const klasse =
+              bepaalGewichtsklasse(
+                gewichtKg
+              );
+
+            if (!klasse) {
+              ontbrekendGewichtDetails.push(
+                detail
+              );
+
               return;
             }
 
@@ -9385,9 +9418,39 @@ function bepaalAlgemeneZoekgroep(
               }
             );
 
+        if (
+          ontbrekendGewichtDetails.length >
+          0
+        ) {
+          componentGroepen.push({
+            value:
+              "Niet ingevuld / parameter ontbreekt",
+            elementen:
+              ontbrekendGewichtDetails,
+            color: {
+              r: 160,
+              g: 160,
+              b: 160,
+              a: 255,
+              hex: "#a0a0a0"
+            },
+            propertyNames:
+              new Set([
+                "Tekla Assembly → Cast unit Mark / Cast unit Weight"
+              ]),
+            matchTypes:
+              new Set([
+                "missing"
+              ]),
+            isSystemRemainder: true,
+            isHidden: false
+          });
+        }
+
         if (componentGroepen.length === 0) {
           quickWeightStatus.textContent =
-            "Geen assemblies gevonden met een bruikbaar Cast unit Weight.";
+            "Geen assemblies gevonden met zowel een Cast unit Mark als een bruikbaar Cast unit Weight. " +
+            "Ondersteunde gewichten zijn bijvoorbeeld 1.058T, 1058 kg of 1058.";
           return;
         }
 
@@ -9400,8 +9463,28 @@ function bepaalAlgemeneZoekgroep(
             objectAantal: assemblies.size,
             toonElementDetails: false,
             statusTekst:
-              "Gereed om groepen te kleuren, labelen of beheren."
+              "Gewichtsgroepen worden automatisch gekleurd en gelabeld."
           }
+        );
+
+        quickWeightStatus.textContent =
+          assemblies.size +
+          " assemblymark(s) kleuren...";
+
+        await colorGeneralGroups(
+          componentGroepen,
+          quickWeightStatus
+        );
+
+        quickWeightStatus.textContent =
+          assemblies.size +
+          " assemblymark(s) kleuren voltooid. Labels plaatsen...";
+
+        await removeGroupLabels();
+
+        await showGroupLabelsOutside(
+          componentGroepen,
+          quickWeightStatus
         );
 
         quickWeightResetButton.disabled =
@@ -9409,7 +9492,8 @@ function bepaalAlgemeneZoekgroep(
 
         quickWeightStatus.textContent =
           assemblies.size +
-          " assemblymark(s) in gewichtsgroepen opgebouwd.";
+          " assemblymark(s) ingekleurd met labels buiten het model. " +
+          "Assemblies zonder bruikbaar gewicht staan grijs en transparant.";
       } catch (error) {
         console.error(
           "Kleur op gewicht mislukt:",
@@ -9499,6 +9583,11 @@ function bepaalAlgemeneZoekgroep(
 
       if (viewNaam === "data-menu") {
         dataMenuView.classList.add("active");
+
+        if (API) {
+          laadGeladenModellenVoorDataImport();
+        }
+
         return;
       }
 
@@ -9869,6 +9958,11 @@ function bepaalAlgemeneZoekgroep(
           bouwDataModelIndex();
         }
       }
+    );
+
+    refreshDataModelsButton.addEventListener(
+      "click",
+      laadGeladenModellenVoorDataImport
     );
 
     buildDataModelIndexButton.addEventListener(
