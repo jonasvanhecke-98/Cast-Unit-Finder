@@ -796,7 +796,7 @@
         <span class="module-eyebrow">Altez Tools</span>
         <h2>Kies een module</h2>
         <p class="module-subtitle">
-          Eén centrale toolbox voor zoeken en data verrijken in Trimble Connect.
+          Eén centrale toolbox voor zoeken, snelacties en data verrijken in Trimble Connect.
         </p>
       </div>
 
@@ -816,6 +816,14 @@
             en bereid aangepaste eigenschappen voor.
           </span>
           <span class="tool-card-tag">Nieuwe module</span>
+        </button>
+        <button id="open-quick-module-button" class="tool-card" type="button">
+          <span class="tool-card-title">Snelacties</span>
+          <span class="tool-card-description">
+            Voer veelgebruikte modelacties met één klik uit, zoals kleuren op
+            afwerking of gewichtsklasse.
+          </span>
+          <span class="tool-card-tag">Snel</span>
         </button>
       </div>
     </div>
@@ -863,6 +871,100 @@
     </div>
   </section>
 
+
+
+  <section id="quick-menu-view" class="view">
+    <button id="back-from-quick-menu" class="secondary back-button" type="button">
+      Terug naar Altez Tools
+    </button>
+
+    <div class="panel">
+      <div class="module-header">
+        <span class="module-eyebrow">Module</span>
+        <h2>Snelacties</h2>
+        <p class="module-subtitle">
+          Veelgebruikte modelweergaven zelfstandig met één klik uitvoeren.
+          Deze acties staan volledig los van de module Zoeken.
+        </p>
+      </div>
+
+      <div class="tool-card-grid">
+        <div class="tool-card">
+          <span class="tool-card-title">Kleur op afwerking</span>
+          <span class="tool-card-description">
+            Groepeer en kleur automatisch op Tekla Common → Finish.
+          </span>
+
+          <button
+            id="quick-finish-color-button"
+            class="single-button"
+            type="button"
+          >
+            Kleur op afwerking
+          </button>
+
+          <button
+            id="quick-finish-reset-button"
+            class="secondary single-button"
+            type="button"
+            disabled
+          >
+            Afwerkingskleuren en labels herstellen
+          </button>
+
+          <div
+            id="quick-finish-status"
+            class="organizer-status"
+          >
+            Nog niet uitgevoerd.
+          </div>
+
+          <div
+            id="quick-finish-result"
+            class="result-content"
+          ></div>
+        </div>
+
+        <div class="tool-card">
+          <span class="tool-card-title">Kleur op gewicht</span>
+          <span class="tool-card-description">
+            Groepeer en kleur automatisch op Tekla Assembly → Cast unit Mark.
+            Het bijbehorende Cast unit Weight bepaalt de gewichtsklasse:
+            1–5 ton groen, 5–10 ton geel en boven 10 ton rood.
+          </span>
+
+          <button
+            id="quick-weight-color-button"
+            class="single-button"
+            type="button"
+          >
+            Kleur op gewicht
+          </button>
+
+          <button
+            id="quick-weight-reset-button"
+            class="secondary single-button"
+            type="button"
+            disabled
+          >
+            Gewichtskleuren en labels herstellen
+          </button>
+
+          <div
+            id="quick-weight-status"
+            class="organizer-status"
+          >
+            Nog niet uitgevoerd.
+          </div>
+
+          <div
+            id="quick-weight-result"
+            class="result-content"
+          ></div>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <section id="data-menu-view" class="view">
     <button id="back-from-data-menu" class="secondary back-button" type="button">
@@ -1188,40 +1290,8 @@
         Klik in het profielveld om de aanwezige profielen in te lezen.
       </div>
 
-      <div class="field-indent">
-<label for="element-width" style="margin-top: 12px;">Overmeten breedte</label>
-      <p class="small-info">
-        Vul de overmeten breedte van het profiel in.
-        Er wordt automatisch een tolerantie van ±2 mm toegepast.
-      </p>
-      <input
-        id="element-width"
-        type="text"
-        placeholder="Bijvoorbeeld 200"
-        autocomplete="off"
-        spellcheck="false"
-      >
-
-      <label for="element-height" style="margin-top: 12px;">Overmeten hoogte</label>
-      <p class="small-info">
-        Vul de overmeten hoogte van het profiel in.
-        Er wordt automatisch een tolerantie van ±2 mm toegepast.
-      </p>
-      <input
-        id="element-height"
-        type="text"
-        placeholder="Bijvoorbeeld 280"
-        autocomplete="off"
-        spellcheck="false"
-      >
-
-
-
-      
-</div>
-
 <label for="element-length" style="margin-top: 12px;">Lengte</label>
-      <p class="small-info">Vul de lengte van het profiel in zonder kop- en voetplaten. Er wordt automatisch een tolerantie van ±10 mm toegepast.</p><input
+      <p class="small-info">Vul de lengte van het profiel in zonder kop- en voetplaten. Er wordt automatisch een tolerantie van ±50 mm toegepast.</p><input
         id="element-length"
         type="text"
         placeholder="Bijvoorbeeld 6000 of 6000 mm"
@@ -1371,8 +1441,35 @@
     const searchMenuView =
       document.getElementById("search-menu-view");
 
+    const quickMenuView =
+      document.getElementById("quick-menu-view");
+
     const dataMenuView =
       document.getElementById("data-menu-view");
+
+    const quickFinishColorButton =
+      document.getElementById("quick-finish-color-button");
+
+    const quickFinishResetButton =
+      document.getElementById("quick-finish-reset-button");
+
+    const quickFinishStatus =
+      document.getElementById("quick-finish-status");
+
+    const quickFinishResult =
+      document.getElementById("quick-finish-result");
+
+    const quickWeightColorButton =
+      document.getElementById("quick-weight-color-button");
+
+    const quickWeightResetButton =
+      document.getElementById("quick-weight-reset-button");
+
+    const quickWeightStatus =
+      document.getElementById("quick-weight-status");
+
+    const quickWeightResult =
+      document.getElementById("quick-weight-result");
 
     const dataModelSelect =
       document.getElementById("data-model-select");
@@ -1427,14 +1524,7 @@
 
     const elementProfileInput =
       document.getElementById("element-profile");
-
-    const elementWidthInput =
-      document.getElementById("element-width");
-
-    const elementHeightInput =
-      document.getElementById("element-height");
-
-    const profileOptionsElement =
+const profileOptionsElement =
       document.getElementById("profile-options");
 
     const profileStatusElement =
@@ -1530,6 +1620,11 @@
 
     let dataModelIndex =
       new Map();
+
+    let quickFinishSelectors = [];
+    let quickWeightSelectors = [];
+    let quickFinishMarkupIds = [];
+    let quickWeightMarkupIds = [];
 
     let dataWorkbook = null;
     let dataWorksheetRows = [];
@@ -3966,6 +4061,415 @@ function bepaalAlgemeneZoekgroep(
       }
     }
 
+
+    function renderGroepsComponent(
+      container,
+      groepen,
+      opties
+    ) {
+      const instellingen = {
+        statusTekst: "",
+        objectAantal: null,
+        toonElementDetails: true,
+        ...opties
+      };
+
+      groepen.forEach(
+        function(groep, index) {
+          groep.color =
+            groep.color ||
+            bepaalGroepKleur(
+              groep,
+              index
+            );
+
+          groep.isHidden = false;
+
+          if (!groep.propertyNames) {
+            groep.propertyNames =
+              new Set();
+          }
+
+          if (!groep.matchTypes) {
+            groep.matchTypes =
+              new Set();
+          }
+        }
+      );
+
+      currentGeneralGroups = groepen;
+
+      const tools =
+        document.createElement("div");
+
+      tools.className =
+        "organizer-tools";
+
+      const toolsRow =
+        document.createElement("div");
+
+      toolsRow.className =
+        "organizer-tools-row";
+
+      const colorButton =
+        document.createElement("button");
+
+      colorButton.type = "button";
+      colorButton.textContent =
+        "Kleur groepen in";
+
+      const labelButton =
+        document.createElement("button");
+
+      labelButton.type = "button";
+      labelButton.textContent =
+        "Toon labels rechts buiten model";
+
+      const restoreGroupsButton =
+        document.createElement("button");
+
+      restoreGroupsButton.type = "button";
+      restoreGroupsButton.className =
+        "secondary";
+      restoreGroupsButton.textContent =
+        "Alle groepen tonen";
+
+      const resetButton =
+        document.createElement("button");
+
+      resetButton.type = "button";
+      resetButton.className = "secondary";
+      resetButton.textContent =
+        "Kleuren en labels wissen";
+
+      toolsRow.appendChild(colorButton);
+      toolsRow.appendChild(labelButton);
+      tools.appendChild(toolsRow);
+      tools.appendChild(
+        restoreGroupsButton
+      );
+      tools.appendChild(resetButton);
+
+      const status =
+        document.createElement("div");
+
+      status.className =
+        "organizer-status";
+      status.textContent =
+        instellingen.statusTekst;
+
+      tools.appendChild(status);
+      container.appendChild(tools);
+
+      colorButton.addEventListener(
+        "click",
+        async function() {
+          colorButton.disabled = true;
+          try {
+            await colorGeneralGroups(
+              groepen,
+              status
+            );
+          } catch (error) {
+            console.error(error);
+            status.textContent =
+              "Groepen inkleuren is mislukt.";
+          } finally {
+            colorButton.disabled = false;
+          }
+        }
+      );
+
+      labelButton.addEventListener(
+        "click",
+        async function() {
+          labelButton.disabled = true;
+          try {
+            if (coloredSelectors.length === 0) {
+              await colorGeneralGroups(
+                groepen,
+                status
+              );
+            }
+            await showGroupLabelsOutside(
+              groepen,
+              status
+            );
+          } catch (error) {
+            console.error(error);
+            status.textContent =
+              "Labels tonen is mislukt.";
+          } finally {
+            labelButton.disabled = false;
+          }
+        }
+      );
+
+      restoreGroupsButton.addEventListener(
+        "click",
+        async function() {
+          restoreGroupsButton.disabled = true;
+          try {
+            await herstelAlleAlgemeneGroepen(
+              groepen,
+              status
+            );
+          } catch (error) {
+            console.error(error);
+            status.textContent =
+              "Alle groepen tonen is mislukt.";
+          } finally {
+            restoreGroupsButton.disabled = false;
+          }
+        }
+      );
+
+      resetButton.addEventListener(
+        "click",
+        async function() {
+          resetButton.disabled = true;
+          await resetGeneralColors();
+          await removeGroupLabels();
+          status.textContent =
+            "Kleuren en labels gewist.";
+          resetButton.disabled = false;
+        }
+      );
+
+      groepen.forEach(
+        function(groep) {
+          const detailsElement =
+            document.createElement("details");
+
+          detailsElement.className =
+            "search-result";
+
+          const summary =
+            document.createElement("summary");
+
+          summary.className =
+            "search-result-summary";
+
+          const swatch =
+            document.createElement("span");
+
+          swatch.className =
+            "group-swatch";
+          swatch.style.backgroundColor =
+            groep.color.hex;
+
+          const summaryText =
+            document.createElement("span");
+
+          summaryText.textContent =
+            groep.value +
+            " — " +
+            groep.elementen.length +
+            " element(en)" +
+            (
+              isSysteemRestgroep(groep)
+                ? " (systeemgroep)"
+                : ""
+            );
+
+          summary.appendChild(swatch);
+          summary.appendChild(summaryText);
+
+          const inhoud =
+            document.createElement("div");
+
+          inhoud.className =
+            "search-result-details";
+
+          const actieGrid =
+            document.createElement("div");
+
+          actieGrid.className =
+            "group-action-grid";
+
+          const selecteerKnop =
+            document.createElement("button");
+          selecteerKnop.type = "button";
+          selecteerKnop.textContent =
+            "Selecteren";
+
+          selecteerKnop.addEventListener(
+            "click",
+            async function(event) {
+              event.stopPropagation();
+              const selector =
+                selectorVanDetails(
+                  groep.elementen
+                );
+              try {
+                await API.viewer.setSelection(
+                  selector,
+                  "set"
+                );
+                await API.viewer.setCamera(
+                  selector,
+                  { animationTime: 450 }
+                );
+              } catch (error) {
+                console.error(error);
+              }
+            }
+          );
+
+          const focusKnop =
+            document.createElement("button");
+          focusKnop.type = "button";
+          focusKnop.textContent =
+            "Focus (ghost)";
+          focusKnop.addEventListener(
+            "click",
+            async function(event) {
+              event.stopPropagation();
+              await focusOpAlgemeneGroep(
+                groep,
+                groepen,
+                status
+              );
+            }
+          );
+
+          const zichtbaarheidKnop =
+            document.createElement("button");
+          zichtbaarheidKnop.type = "button";
+
+          function updateZichtbaarheid() {
+            zichtbaarheidKnop.textContent =
+              groep.isHidden
+                ? "Groep tonen"
+                : "Groep verbergen";
+          }
+
+          updateZichtbaarheid();
+
+          zichtbaarheidKnop.addEventListener(
+            "click",
+            async function(event) {
+              event.stopPropagation();
+              await zetGroepZichtbaar(
+                groep,
+                Boolean(groep.isHidden),
+                status
+              );
+              updateZichtbaarheid();
+            }
+          );
+
+          const isolerenKnop =
+            document.createElement("button");
+          isolerenKnop.type = "button";
+          isolerenKnop.textContent =
+            "Groep isoleren";
+          isolerenKnop.addEventListener(
+            "click",
+            async function(event) {
+              event.stopPropagation();
+              await isoleerAlgemeneGroep(
+                groep,
+                groepen,
+                status
+              );
+            }
+          );
+
+          if (!isGeenOvereenkomstGroep(groep)) {
+            actieGrid.appendChild(
+              selecteerKnop
+            );
+            actieGrid.appendChild(
+              focusKnop
+            );
+            actieGrid.appendChild(
+              zichtbaarheidKnop
+            );
+            actieGrid.appendChild(
+              isolerenKnop
+            );
+            inhoud.appendChild(actieGrid);
+          } else {
+            const systeemInfo =
+              document.createElement("div");
+            systeemInfo.className =
+              "organizer-status";
+            systeemInfo.textContent =
+              "Systeemgroep: blijft automatisch grijs en transparant.";
+            inhoud.appendChild(systeemInfo);
+          }
+
+          if (instellingen.toonElementDetails) {
+            groep.elementen.forEach(
+              function(detail, index) {
+                const elementBlok =
+                  document.createElement("div");
+                elementBlok.className =
+                  "match-info";
+                elementBlok.textContent =
+                  "Element " + (index + 1);
+
+                const elementKnop =
+                  document.createElement("button");
+                elementKnop.type = "button";
+                elementKnop.textContent =
+                  "Selecteer dit element";
+                elementKnop.style.marginTop =
+                  "8px";
+                elementKnop.addEventListener(
+                  "click",
+                  async function(event) {
+                    event.stopPropagation();
+                    await selecteerEnZoomNaarEenObject(
+                      detail.modelId,
+                      detail.runtimeId
+                    );
+                  }
+                );
+                elementBlok.appendChild(
+                  elementKnop
+                );
+                inhoud.appendChild(
+                  elementBlok
+                );
+              }
+            );
+          }
+
+          detailsElement.appendChild(summary);
+          detailsElement.appendChild(inhoud);
+          container.appendChild(detailsElement);
+        }
+      );
+
+      const info =
+        document.createElement("div");
+      info.className = "result-info";
+      info.textContent =
+        (
+          instellingen.objectAantal !== null
+            ? instellingen.objectAantal
+            : groepen.reduce(
+                function(totaal, groep) {
+                  return totaal +
+                    groep.elementen.length;
+                },
+                0
+              )
+        ) +
+        " object(en) verdeeld over " +
+        groepen.length +
+        " groep(en).";
+      container.appendChild(info);
+
+      return {
+        colorButton: colorButton,
+        labelButton: labelButton,
+        status: status
+      };
+    }
+
     function toonAlgemeneZoekresultaten(
       zoektekstOrigineel,
       gevondenDetails
@@ -4269,641 +4773,14 @@ function bepaalAlgemeneZoekgroep(
       saveGeneralSearchButton.disabled =
         false;
 
-      const tools =
-        document.createElement("div");
-
-      tools.className =
-        "organizer-tools";
-
-      const toolsRow =
-        document.createElement("div");
-
-      toolsRow.className =
-        "organizer-tools-row";
-
-      const colorButton =
-        document.createElement("button");
-
-      colorButton.type = "button";
-      colorButton.textContent =
-        "Kleur groepen in";
-
-      const labelButton =
-        document.createElement("button");
-
-      labelButton.type = "button";
-      labelButton.textContent =
-        "Toon labels rechts buiten model";
-
-      const resetButton =
-        document.createElement("button");
-
-      resetButton.type = "button";
-      resetButton.className = "secondary";
-      resetButton.textContent =
-        "Kleuren en labels wissen";
-
-      const restoreGroupsButton =
-        document.createElement("button");
-
-      restoreGroupsButton.type =
-        "button";
-
-      restoreGroupsButton.className =
-        "secondary";
-
-      restoreGroupsButton.textContent =
-        "Alle groepen tonen";
-
-      toolsRow.appendChild(colorButton);
-      toolsRow.appendChild(labelButton);
-
-      tools.appendChild(toolsRow);
-      tools.appendChild(restoreGroupsButton);
-      tools.appendChild(resetButton);
-
-      const organizerStatus =
-        document.createElement("div");
-
-      organizerStatus.className =
-        "organizer-status";
-
-      tools.appendChild(organizerStatus);
-
-      const legend =
-        document.createElement("div");
-
-      legend.className =
-        "legend-panel";
-
-
-      colorButton.addEventListener(
-        "click",
-        async function() {
-          colorButton.disabled = true;
-
-          try {
-            await colorGeneralGroups(
-              gesorteerdeGroepen,
-              organizerStatus
-            );
-          } catch (error) {
-            console.error(error);
-            organizerStatus.textContent =
-              "Groepen inkleuren is mislukt.";
-          } finally {
-            colorButton.disabled = false;
-          }
+      renderGroepsComponent(
+        generalResultElement,
+        gesorteerdeGroepen,
+        {
+          objectAantal:
+            gevondenDetails.length,
+          toonElementDetails: true
         }
-      );
-
-      labelButton.addEventListener(
-        "click",
-        async function() {
-          labelButton.disabled = true;
-
-          try {
-            if (coloredSelectors.length === 0) {
-              await colorGeneralGroups(
-                gesorteerdeGroepen,
-                legend,
-                organizerStatus
-              );
-            }
-
-            await showGroupLabelsOutside(
-              gesorteerdeGroepen,
-              organizerStatus
-            );
-          } catch (error) {
-            console.error(error);
-            organizerStatus.textContent =
-              "Labels tonen is mislukt.";
-          } finally {
-            labelButton.disabled = false;
-          }
-        }
-      );
-
-      restoreGroupsButton.addEventListener(
-        "click",
-        async function() {
-          restoreGroupsButton.disabled =
-            true;
-
-          try {
-            await herstelAlleAlgemeneGroepen(
-              gesorteerdeGroepen,
-              organizerStatus
-            );
-          } catch (error) {
-            console.error(
-              "Alle groepen herstellen mislukt:",
-              error
-            );
-
-            organizerStatus.textContent =
-              "Alle groepen herstellen is mislukt.";
-          } finally {
-            restoreGroupsButton.disabled =
-              false;
-          }
-        }
-      );
-
-      resetButton.addEventListener(
-        "click",
-        async function() {
-          resetButton.disabled = true;
-
-          await resetGeneralColors();
-          await removeGroupLabels();
-
-          organizerStatus.textContent =
-            "Kleuren en labels gewist.";
-
-          resetButton.disabled = false;
-        }
-      );
-
-      generalResultElement.appendChild(
-        tools
-      );
-
-      generalResultElement.appendChild(
-        legend
-      );
-
-      gesorteerdeGroepen.forEach(
-        function(groep) {
-          const detailsElement =
-            document.createElement("details");
-
-          detailsElement.className =
-            "search-result";
-
-          const summary =
-            document.createElement("summary");
-
-          summary.className =
-            "search-result-summary";
-
-          const swatch =
-            document.createElement("span");
-
-          swatch.className =
-            "group-swatch";
-
-          swatch.style.backgroundColor =
-            groep.color.hex;
-
-          const summaryText =
-            document.createElement("span");
-
-          summaryText.textContent =
-            groep.value +
-            " — " +
-            groep.elementen.length +
-            " element(en)" +
-            (
-              isSysteemRestgroep(groep)
-                ? " (systeemgroep)"
-                : ""
-            );
-
-          summary.appendChild(swatch);
-          summary.appendChild(summaryText);
-
-          const inhoud =
-            document.createElement("div");
-
-          inhoud.className =
-            "search-result-details";
-
-          const groepInfo =
-            document.createElement("div");
-
-          groepInfo.className =
-            "match-info";
-
-          const eigenschapsnamen =
-            Array.from(
-              groep.propertyNames
-            );
-
-          const isParameterNaamGroep =
-            groep.matchTypes.has(
-              "parameterName"
-            );
-
-          groepInfo.textContent =
-            (
-              isParameterNaamGroep
-                ? "Parameter: "
-                : "Gevonden in: "
-            ) +
-            (
-              eigenschapsnamen.length > 0
-                ? eigenschapsnamen.join(", ")
-                : "Onbekende parameter"
-            ) +
-            "\nWaarde: " +
-            groep.value;
-
-          inhoud.appendChild(
-            groepInfo
-          );
-
-          const selecteerGroepKnop =
-            document.createElement("button");
-
-          selecteerGroepKnop.type =
-            "button";
-
-          selecteerGroepKnop.textContent =
-            "Selecteer volledige groep";
-
-          selecteerGroepKnop.style.marginBottom =
-            "10px";
-
-          selecteerGroepKnop.addEventListener(
-            "click",
-            async function(event) {
-              event.stopPropagation();
-
-              try {
-                const perModel =
-                  new Map();
-
-                groep.elementen.forEach(
-                  function(detail) {
-                    if (
-                      !perModel.has(
-                        detail.modelId
-                      )
-                    ) {
-                      perModel.set(
-                        detail.modelId,
-                        []
-                      );
-                    }
-
-                    perModel
-                      .get(detail.modelId)
-                      .push(detail.runtimeId);
-                  }
-                );
-
-                const resultaten =
-                  Array.from(
-                    perModel.entries()
-                  ).map(
-                    function(entry) {
-                      return {
-                        modelId: entry[0],
-                        objects:
-                          entry[1].map(
-                            function(id) {
-                              return {
-                                id: id
-                              };
-                            }
-                          )
-                      };
-                    }
-                  );
-
-                await selecteerEnZoom(
-                  resultaten
-                );
-              } catch (error) {
-                console.error(
-                  "Groep selecteren mislukt:",
-                  error
-                );
-              }
-            }
-          );
-
-          inhoud.appendChild(
-            selecteerGroepKnop
-          );
-
-          const actieGrid =
-            document.createElement("div");
-
-          actieGrid.className =
-            "group-action-grid";
-
-          /*
-           * De bestaande selecteerknop staat al in de inhoud.
-           * We verplaatsen hem visueel naar het actieraster.
-           */
-          if (
-            selecteerGroepKnop.parentNode ===
-            inhoud
-          ) {
-            inhoud.removeChild(
-              selecteerGroepKnop
-            );
-          }
-
-          selecteerGroepKnop.textContent =
-            "Selecteren";
-
-          selecteerGroepKnop.style.marginBottom =
-            "0";
-
-          const focusGroepKnop =
-            document.createElement("button");
-
-          focusGroepKnop.type =
-            "button";
-
-          focusGroepKnop.textContent =
-            "Focus (ghost)";
-
-          focusGroepKnop.addEventListener(
-            "click",
-            async function(event) {
-              event.stopPropagation();
-
-              focusGroepKnop.disabled =
-                true;
-
-              try {
-                await focusOpAlgemeneGroep(
-                  groep,
-                  gesorteerdeGroepen,
-                  organizerStatus
-                );
-              } catch (error) {
-                console.error(
-                  "Focus op groep mislukt:",
-                  error
-                );
-
-                organizerStatus.textContent =
-                  "Focusweergave toepassen is mislukt.";
-              } finally {
-                focusGroepKnop.disabled =
-                  false;
-              }
-            }
-          );
-
-          const zichtbaarheidKnop =
-            document.createElement("button");
-
-          zichtbaarheidKnop.type =
-            "button";
-
-          function updateZichtbaarheidKnop() {
-            zichtbaarheidKnop.textContent =
-              groep.isHidden
-                ? "Groep tonen"
-                : "Groep verbergen";
-          }
-
-          updateZichtbaarheidKnop();
-
-          zichtbaarheidKnop.addEventListener(
-            "click",
-            async function(event) {
-              event.stopPropagation();
-
-              zichtbaarheidKnop.disabled =
-                true;
-
-              try {
-                await zetGroepZichtbaar(
-                  groep,
-                  Boolean(groep.isHidden),
-                  organizerStatus
-                );
-
-                updateZichtbaarheidKnop();
-              } catch (error) {
-                console.error(
-                  "Zichtbaarheid wijzigen mislukt:",
-                  error
-                );
-
-                organizerStatus.textContent =
-                  "Zichtbaarheid wijzigen is mislukt.";
-              } finally {
-                zichtbaarheidKnop.disabled =
-                  false;
-              }
-            }
-          );
-
-          const isolerenKnop =
-            document.createElement("button");
-
-          isolerenKnop.type =
-            "button";
-
-          isolerenKnop.textContent =
-            "Groep isoleren";
-
-          isolerenKnop.addEventListener(
-            "click",
-            async function(event) {
-              event.stopPropagation();
-
-              isolerenKnop.disabled =
-                true;
-
-              try {
-                await isoleerAlgemeneGroep(
-                  groep,
-                  gesorteerdeGroepen,
-                  organizerStatus
-                );
-
-                /*
-                 * Knopteksten van alle groepen worden na isoleren
-                 * opnieuw opgebouwd wanneer de groep opnieuw opent.
-                 */
-                updateZichtbaarheidKnop();
-              } catch (error) {
-                console.error(
-                  "Groep isoleren mislukt:",
-                  error
-                );
-
-                organizerStatus.textContent =
-                  "Groep isoleren is mislukt.";
-              } finally {
-                isolerenKnop.disabled =
-                  false;
-              }
-            }
-          );
-
-          if (
-            !isGeenOvereenkomstGroep(
-              groep
-            )
-          ) {
-            actieGrid.appendChild(
-              selecteerGroepKnop
-            );
-
-            actieGrid.appendChild(
-              focusGroepKnop
-            );
-
-            actieGrid.appendChild(
-              zichtbaarheidKnop
-            );
-
-            actieGrid.appendChild(
-              isolerenKnop
-            );
-
-            inhoud.appendChild(
-              actieGrid
-            );
-          } else {
-            const systeemInfo =
-              document.createElement("div");
-
-            systeemInfo.className =
-              "organizer-status";
-
-            systeemInfo.textContent =
-              "Systeemgroep: blijft automatisch grijs en transparant en kan niet afzonderlijk worden verborgen, gefocust of geïsoleerd.";
-
-            inhoud.appendChild(
-              systeemInfo
-            );
-          }
-
-          groep.elementen.forEach(
-            function(detail, elementIndex) {
-              const elementBlok =
-                document.createElement("div");
-
-              elementBlok.className =
-                "match-info";
-
-              const elementTitel =
-                document.createElement("div");
-
-              elementTitel.style.fontWeight =
-                "bold";
-
-              elementTitel.style.marginBottom =
-                "8px";
-
-              elementTitel.textContent =
-                "Element " +
-                (elementIndex + 1);
-
-              elementBlok.appendChild(
-                elementTitel
-              );
-
-              if (
-                Array.isArray(detail.matches) &&
-                detail.matches.length > 0
-              ) {
-                detail.matches.forEach(
-                  function(match) {
-                    const matchInfo =
-                      document.createElement("div");
-
-                    matchInfo.style.marginBottom =
-                      "7px";
-
-                    matchInfo.textContent =
-                      (
-                        match.setName
-                          ? match.setName + " → "
-                          : ""
-                      ) +
-                      match.propertyName +
-                      ": " +
-                      match.value;
-
-                    elementBlok.appendChild(
-                      matchInfo
-                    );
-                  }
-                );
-              }
-
-              const selecteerKnop =
-                document.createElement("button");
-
-              selecteerKnop.type =
-                "button";
-
-              selecteerKnop.textContent =
-                "Selecteer dit element";
-
-              selecteerKnop.style.marginTop =
-                "10px";
-
-              selecteerKnop.addEventListener(
-                "click",
-                async function(event) {
-                  event.stopPropagation();
-
-                  try {
-                    await selecteerEnZoomNaarEenObject(
-                      detail.modelId,
-                      detail.runtimeId
-                    );
-                  } catch (error) {
-                    console.error(
-                      "Element selecteren mislukt:",
-                      error
-                    );
-                  }
-                }
-              );
-
-              elementBlok.appendChild(
-                selecteerKnop
-              );
-
-              inhoud.appendChild(
-                elementBlok
-              );
-            }
-          );
-
-          detailsElement.appendChild(
-            summary
-          );
-
-          detailsElement.appendChild(
-            inhoud
-          );
-
-          generalResultElement.appendChild(
-            detailsElement
-          );
-        }
-      );
-
-      const info =
-        document.createElement("div");
-
-      info.className =
-        "result-info";
-
-      info.textContent =
-        gevondenDetails.length +
-        " object(en) verdeeld over " +
-        groepen.size +
-        " gevonden waarde(n).";
-
-      generalResultElement.appendChild(
-        info
       );
     }
 
@@ -5085,40 +4962,7 @@ function bepaalAlgemeneZoekgroep(
           "Profiel"
         ]
       },
-      {
-        key: "width",
-        label: "Overmeten breedte",
-        names: [
-          "Overall Width",
-          "Overall width",
-          "OverallWidth",
-          "Width",
-          "Breedte",
-          "Total Width",
-          "Total width",
-          "Section Width",
-          "Section width"
-        ]
-      },
-      {
-        key: "height",
-        label: "Overmeten hoogte",
-        names: [
-          "Overall Depth",
-          "Overall depth",
-          "OverallDepth",
-          "Depth",
-          "Height",
-          "Overall Height",
-          "Overall height",
-          "OverallHeight",
-          "Hoogte",
-          "Total Height",
-          "Total height",
-          "Section Height",
-          "Section height"
-        ]
-      },
+
       {
         key: "length",
         label: "Lengte",
@@ -5553,11 +5397,7 @@ function bepaalAlgemeneZoekgroep(
           profielWaarde.includes(profielZoekwaarde);
       }
 
-      if (
-        criteriumKey === "length" ||
-        criteriumKey === "width" ||
-        criteriumKey === "height"
-      ) {
+      if (criteriumKey === "length") {
         const gevondenLengte =
           leesLengteInMillimeter(
             propertyWaarde
@@ -5568,17 +5408,12 @@ function bepaalAlgemeneZoekgroep(
             zoekwaarde
           );
 
-        const tolerantie =
-          criteriumKey === "length"
-            ? 10
-            : 2;
-
         return gevondenLengte !== null &&
           gevraagdeLengte !== null &&
           Math.abs(
             gevondenLengte -
             gevraagdeLengte
-          ) <= tolerantie;
+          ) <= 50;
       }
 
       return normaliseerTekst(propertyWaarde)
@@ -5630,26 +5465,6 @@ function bepaalAlgemeneZoekgroep(
           gecombineerdeNaam.includes("profiel") ||
           gecombineerdeNaam.includes("section") ||
           gecombineerdeNaam.includes("crosssection")
-        );
-      }
-
-      if (criteriumKey === "width") {
-        return (
-          gecombineerdeNaam.includes("overallwidth") ||
-          gecombineerdeNaam.includes("sectionwidth") ||
-          gecombineerdeNaam === "width" ||
-          gecombineerdeNaam.includes("breedte")
-        );
-      }
-
-      if (criteriumKey === "height") {
-        return (
-          gecombineerdeNaam.includes("overalldepth") ||
-          gecombineerdeNaam.includes("overallheight") ||
-          gecombineerdeNaam.includes("sectionheight") ||
-          gecombineerdeNaam === "depth" ||
-          gecombineerdeNaam === "height" ||
-          gecombineerdeNaam.includes("hoogte")
         );
       }
 
@@ -7112,10 +6927,6 @@ function bepaalAlgemeneZoekgroep(
         ),
         profile:
           elementProfileInput.value.trim(),
-        width:
-          elementWidthInput.value.trim(),
-        height:
-          elementHeightInput.value.trim(),
         length:
           elementLengthInput.value.trim(),
         finish:
@@ -7454,8 +7265,6 @@ function bepaalAlgemeneZoekgroep(
     async function wisElementZoeken() {
       markInput.value = "";
       elementProfileInput.value = "";
-      elementWidthInput.value = "";
-      elementHeightInput.value = "";
       elementLengthInput.value = "";
       elementFinishInput.value = "";
       elementMaterialInput.value = "";
@@ -7560,95 +7369,101 @@ function bepaalAlgemeneZoekgroep(
       );
     }
 
+    function haalModelIdVoorDataImport(model) {
+      return (
+        model.modelId ??
+        model.id ??
+        model.runtimeId ??
+        null
+      );
+    }
+
+    function haalModelNaamVoorDataImport(
+      model,
+      index
+    ) {
+      return String(
+        model.name ??
+        model.modelName ??
+        model.title ??
+        model.fileName ??
+        model.displayName ??
+        ("Geladen model " + (index + 1))
+      );
+    }
+
     async function laadGeladenModellenVoorDataImport() {
       dataModelSelect.disabled = true;
+
       dataModelSelect.innerHTML =
-        '<option value="">Geladen modellen worden ingelezen...</option>';
+        '<option value="">Geladen model wordt ingelezen...</option>';
 
       try {
-        let modellen = [];
+        /*
+         * Belangrijk:
+         * haalAlleModelObjecten() gebruikt de objecten die werkelijk
+         * aanwezig zijn in de actieve 3D-viewer. Daardoor komen modellen
+         * die alleen in het project bestaan, maar niet geladen zijn,
+         * niet in deze dropdown terecht.
+         */
+        const objectModellen =
+          await haalAlleModelObjecten();
 
-        if (
-          API.viewer &&
-          typeof API.viewer.getModels === "function"
-        ) {
-          modellen =
-            normaliseerModelResultaat(
-              await API.viewer.getModels()
-            );
-        }
+        const uniekeGeladenModellen =
+          new Map();
 
-        if (modellen.length === 0) {
-          const objectModellen =
-            await haalAlleModelObjecten();
+        objectModellen.forEach(
+          function(model, index) {
+            const modelId =
+              haalModelIdVoorDataImport(
+                model
+              );
 
-          const uniek =
-            new Map();
-
-          objectModellen.forEach(
-            function(model, index) {
-              const modelId =
-                haalModelId(model);
-
-              if (
-                modelId === null ||
-                modelId === undefined
-              ) {
-                return;
-              }
-
-              const sleutel =
-                String(modelId);
-
-              if (!uniek.has(sleutel)) {
-                uniek.set(
-                  sleutel,
-                  {
-                    ...model,
-                    modelId: modelId,
-                    name:
-                      haalModelNaam(
-                        model,
-                        index
-                      )
-                  }
-                );
-              }
+            if (
+              modelId === null ||
+              modelId === undefined
+            ) {
+              return;
             }
-          );
 
-          modellen =
-            Array.from(
-              uniek.values()
-            );
-        }
+            const objecten =
+              haalObjecten(model);
 
-        loadedDataModels =
-          modellen
-            .map(
-              function(model, index) {
-                return {
+            if (
+              !Array.isArray(objecten) ||
+              objecten.length === 0
+            ) {
+              return;
+            }
+
+            const sleutel =
+              String(modelId);
+
+            if (
+              !uniekeGeladenModellen.has(
+                sleutel
+              )
+            ) {
+              uniekeGeladenModellen.set(
+                sleutel,
+                {
                   ...model,
-                  modelId:
-                    haalModelId(model),
+                  modelId: modelId,
                   name:
-                    haalModelNaam(
+                    haalModelNaamVoorDataImport(
                       model,
                       index
                     )
-                };
-              }
-            )
-            .filter(
-              function(model) {
-                return (
-                  model.modelId !== null &&
-                  model.modelId !== undefined &&
-                  model.loaded !== false &&
-                  model.isLoaded !== false
-                );
-              }
-            );
+                }
+              );
+            }
+          }
+        );
+
+        loadedDataModels =
+          Array.from(
+            uniekeGeladenModellen.values()
+          );
 
         dataModelSelect.innerHTML =
           '<option value="">Kies een geladen model</option>';
@@ -7656,7 +7471,9 @@ function bepaalAlgemeneZoekgroep(
         loadedDataModels.forEach(
           function(model) {
             const option =
-              document.createElement("option");
+              document.createElement(
+                "option"
+              );
 
             option.value =
               String(model.modelId);
@@ -7670,7 +7487,9 @@ function bepaalAlgemeneZoekgroep(
           }
         );
 
-        if (loadedDataModels.length === 1) {
+        if (
+          loadedDataModels.length === 1
+        ) {
           dataModelSelect.value =
             String(
               loadedDataModels[0].modelId
@@ -7680,11 +7499,21 @@ function bepaalAlgemeneZoekgroep(
         dataModelSelect.disabled =
           loadedDataModels.length === 0;
 
-        dataModelIndexStatus.textContent =
-          loadedDataModels.length > 0
-            ? loadedDataModels.length +
-              " geladen model(len) gevonden. Kies een model en vul een prefix in."
-            : "Er werden geen geladen modellen gevonden.";
+        if (
+          loadedDataModels.length === 0
+        ) {
+          dataModelIndexStatus.textContent =
+            "Er werd geen geladen model met objecten gevonden.";
+        } else if (
+          loadedDataModels.length === 1
+        ) {
+          dataModelIndexStatus.textContent =
+            "Het geladen model is automatisch geselecteerd. Vul nu een prefix in.";
+        } else {
+          dataModelIndexStatus.textContent =
+            loadedDataModels.length +
+            " werkelijk geladen modellen gevonden. Kies het gewenste model en vul een prefix in.";
+        }
 
         updateDataModelIndexButtonState();
       } catch (error) {
@@ -7693,16 +7522,20 @@ function bepaalAlgemeneZoekgroep(
           error
         );
 
+        loadedDataModels = [];
+
         dataModelSelect.innerHTML =
-          '<option value="">Modellen konden niet worden ingelezen</option>';
+          '<option value="">Geladen model kon niet worden ingelezen</option>';
 
         dataModelIndexStatus.textContent =
-          "De geladen modellen konden niet worden ingelezen: " +
+          "Het geladen model kon niet worden ingelezen: " +
           (
             error && error.message
               ? error.message
               : "onbekende fout"
           );
+
+        updateDataModelIndexButtonState();
       }
     }
 
@@ -7855,23 +7688,23 @@ function bepaalAlgemeneZoekgroep(
         return;
       }
 
-      const objectModellen =
-        await haalAlleModelObjecten();
-
+      /*
+       * Het gekozen model in loadedDataModels bevat reeds de objectstructuur
+       * uit de actieve 3D-viewer. We gebruiken die rechtstreeks, zodat een
+       * tweede modelopvraging geen afwijkende model-ID of lege structuur kan geven.
+       */
       const model =
-        objectModellen.find(
-          function(item) {
-            return (
-              String(
-                haalModelId(item)
-              ) === gekozenModelId
-            );
-          }
-        );
+        gekozenModelMeta;
 
-      if (!model) {
+      const gekozenObjecten =
+        haalObjecten(model);
+
+      if (
+        !Array.isArray(gekozenObjecten) ||
+        gekozenObjecten.length === 0
+      ) {
         dataModelIndexStatus.textContent =
-          "Het gekozen model is geladen, maar de modelobjecten konden niet worden opgehaald.";
+          "Het gekozen geladen model bevat geen leesbare objecten in de actieve 3D-viewer.";
         return;
       }
 
@@ -7885,7 +7718,7 @@ function bepaalAlgemeneZoekgroep(
 
       try {
         const runtimeIds =
-          haalObjecten(model)
+          gekozenObjecten
             .map(haalRuntimeId)
             .filter(function(id) {
               return (
@@ -8667,10 +8500,980 @@ function bepaalAlgemeneZoekgroep(
       }
     }
 
+    function leesPropertyUitSpecifiekeSet(
+      objectProperties,
+      gewensteSet,
+      gewensteProperty
+    ) {
+      const setNormaal =
+        normaliseerAlgemeneZoektekst(
+          gewensteSet
+        );
+
+      const propertyNormaal =
+        normaliseerAlgemeneZoektekst(
+          gewensteProperty
+        );
+
+      const propertySets =
+        Array.isArray(
+          objectProperties &&
+          objectProperties.properties
+        )
+          ? objectProperties.properties
+          : [];
+
+      for (const propertySet of propertySets) {
+        const setNaam =
+          String(
+            propertySet.set ||
+            propertySet.name ||
+            propertySet.displayName ||
+            propertySet.propertySetName ||
+            ""
+          ).trim();
+
+        if (
+          normaliseerAlgemeneZoektekst(
+            setNaam
+          ) !== setNormaal
+        ) {
+          continue;
+        }
+
+        const properties =
+          Array.isArray(
+            propertySet.properties
+          )
+            ? propertySet.properties
+            : [];
+
+        for (const property of properties) {
+          const propertyNaam =
+            String(
+              property.name || ""
+            ).trim();
+
+          if (
+            normaliseerAlgemeneZoektekst(
+              propertyNaam
+            ) === propertyNormaal
+          ) {
+            return property.value;
+          }
+        }
+      }
+
+      return null;
+    }
+
+    function maakDetailUitCacheSleutel(
+      cacheKey
+    ) {
+      const separator =
+        String(cacheKey).lastIndexOf("|");
+
+      if (separator < 0) {
+        return null;
+      }
+
+      const modelId =
+        herstelModelIdUitCacheSleutel(
+          String(cacheKey).slice(
+            0,
+            separator
+          )
+        );
+
+      const runtimeTekst =
+        String(cacheKey).slice(
+          separator + 1
+        );
+
+      const runtimeNummer =
+        Number(runtimeTekst);
+
+      return {
+        modelId: modelId,
+        runtimeId:
+          Number.isNaN(runtimeNummer)
+            ? runtimeTekst
+            : runtimeNummer
+      };
+    }
+
+    async function resetQuickSelectors(
+      selectors
+    ) {
+      for (const selector of selectors) {
+        try {
+          await API.viewer.setObjectState(
+            selector,
+            {
+              color: "reset",
+              opacity: 1,
+              visible: true
+            }
+          );
+        } catch (error) {
+          console.warn(
+            "Snelactiekleur herstellen mislukt:",
+            error
+          );
+        }
+      }
+    }
+
+    function voegQuickResultRijToe(
+      container,
+      kleurHex,
+      naam,
+      aantal
+    ) {
+      const rij =
+        document.createElement("div");
+
+      rij.className =
+        "match-info";
+
+      const kleur =
+        document.createElement("span");
+
+      kleur.className =
+        "group-swatch";
+
+      kleur.style.backgroundColor =
+        kleurHex;
+
+      const tekst =
+        document.createElement("span");
+
+      tekst.textContent =
+        naam +
+        " — " +
+        aantal +
+        " object(en)";
+
+      rij.appendChild(kleur);
+      rij.appendChild(tekst);
+
+      container.appendChild(rij);
+    }
+
+
+    async function verwijderQuickLabels(
+      markupIds
+    ) {
+      if (
+        !API ||
+        !API.markup ||
+        !Array.isArray(markupIds) ||
+        markupIds.length === 0
+      ) {
+        return;
+      }
+
+      try {
+        await API.markup.removeMarkups(
+          markupIds
+        );
+      } catch (error) {
+        console.warn(
+          "Snelactielabels verwijderen mislukt:",
+          error
+        );
+      }
+    }
+
+    async function toonQuickLabelsBuitenModel(
+      groepen,
+      statusElement
+    ) {
+      if (
+        !API.markup ||
+        typeof API.markup.addTextMarkup !==
+          "function"
+      ) {
+        statusElement.textContent +=
+          " 3D-labels worden niet ondersteund in deze Trimble-versie.";
+
+        return [];
+      }
+
+      const geldigeGroepen =
+        groepen.filter(
+          function(groep) {
+            return (
+              Array.isArray(groep.elementen) &&
+              groep.elementen.length > 0
+            );
+          }
+        );
+
+      if (geldigeGroepen.length === 0) {
+        return [];
+      }
+
+      for (const groep of geldigeGroepen) {
+        groep._labelGeometry =
+          await getGroupBoundingBox(
+            groep
+          );
+      }
+
+      let totaleBox = null;
+
+      geldigeGroepen.forEach(
+        function(groep) {
+          if (
+            groep._labelGeometry &&
+            groep._labelGeometry.box
+          ) {
+            totaleBox =
+              mergeBox(
+                totaleBox,
+                groep._labelGeometry.box
+              );
+          }
+        }
+      );
+
+      if (!totaleBox) {
+        statusElement.textContent +=
+          " Er konden geen labelposities worden bepaald.";
+
+        return [];
+      }
+
+      const breedte =
+        Math.max(
+          Math.abs(
+            totaleBox.max.x -
+            totaleBox.min.x
+          ),
+          1
+        );
+
+      const hoogte =
+        Math.max(
+          Math.abs(
+            totaleBox.max.y -
+            totaleBox.min.y
+          ),
+          1
+        );
+
+      const diepte =
+        Math.max(
+          Math.abs(
+            totaleBox.max.z -
+            totaleBox.min.z
+          ),
+          1
+        );
+
+      const marge =
+        Math.max(
+          breedte * 0.35,
+          hoogte * 0.15,
+          diepte * 0.15,
+          3
+        );
+
+      const labelX =
+        totaleBox.max.x +
+        marge;
+
+      const bovenY =
+        totaleBox.max.y +
+        Math.max(
+          hoogte * 0.15,
+          1
+        );
+
+      const onderY =
+        totaleBox.min.y -
+        Math.max(
+          hoogte * 0.15,
+          1
+        );
+
+      const beschikbareHoogte =
+        Math.max(
+          bovenY - onderY,
+          1
+        );
+
+      const gesorteerd =
+        geldigeGroepen
+          .map(
+            function(groep) {
+              const box =
+                groep._labelGeometry.box;
+
+              return {
+                groep: groep,
+                centerY:
+                  (
+                    box.min.y +
+                    box.max.y
+                  ) / 2
+              };
+            }
+          )
+          .sort(
+            function(a, b) {
+              return (
+                b.centerY -
+                a.centerY
+              );
+            }
+          );
+
+      const tussenruimte =
+        gesorteerd.length > 1
+          ? beschikbareHoogte /
+            (gesorteerd.length - 1)
+          : 0;
+
+      const markups = [];
+
+      gesorteerd.forEach(
+        function(item, index) {
+          const groep =
+            item.groep;
+
+          const geometrie =
+            groep._labelGeometry;
+
+          const box =
+            geometrie.box;
+
+          const centerX =
+            (
+              box.min.x +
+              box.max.x
+            ) / 2;
+
+          const centerY =
+            (
+              box.min.y +
+              box.max.y
+            ) / 2;
+
+          const centerZ =
+            (
+              box.min.z +
+              box.max.z
+            ) / 2;
+
+          const labelY =
+            gesorteerd.length > 1
+              ? bovenY -
+                index *
+                tussenruimte
+              : (
+                  totaleBox.min.y +
+                  totaleBox.max.y
+                ) / 2;
+
+          const labelZ =
+            centerZ +
+            (
+              index -
+              (
+                gesorteerd.length -
+                1
+              ) / 2
+            ) *
+            Math.max(
+              diepte * 0.015,
+              0.15
+            );
+
+          const kleur =
+            groep.color;
+
+          markups.push({
+            text:
+              groep.value +
+              " — " +
+              groep.elementen.length +
+              " element(en)",
+            color: {
+              r: kleur.r,
+              g: kleur.g,
+              b: kleur.b,
+              a: 255
+            },
+            start: {
+              positionX:
+                centerX * 1000,
+              positionY:
+                centerY * 1000,
+              positionZ:
+                centerZ * 1000,
+              modelId:
+                geometrie.modelId,
+              objectId:
+                geometrie.objectId
+            },
+            end: {
+              positionX:
+                labelX * 1000,
+              positionY:
+                labelY * 1000,
+              positionZ:
+                labelZ * 1000,
+              modelId:
+                geometrie.modelId,
+              objectId:
+                geometrie.objectId
+            }
+          });
+        }
+      );
+
+      const resultaat =
+        await API.markup.addTextMarkup(
+          markups
+        );
+
+      return Array.isArray(resultaat)
+        ? resultaat
+            .map(
+              function(item) {
+                return item.id;
+              }
+            )
+            .filter(
+              function(id) {
+                return (
+                  id !== null &&
+                  id !== undefined
+                );
+              }
+            )
+        : [];
+    }
+
+    async function quickColorByFinish() {
+      quickFinishColorButton.disabled =
+        true;
+
+      quickFinishResult.innerHTML = "";
+
+      quickFinishStatus.textContent =
+        "Tekla Common → Finish inlezen...";
+
+      try {
+        if (!filterOptionsLoaded) {
+          await laadBeschikbareFilterWaarden();
+        }
+
+        await resetQuickSelectors(
+          quickFinishSelectors
+        );
+
+        await verwijderQuickLabels(
+          quickFinishMarkupIds
+        );
+
+        quickFinishSelectors = [];
+        quickFinishMarkupIds = [];
+
+        const groepen =
+          new Map();
+
+        objectPropertiesCache.forEach(
+          function(
+            objectProperties,
+            cacheKey
+          ) {
+            const finishWaarde =
+              leesPropertyUitSpecifiekeSet(
+                objectProperties,
+                "Tekla Common",
+                "Finish"
+              );
+
+            const finish =
+              String(
+                finishWaarde ?? ""
+              ).trim();
+
+            if (!finish) {
+              return;
+            }
+
+            const detail =
+              maakDetailUitCacheSleutel(
+                cacheKey
+              );
+
+            if (!detail) {
+              return;
+            }
+
+            const sleutel =
+              normaliseerAlgemeneZoektekst(
+                finish
+              );
+
+            if (!groepen.has(sleutel)) {
+              groepen.set(
+                sleutel,
+                {
+                  naam: finish,
+                  details: []
+                }
+              );
+            }
+
+            groepen
+              .get(sleutel)
+              .details
+              .push(detail);
+          }
+        );
+
+        const groepLijst =
+          Array.from(
+            groepen.values()
+          ).sort(
+            function(a, b) {
+              return (
+                b.details.length -
+                a.details.length
+              );
+            }
+          );
+
+        if (groepLijst.length === 0) {
+          quickFinishStatus.textContent =
+            "Geen waarden gevonden onder Tekla Common → Finish.";
+
+          return;
+        }
+
+        const componentGroepen =
+          groepLijst.map(
+            function(groep, index) {
+              return {
+                value: groep.naam,
+                elementen: groep.details,
+                color:
+                  GROUP_COLORS[
+                    index % GROUP_COLORS.length
+                  ],
+                propertyNames:
+                  new Set([
+                    "Tekla Common → Finish"
+                  ]),
+                matchTypes:
+                  new Set([
+                    "parameterName"
+                  ]),
+                isSystemRemainder: false,
+                isHidden: false
+              };
+            }
+          );
+
+        quickFinishResult.innerHTML = "";
+
+        const component =
+          renderGroepsComponent(
+            quickFinishResult,
+            componentGroepen,
+            {
+              objectAantal:
+                componentGroepen.reduce(
+                  function(totaal, groep) {
+                    return totaal +
+                      groep.elementen.length;
+                  },
+                  0
+                ),
+              toonElementDetails: false,
+              statusTekst:
+                "Gereed om groepen te kleuren, labelen of beheren."
+            }
+          );
+
+        quickFinishStatus.textContent =
+          groepLijst.length +
+          " afwerkingsgroep(en) opgebouwd.";
+
+        quickFinishResetButton.disabled =
+          false;
+      } catch (error) {
+        console.error(
+          "Kleur op afwerking mislukt:",
+          error
+        );
+
+        quickFinishStatus.textContent =
+          "Kleur op afwerking is mislukt: " +
+          (
+            error && error.message
+              ? error.message
+              : "onbekende fout"
+          );
+      } finally {
+        quickFinishColorButton.disabled =
+          false;
+      }
+    }
+
+    function bepaalGewichtsklasse(
+      gewichtKg
+    ) {
+      if (
+        gewichtKg === null ||
+        gewichtKg < 1000
+      ) {
+        return null;
+      }
+
+      if (gewichtKg > 10000) {
+        return {
+          sleutel: "boven10",
+          naam: "Boven 10 ton",
+          kleur: {
+            r: 220,
+            g: 38,
+            b: 38,
+            a: 255,
+            hex: "#dc2626"
+          }
+        };
+      }
+
+      if (gewichtKg > 5000) {
+        return {
+          sleutel: "5tot10",
+          naam: "5–10 ton",
+          kleur: {
+            r: 245,
+            g: 158,
+            b: 11,
+            a: 255,
+            hex: "#f59e0b"
+          }
+        };
+      }
+
+      return {
+        sleutel: "1tot5",
+        naam: "1–5 ton",
+        kleur: {
+          r: 22,
+          g: 163,
+          b: 74,
+          a: 255,
+          hex: "#16a34a"
+        }
+      };
+    }
+
+    async function quickColorByWeight() {
+      quickWeightColorButton.disabled =
+        true;
+
+      quickWeightResult.innerHTML = "";
+
+      quickWeightStatus.textContent =
+        "Tekla Assembly → Cast unit Mark en Cast unit Weight inlezen...";
+
+      try {
+        if (!filterOptionsLoaded) {
+          await laadBeschikbareFilterWaarden();
+        }
+
+        await resetQuickSelectors(
+          quickWeightSelectors
+        );
+
+        await verwijderQuickLabels(
+          quickWeightMarkupIds
+        );
+
+        quickWeightSelectors = [];
+        quickWeightMarkupIds = [];
+
+        /*
+         * Eerst per Cast unit Mark één assemblygroep opbouwen.
+         * Daarmee staat deze snelactie volledig los van Element(en) zoeken.
+         */
+        const assemblies =
+          new Map();
+
+        objectPropertiesCache.forEach(
+          function(
+            objectProperties,
+            cacheKey
+          ) {
+            const markWaarde =
+              leesPropertyUitSpecifiekeSet(
+                objectProperties,
+                "Tekla Assembly",
+                "Cast unit Mark"
+              );
+
+            const mark =
+              String(
+                markWaarde ?? ""
+              ).trim();
+
+            if (!mark) {
+              return;
+            }
+
+            const gewichtWaarde =
+              leesPropertyUitSpecifiekeSet(
+                objectProperties,
+                "Tekla Assembly",
+                "Cast unit Weight"
+              );
+
+            const gewichtKg =
+              normaliseerGewichtNaarKg(
+                gewichtWaarde
+              );
+
+            const klasse =
+              bepaalGewichtsklasse(
+                gewichtKg
+              );
+
+            if (!klasse) {
+              return;
+            }
+
+            const detail =
+              maakDetailUitCacheSleutel(
+                cacheKey
+              );
+
+            if (!detail) {
+              return;
+            }
+
+            const markSleutel =
+              normaliseerMarkZoektekst(
+                mark
+              );
+
+            if (!assemblies.has(markSleutel)) {
+              assemblies.set(
+                markSleutel,
+                {
+                  mark: mark,
+                  gewichtKg:
+                    gewichtKg,
+                  klasse:
+                    klasse,
+                  details: []
+                }
+              );
+            }
+
+            assemblies
+              .get(markSleutel)
+              .details
+              .push(detail);
+          }
+        );
+
+        const gewichtsgroepen =
+          new Map([
+            [
+              "1tot5",
+              {
+                naam: "1–5 ton",
+                kleur: {
+                  r: 22,
+                  g: 163,
+                  b: 74,
+                  a: 255,
+                  hex: "#16a34a"
+                },
+                details: [],
+                marks: new Set()
+              }
+            ],
+            [
+              "5tot10",
+              {
+                naam: "5–10 ton",
+                kleur: {
+                  r: 245,
+                  g: 158,
+                  b: 11,
+                  a: 255,
+                  hex: "#f59e0b"
+                },
+                details: [],
+                marks: new Set()
+              }
+            ],
+            [
+              "boven10",
+              {
+                naam: "Boven 10 ton",
+                kleur: {
+                  r: 220,
+                  g: 38,
+                  b: 38,
+                  a: 255,
+                  hex: "#dc2626"
+                },
+                details: [],
+                marks: new Set()
+              }
+            ]
+          ]);
+
+        assemblies.forEach(
+          function(assembly) {
+            const groep =
+              gewichtsgroepen.get(
+                assembly.klasse.sleutel
+              );
+
+            if (!groep) {
+              return;
+            }
+
+            groep.marks.add(
+              assembly.mark
+            );
+
+            groep.details.push(
+              ...assembly.details
+            );
+          }
+        );
+
+        const componentGroepen =
+          Array.from(
+            gewichtsgroepen.values()
+          )
+            .filter(
+              function(groep) {
+                return groep.details.length > 0;
+              }
+            )
+            .map(
+              function(groep) {
+                return {
+                  value: groep.naam,
+                  elementen: groep.details,
+                  color: groep.kleur,
+                  propertyNames:
+                    new Set([
+                      "Tekla Assembly → Cast unit Mark / Cast unit Weight"
+                    ]),
+                  matchTypes:
+                    new Set([
+                      "parameterName"
+                    ]),
+                  isSystemRemainder: false,
+                  isHidden: false
+                };
+              }
+            );
+
+        if (componentGroepen.length === 0) {
+          quickWeightStatus.textContent =
+            "Geen assemblies gevonden met een bruikbaar Cast unit Weight.";
+          return;
+        }
+
+        quickWeightResult.innerHTML = "";
+
+        renderGroepsComponent(
+          quickWeightResult,
+          componentGroepen,
+          {
+            objectAantal: assemblies.size,
+            toonElementDetails: false,
+            statusTekst:
+              "Gereed om groepen te kleuren, labelen of beheren."
+          }
+        );
+
+        quickWeightResetButton.disabled =
+          false;
+
+        quickWeightStatus.textContent =
+          assemblies.size +
+          " assemblymark(s) in gewichtsgroepen opgebouwd.";
+      } catch (error) {
+        console.error(
+          "Kleur op gewicht mislukt:",
+          error
+        );
+
+        quickWeightStatus.textContent =
+          "Kleur op gewicht is mislukt: " +
+          (
+            error && error.message
+              ? error.message
+              : "onbekende fout"
+          );
+      } finally {
+        quickWeightColorButton.disabled =
+          false;
+      }
+    }
+
+    async function resetQuickFinish() {
+      quickFinishResetButton.disabled =
+        true;
+
+      await resetQuickSelectors(
+        quickFinishSelectors
+      );
+
+      await verwijderQuickLabels(
+        quickFinishMarkupIds
+      );
+
+      quickFinishSelectors = [];
+      quickFinishMarkupIds = [];
+      quickFinishResult.innerHTML = "";
+
+      quickFinishStatus.textContent =
+        "Afwerkingskleuren en labels hersteld.";
+    }
+
+    async function resetQuickWeight() {
+      quickWeightResetButton.disabled =
+        true;
+
+      await resetQuickSelectors(
+        quickWeightSelectors
+      );
+
+      await verwijderQuickLabels(
+        quickWeightMarkupIds
+      );
+
+      quickWeightSelectors = [];
+      quickWeightMarkupIds = [];
+      quickWeightResult.innerHTML = "";
+
+      quickWeightStatus.textContent =
+        "Gewichtskleuren en labels hersteld.";
+    }
+
     function toonView(viewNaam) {
       const views = [
         menuView,
         searchMenuView,
+        quickMenuView,
         dataMenuView,
         savedSearchesView,
         generalView,
@@ -8688,6 +9491,11 @@ function bepaalAlgemeneZoekgroep(
         return;
       }
 
+
+      if (viewNaam === "quick-menu") {
+        quickMenuView.classList.add("active");
+        return;
+      }
 
       if (viewNaam === "data-menu") {
         dataMenuView.classList.add("active");
@@ -8937,8 +9745,6 @@ function bepaalAlgemeneZoekgroep(
     [
       markInput,
       elementProfileInput,
-      elementWidthInput,
-      elementHeightInput,
       elementLengthInput,
       elementFinishInput,
       elementMaterialInput
@@ -8959,6 +9765,16 @@ function bepaalAlgemeneZoekgroep(
     document.getElementById("open-data-module-button")
       .addEventListener("click", function() {
         toonView("data-menu");
+      });
+
+    document.getElementById("open-quick-module-button")
+      .addEventListener("click", function() {
+        toonView("quick-menu");
+      });
+
+    document.getElementById("back-from-quick-menu")
+      .addEventListener("click", function() {
+        toonView("menu");
       });
 
     document.getElementById("back-from-data-menu")
@@ -9115,6 +9931,26 @@ function bepaalAlgemeneZoekgroep(
     writeDataImportButton.addEventListener(
       "click",
       schrijfDataNaarTrimble
+    );
+
+    quickFinishColorButton.addEventListener(
+      "click",
+      quickColorByFinish
+    );
+
+    quickFinishResetButton.addEventListener(
+      "click",
+      resetQuickFinish
+    );
+
+    quickWeightColorButton.addEventListener(
+      "click",
+      quickColorByWeight
+    );
+
+    quickWeightResetButton.addEventListener(
+      "click",
+      resetQuickWeight
     );
 
     connectToTrimble();
