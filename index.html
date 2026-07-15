@@ -3355,10 +3355,7 @@ function bepaalAlgemeneZoekgroep(
 
           markups.push({
             text:
-              group.value +
-              " — " +
-              group.elementen.length +
-              " element(en)",
+              group.value,
             color: {
               r: color.r,
               g: color.g,
@@ -4108,6 +4105,349 @@ function bepaalAlgemeneZoekgroep(
     }
 
 
+    function haalPropertiesVoorDetail(detail) {
+      if (
+        detail &&
+        detail.objectProperties
+      ) {
+        return detail.objectProperties;
+      }
+
+      if (!detail) {
+        return null;
+      }
+
+      return objectPropertiesCache.get(
+        maakCacheSleutel(
+          detail.modelId,
+          detail.runtimeId
+        )
+      ) || null;
+    }
+
+    function groepeerDetailsPerCastUnitMark(details) {
+      const merken = new Map();
+
+      (Array.isArray(details) ? details : [])
+        .forEach(function(detail) {
+          const properties =
+            haalPropertiesVoorDetail(detail);
+
+          const mark =
+            String(
+              haalCastUnitMarkUitProperties(
+                properties
+              ) || ""
+            ).trim();
+
+          if (!mark) {
+            return;
+          }
+
+          const sleutel =
+            normaliseerMarkZoektekst(mark);
+
+          if (!merken.has(sleutel)) {
+            merken.set(sleutel, {
+              mark: mark,
+              details: [],
+              objectKeys: new Set()
+            });
+          }
+
+          const merk = merken.get(sleutel);
+          const objectKey =
+            maakObjectSleutel(
+              detail.modelId,
+              detail.runtimeId
+            );
+
+          if (!merk.objectKeys.has(objectKey)) {
+            merk.objectKeys.add(objectKey);
+            merk.details.push(detail);
+          }
+        });
+
+      return Array.from(merken.values())
+        .sort(function(a, b) {
+          return String(a.mark).localeCompare(
+            String(b.mark),
+            "nl-BE",
+            {
+              numeric: true,
+              sensitivity: "base"
+            }
+          );
+        });
+    }
+
+    function telUniekeMerken(groep) {
+      if (!groep) {
+        return 0;
+      }
+
+      if (!groep._merkGroepen) {
+        groep._merkGroepen =
+          groepeerDetailsPerCastUnitMark(
+            groep.elementen
+          );
+      }
+
+      return groep._merkGroepen.length;
+    }
+
+    async function getDetailBoundingCenter(detail) {
+      try {
+        const boxes =
+          await API.viewer.getObjectBoundingBoxes(
+            detail.modelId,
+            [detail.runtimeId]
+          );
+
+        if (
+          !Array.isArray(boxes) ||
+          boxes.length === 0 ||
+          !boxes[0].boundingBox
+        ) {
+          return null;
+        }
+
+        const box = boxes[0].boundingBox;
+
+        return {
+          x: (box.min.x + box.max.x) / 2,
+          y: (box.min.y + box.max.y) / 2,
+          z: (box.min.z + box.max.z) / 2,
+          modelId: detail.modelId,
+          objectId: detail.runtimeId,
+          box: box
+        };
+      } catch (error) {
+        return null;
+      }
+    }
+
+    async function showMerkLabelsForGroup(
+      groep,
+      status
+    ) {
+      if (
+        !API.markup ||
+        typeof API.markup.addTextMarkup !==
+          "function"
+      ) {
+        status.textContent =
+          "Merklabels worden niet ondersteund in deze Trimble-versie.";
+        return;
+      }
+
+      await removeGroupLabels();
+
+      const merken =
+        groepeerDetailsPerCastUnitMark(
+          groep.elementen
+        );
+
+      if (merken.length === 0) {
+        status.textContent =
+          "In deze groep werden geen Cast Unit Marks gevonden.";
+        return;
+      }
+
+      status.textContent =
+        merken.length +
+        " merklabel(s) voorbereiden...";
+
+      let overallBox = null;
+
+      for (const merk of merken) {
+        merk.geometry =
+          await getGroupBoundingBox({
+            elementen: merk.details
+          });
+
+        if (
+          merk.geometry &&
+          merk.geometry.box
+        ) {
+          overallBox = mergeBox(
+            overallBox,
+            merk.geometry.box
+          );
+        }
+      }
+
+      if (!overallBox) {
+        status.textContent =
+          "Er konden geen labelposities worden bepaald.";
+        return;
+      }
+
+      const width = Math.max(
+        Math.abs(overallBox.max.x - overallBox.min.x),
+        1
+      );
+      const height = Math.max(
+        Math.abs(overallBox.max.y - overallBox.min.y),
+        1
+      );
+      const depth = Math.max(
+        Math.abs(overallBox.max.z - overallBox.min.z),
+        1
+      );
+
+      const labelX =
+        overallBox.max.x +
+        Math.max(
+          width * 0.35,
+          height * 0.15,
+          depth * 0.15,
+          3
+        );
+
+      const topY =
+        overallBox.max.y +
+        Math.max(height * 0.15, 1);
+      const bottomY =
+        overallBox.min.y -
+        Math.max(height * 0.15, 1);
+      const spacing =
+        merken.length > 1
+          ? (topY - bottomY) /
+            Math.max(merken.length - 1, 1)
+          : 0;
+
+      merken.sort(function(a, b) {
+        const ay = a.geometry && a.geometry.box
+          ? (a.geometry.box.min.y + a.geometry.box.max.y) / 2
+          : 0;
+        const by = b.geometry && b.geometry.box
+          ? (b.geometry.box.min.y + b.geometry.box.max.y) / 2
+          : 0;
+        return by - ay;
+      });
+
+      const markups = [];
+      let extraLeaderCount = 0;
+
+      for (
+        let merkIndex = 0;
+        merkIndex < merken.length;
+        merkIndex++
+      ) {
+        const merk = merken[merkIndex];
+        const geometry = merk.geometry;
+
+        if (!geometry || !geometry.box) {
+          continue;
+        }
+
+        const labelY =
+          merken.length > 1
+            ? topY - merkIndex * spacing
+            : (overallBox.min.y + overallBox.max.y) / 2;
+        const labelZ =
+          (geometry.box.min.z + geometry.box.max.z) / 2;
+
+        const targets = [];
+
+        // Limit prevents extreme markup overload in very large assemblies.
+        for (const detail of merk.details.slice(0, 25)) {
+          const center =
+            await getDetailBoundingCenter(detail);
+          if (center) {
+            targets.push(center);
+          }
+        }
+
+        if (targets.length === 0) {
+          continue;
+        }
+
+        const color =
+          groep.color || {
+            r: 0,
+            g: 120,
+            b: 140,
+            a: 255
+          };
+
+        targets.forEach(function(target, targetIndex) {
+          markups.push({
+            // Only the first leader shows text. Extra markups create
+            // additional leader lines to objects with the same mark.
+            text: targetIndex === 0
+              ? merk.mark
+              : " ",
+            color: {
+              r: color.r,
+              g: color.g,
+              b: color.b,
+              a: 255
+            },
+            start: {
+              positionX: target.x * 1000,
+              positionY: target.y * 1000,
+              positionZ: target.z * 1000,
+              modelId: target.modelId,
+              objectId: target.objectId
+            },
+            end: {
+              positionX: labelX * 1000,
+              positionY: labelY * 1000,
+              positionZ: labelZ * 1000,
+              modelId: geometry.modelId,
+              objectId: geometry.objectId
+            }
+          });
+
+          if (targetIndex > 0) {
+            extraLeaderCount++;
+          }
+        });
+      }
+
+      if (markups.length === 0) {
+        status.textContent =
+          "Er konden geen merklabels worden geplaatst.";
+        return;
+      }
+
+      try {
+        const result =
+          await API.markup.addTextMarkup(markups);
+
+        createdMarkupIds =
+          Array.isArray(result)
+            ? result
+                .map(function(item) {
+                  return item.id;
+                })
+                .filter(function(id) {
+                  return id !== null &&
+                    id !== undefined;
+                })
+            : [];
+
+        status.textContent =
+          merken.length +
+          " merklabel(s) geplaatst" +
+          (extraLeaderCount > 0
+            ? " met " +
+              extraLeaderCount +
+              " extra leaderlijn(en)."
+            : ".");
+      } catch (error) {
+        console.error(
+          "Merklabels plaatsen mislukt:",
+          error
+        );
+
+        status.textContent =
+          "Merklabels plaatsen is mislukt.";
+      }
+    }
+
     function renderGroepsComponent(
       container,
       groepen,
@@ -4307,11 +4647,16 @@ function bepaalAlgemeneZoekgroep(
           const summaryText =
             document.createElement("span");
 
+          const aantalMerken =
+            telUniekeMerken(groep);
+
           summaryText.textContent =
             groep.value +
             " — " +
-            groep.elementen.length +
-            " element(en)" +
+            aantalMerken +
+            (aantalMerken === 1
+              ? " merk"
+              : " merken") +
             (
               isSysteemRestgroep(groep)
                 ? " (systeemgroep)"
@@ -4422,6 +4767,27 @@ function bepaalAlgemeneZoekgroep(
             }
           );
 
+          const merkLabelsKnop =
+            document.createElement("button");
+          merkLabelsKnop.type = "button";
+          merkLabelsKnop.textContent =
+            "Toon merklabels";
+          merkLabelsKnop.addEventListener(
+            "click",
+            async function(event) {
+              event.stopPropagation();
+              merkLabelsKnop.disabled = true;
+              try {
+                await showMerkLabelsForGroup(
+                  groep,
+                  status
+                );
+              } finally {
+                merkLabelsKnop.disabled = false;
+              }
+            }
+          );
+
           if (!isGeenOvereenkomstGroep(groep)) {
             actieGrid.appendChild(
               selecteerKnop
@@ -4435,6 +4801,9 @@ function bepaalAlgemeneZoekgroep(
             actieGrid.appendChild(
               isolerenKnop
             );
+            actieGrid.appendChild(
+              merkLabelsKnop
+            );
             inhoud.appendChild(actieGrid);
           } else {
             const systeemInfo =
@@ -4447,37 +4816,62 @@ function bepaalAlgemeneZoekgroep(
           }
 
           if (instellingen.toonElementDetails) {
-            groep.elementen.forEach(
-              function(detail, index) {
-                const elementBlok =
-                  document.createElement("div");
-                elementBlok.className =
-                  "match-info";
-                elementBlok.textContent =
-                  "Element " + (index + 1);
+            const merkGroepen =
+              groepeerDetailsPerCastUnitMark(
+                groep.elementen
+              );
 
-                const elementKnop =
+            merkGroepen.forEach(
+              function(merkGroep) {
+                const merkBlok =
+                  document.createElement("div");
+                merkBlok.className =
+                  "match-info";
+
+                const merkTitel =
+                  document.createElement("div");
+                merkTitel.textContent =
+                  merkGroep.mark +
+                  " — " +
+                  merkGroep.details.length +
+                  (merkGroep.details.length === 1
+                    ? " object"
+                    : " objecten");
+
+                const merkKnop =
                   document.createElement("button");
-                elementKnop.type = "button";
-                elementKnop.textContent =
-                  "Selecteer dit element";
-                elementKnop.style.marginTop =
+                merkKnop.type = "button";
+                merkKnop.textContent =
+                  "Selecteer merk";
+                merkKnop.style.marginTop =
                   "8px";
-                elementKnop.addEventListener(
+                merkKnop.addEventListener(
                   "click",
                   async function(event) {
                     event.stopPropagation();
-                    await selecteerEnZoomNaarEenObject(
-                      detail.modelId,
-                      detail.runtimeId
+                    const selector =
+                      selectorVanDetails(
+                        merkGroep.details
+                      );
+                    await API.viewer.setSelection(
+                      selector,
+                      "set"
+                    );
+                    await API.viewer.setCamera(
+                      selector,
+                      { animationTime: 450 }
                     );
                   }
                 );
-                elementBlok.appendChild(
-                  elementKnop
+
+                merkBlok.appendChild(
+                  merkTitel
+                );
+                merkBlok.appendChild(
+                  merkKnop
                 );
                 inhoud.appendChild(
-                  elementBlok
+                  merkBlok
                 );
               }
             );
@@ -4492,19 +4886,20 @@ function bepaalAlgemeneZoekgroep(
       const info =
         document.createElement("div");
       info.className = "result-info";
+      const totaalMerken =
+        groepen.reduce(
+          function(totaal, groep) {
+            return totaal +
+              telUniekeMerken(groep);
+          },
+          0
+        );
+
       info.textContent =
-        (
-          instellingen.objectAantal !== null
-            ? instellingen.objectAantal
-            : groepen.reduce(
-                function(totaal, groep) {
-                  return totaal +
-                    groep.elementen.length;
-                },
-                0
-              )
-        ) +
-        " object(en) verdeeld over " +
+        totaalMerken +
+        (totaalMerken === 1
+          ? " uniek merk verdeeld over "
+          : " unieke merken verdeeld over ") +
         groepen.length +
         " groep(en).";
       container.appendChild(info);
