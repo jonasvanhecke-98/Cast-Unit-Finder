@@ -9396,8 +9396,11 @@ function bepaalAlgemeneZoekgroep(
     }
 
     async function quickColorByFinish() {
-      quickFinishColorButton.disabled = true;
+      quickFinishColorButton.disabled =
+        true;
+
       quickFinishResult.innerHTML = "";
+
       quickFinishStatus.textContent =
         "Tekla Common → Finish op elementen inlezen...";
 
@@ -9406,141 +9409,478 @@ function bepaalAlgemeneZoekgroep(
           await laadBeschikbareFilterWaarden();
         }
 
-        await resetQuickSelectors(quickFinishSelectors);
-        if (typeof verwijderQuickLabels === "function") {
-          await verwijderQuickLabels(quickFinishMarkupIds);
+        await resetQuickSelectors(
+          quickFinishSelectors
+        );
+
+        if (
+          typeof verwijderQuickLabels ===
+          "function"
+        ) {
+          await verwijderQuickLabels(
+            quickFinishMarkupIds
+          );
         }
+
         quickFinishSelectors = [];
         quickFinishMarkupIds = [];
 
-        const groepen = new Map();
-        const ontbrekendeDetails = [];
-        const cacheItems = Array.from(objectPropertiesCache.entries());
+        /*
+         * 1. Groepeer uitsluitend op de echte elementen waarop
+         *    Tekla Common → Finish aanwezig is.
+         */
+        const groepen =
+          new Map();
 
-        for (let index = 0; index < cacheItems.length; index++) {
-          const [cacheKey, objectProperties] = cacheItems[index];
-          const detail = maakDetailUitCacheSleutel(cacheKey);
-          if (!detail) continue;
+        const ontbrekendeDetails =
+          [];
 
-          const finish = String(
-            leesPropertyUitSpecifiekeSet(
-              objectProperties,
-              "Tekla Common",
-              "Finish"
-            ) ?? ""
-          ).trim();
+        objectPropertiesCache.forEach(
+          function(
+            objectProperties,
+            cacheKey
+          ) {
+            const detail =
+              maakDetailUitCacheSleutel(
+                cacheKey
+              );
 
-          if (!finish) {
-            ontbrekendeDetails.push(detail);
-            continue;
-          }
+            if (!detail) {
+              return;
+            }
 
-          const finishSleutel = normaliseerAlgemeneZoektekst(finish);
-          if (!groepen.has(finishSleutel)) {
-            groepen.set(finishSleutel, {
-              naam: finish,
-              details: [],
-              objectKeys: new Set(),
-              marks: new Map()
+            const finish =
+              String(
+                leesPropertyUitSpecifiekeSet(
+                  objectProperties,
+                  "Tekla Common",
+                  "Finish"
+                ) ?? ""
+              ).trim();
+
+            if (!finish) {
+              ontbrekendeDetails.push({
+                ...detail,
+                objectProperties:
+                  objectProperties
+              });
+
+              return;
+            }
+
+            const sleutel =
+              normaliseerAlgemeneZoektekst(
+                finish
+              );
+
+            if (!groepen.has(sleutel)) {
+              groepen.set(
+                sleutel,
+                {
+                  naam:
+                    finish,
+                  details:
+                    [],
+                  objectKeys:
+                    new Set()
+                }
+              );
+            }
+
+            const groep =
+              groepen.get(
+                sleutel
+              );
+
+            const objectSleutel =
+              maakObjectSleutel(
+                detail.modelId,
+                detail.runtimeId
+              );
+
+            if (
+              groep.objectKeys.has(
+                objectSleutel
+              )
+            ) {
+              return;
+            }
+
+            groep.objectKeys.add(
+              objectSleutel
+            );
+
+            groep.details.push({
+              ...detail,
+              objectProperties:
+                objectProperties
             });
           }
-
-          const groep = groepen.get(finishSleutel);
-          const objectSleutel = maakObjectSleutel(detail.modelId, detail.runtimeId);
-          if (!groep.objectKeys.has(objectSleutel)) {
-            groep.objectKeys.add(objectSleutel);
-            groep.details.push(detail);
-          }
-
-          const merk = await haalMerkVoorParameterElement(detail, objectProperties);
-          if (merk) {
-            const merkSleutel = normaliseerMarkZoektekst(merk);
-            if (!groep.marks.has(merkSleutel)) {
-              groep.marks.set(merkSleutel, { mark: merk, details: [] });
-            }
-            groep.marks.get(merkSleutel).details.push(detail);
-          }
-
-          if (index % 50 === 0) {
-            quickFinishStatus.textContent =
-              "Finishwaarden en merken koppelen: " +
-              (index + 1) + " van " + cacheItems.length + "...";
-            await new Promise(resolve => setTimeout(resolve, 0));
-          }
-        }
-
-        const groepLijst = Array.from(groepen.values()).sort(
-          (a, b) => b.marks.size - a.marks.size
         );
 
-        if (groepLijst.length === 0) {
+        const groepLijst =
+          Array.from(
+            groepen.values()
+          );
+
+        if (
+          groepLijst.length === 0
+        ) {
           quickFinishStatus.textContent =
             "Geen waarden gevonden onder Tekla Common → Finish.";
+
           return;
         }
 
-        const componentGroepen = groepLijst.map((groep, index) => ({
-          value: groep.naam,
-          elementen: groep.details,
-          color: GROUP_COLORS[index % GROUP_COLORS.length],
-          propertyNames: new Set(["Tekla Common → Finish"]),
-          matchTypes: new Set(["parameterName"]),
-          isSystemRemainder: false,
-          isHidden: false,
-          _merkGroepen: Array.from(groep.marks.values())
-        }));
+        /*
+         * 2. Koppel per Finishgroep de reeds gekleurde elementen aan
+         *    hun bovenliggende merk/assembly. Hiervoor gebruiken we
+         *    exact dezelfde merklogica als Element(en) zoeken.
+         */
+        for (
+          let index = 0;
+          index < groepLijst.length;
+          index++
+        ) {
+          const groep =
+            groepLijst[index];
 
-        if (ontbrekendeDetails.length > 0) {
-          const uniek = [];
-          const keys = new Set();
-          for (const detail of ontbrekendeDetails) {
-            const key = maakObjectSleutel(detail.modelId, detail.runtimeId);
-            if (keys.has(key)) continue;
-            keys.add(key);
-            uniek.push(detail);
+          quickFinishStatus.textContent =
+            "Bijbehorende merken zoeken voor " +
+            groep.naam +
+            " (" +
+            (index + 1) +
+            " van " +
+            groepLijst.length +
+            ")...";
+
+          const koppeling =
+            await koppelResultatenAanAssemblies(
+              groep.details
+            );
+
+          groep.merkGroepen =
+            koppeling.assemblies.map(
+              function(assembly) {
+                return {
+                  mark:
+                    assembly.mark,
+                  details:
+                    Array.isArray(
+                      assembly.passendeOnderdelen
+                    )
+                      ? assembly.passendeOnderdelen
+                      : [],
+                  assembly:
+                    assembly
+                };
+              }
+            );
+
+          /*
+           * Dubbele marks verwijderen. De onderliggende gekleurde
+           * elementen van hetzelfde merk worden samengevoegd.
+           */
+          const uniekeMerken =
+            new Map();
+
+          groep.merkGroepen.forEach(
+            function(merkGroep) {
+              const merkSleutel =
+                normaliseerMarkZoektekst(
+                  merkGroep.mark
+                );
+
+              if (!merkSleutel) {
+                return;
+              }
+
+              if (!uniekeMerken.has(merkSleutel)) {
+                uniekeMerken.set(
+                  merkSleutel,
+                  {
+                    mark:
+                      merkGroep.mark,
+                    details:
+                      [],
+                    objectKeys:
+                      new Set(),
+                    assembly:
+                      merkGroep.assembly
+                  }
+                );
+              }
+
+              const bestaand =
+                uniekeMerken.get(
+                  merkSleutel
+                );
+
+              merkGroep.details.forEach(
+                function(detail) {
+                  const objectSleutel =
+                    maakObjectSleutel(
+                      detail.modelId,
+                      detail.runtimeId
+                    );
+
+                  if (
+                    bestaand.objectKeys.has(
+                      objectSleutel
+                    )
+                  ) {
+                    return;
+                  }
+
+                  bestaand.objectKeys.add(
+                    objectSleutel
+                  );
+
+                  bestaand.details.push(
+                    detail
+                  );
+                }
+              );
+            }
+          );
+
+          groep.merkGroepen =
+            Array.from(
+              uniekeMerken.values()
+            )
+              .map(
+                function(item) {
+                  return {
+                    mark:
+                      item.mark,
+                    details:
+                      item.details,
+                    assembly:
+                      item.assembly
+                  };
+                }
+              )
+              .sort(
+                function(a, b) {
+                  return String(
+                    a.mark
+                  ).localeCompare(
+                    String(
+                      b.mark
+                    ),
+                    "nl-BE",
+                    {
+                      numeric:
+                        true,
+                      sensitivity:
+                        "base"
+                    }
+                  );
+                }
+              );
+        }
+
+        groepLijst.sort(
+          function(a, b) {
+            return (
+              b.merkGroepen.length -
+              a.merkGroepen.length
+            );
           }
+        );
+
+        /*
+         * 3. Bouw de gedeelde resultaatcomponent.
+         *    - kleuren/selectie blijven gebaseerd op de Finish-elementen;
+         *    - aantallen en opengeklapte lijst gebruiken Cast Unit Marks;
+         *    - merklabels wijzen naar de gekleurde elementen van dat merk.
+         */
+        const componentGroepen =
+          groepLijst.map(
+            function(
+              groep,
+              index
+            ) {
+              return {
+                value:
+                  groep.naam,
+                elementen:
+                  groep.details,
+                color:
+                  GROUP_COLORS[
+                    index %
+                    GROUP_COLORS.length
+                  ],
+                propertyNames:
+                  new Set([
+                    "Tekla Common → Finish"
+                  ]),
+                matchTypes:
+                  new Set([
+                    "parameterName"
+                  ]),
+                isSystemRemainder:
+                  false,
+                isHidden:
+                  false,
+                _merkGroepen:
+                  groep.merkGroepen
+              };
+            }
+          );
+
+        if (
+          ontbrekendeDetails.length >
+          0
+        ) {
+          const uniekeOntbrekende =
+            [];
+
+          const keys =
+            new Set();
+
+          ontbrekendeDetails.forEach(
+            function(detail) {
+              const key =
+                maakObjectSleutel(
+                  detail.modelId,
+                  detail.runtimeId
+                );
+
+              if (keys.has(key)) {
+                return;
+              }
+
+              keys.add(key);
+
+              uniekeOntbrekende.push(
+                detail
+              );
+            }
+          );
+
           componentGroepen.push({
-            value: "Niet ingevuld / parameter ontbreekt",
-            elementen: uniek,
-            color: {r:160,g:160,b:160,a:255,hex:"#a0a0a0"},
-            propertyNames: new Set(["Tekla Common → Finish"]),
-            matchTypes: new Set(["missing"]),
-            isSystemRemainder: true,
-            isHidden: false,
-            _merkGroepen: []
+            value:
+              "Niet ingevuld / parameter ontbreekt",
+            elementen:
+              uniekeOntbrekende,
+            color: {
+              r: 160,
+              g: 160,
+              b: 160,
+              a: 255,
+              hex:
+                "#a0a0a0"
+            },
+            propertyNames:
+              new Set([
+                "Tekla Common → Finish"
+              ]),
+            matchTypes:
+              new Set([
+                "missing"
+              ]),
+            isSystemRemainder:
+              true,
+            isHidden:
+              false,
+            _merkGroepen:
+              []
           });
         }
 
-        quickFinishResult.innerHTML = "";
+        quickFinishResult.innerHTML =
+          "";
+
         renderGroepsComponent(
           quickFinishResult,
           componentGroepen,
           {
-            objectAantal: groepLijst.reduce((totaal, groep) => totaal + groep.marks.size, 0),
-            toonElementDetails: false,
-            statusTekst: "Groepen zijn opgebouwd op element-Finish. Aantallen zijn unieke Cast Unit Marks."
+            objectAantal:
+              groepLijst.reduce(
+                function(
+                  totaal,
+                  groep
+                ) {
+                  return (
+                    totaal +
+                    groep.merkGroepen.length
+                  );
+                },
+                0
+              ),
+            toonElementDetails:
+              false,
+            statusTekst:
+              "De Finishgroepen zijn gebaseerd op elementen. De aantallen en lijsten tonen hun unieke Cast Unit Marks."
           }
         );
 
-        await colorGeneralGroups(componentGroepen, quickFinishStatus);
-        if (typeof removeGroupLabels === "function") await removeGroupLabels();
-        if (typeof showGroupLabelsOutside === "function") {
-          await showGroupLabelsOutside(componentGroepen, quickFinishStatus);
+        quickFinishStatus.textContent =
+          groepLijst.length +
+          " Finishgroep(en) kleuren...";
+
+        await colorGeneralGroups(
+          componentGroepen,
+          quickFinishStatus
+        );
+
+        if (
+          typeof removeGroupLabels ===
+          "function"
+        ) {
+          await removeGroupLabels();
         }
 
-        const totaalMerken = groepLijst.reduce((totaal, groep) => totaal + groep.marks.size, 0);
-        quickFinishStatus.textContent =
-          groepLijst.length + " Finishgroep(en) ingekleurd met samen " +
-          totaalMerken + " unieke Cast Unit Marks.";
+        if (
+          typeof showGroupLabelsOutside ===
+          "function"
+        ) {
+          await showGroupLabelsOutside(
+            componentGroepen,
+            quickFinishStatus
+          );
+        }
 
-        quickFinishResetButton.disabled = false;
+        const totaalMerken =
+          groepLijst.reduce(
+            function(
+              totaal,
+              groep
+            ) {
+              return (
+                totaal +
+                groep.merkGroepen.length
+              );
+            },
+            0
+          );
+
+        quickFinishStatus.textContent =
+          groepLijst.length +
+          " Finishgroep(en) ingekleurd met " +
+          totaalMerken +
+          " gekoppelde Cast Unit Marks. Open een groep om de merken te bekijken of merklabels te tonen.";
+
+        quickFinishResetButton.disabled =
+          false;
       } catch (error) {
-        console.error("Kleur op afwerking mislukt:", error);
+        console.error(
+          "Kleur op afwerking mislukt:",
+          error
+        );
+
         quickFinishStatus.textContent =
           "Kleur op afwerking is mislukt: " +
-          (error && error.message ? error.message : "onbekende fout");
+          (
+            error &&
+            error.message
+              ? error.message
+              : "onbekende fout"
+          );
       } finally {
-        quickFinishColorButton.disabled = false;
+        quickFinishColorButton.disabled =
+          false;
       }
     }
 
