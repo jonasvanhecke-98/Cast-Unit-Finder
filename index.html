@@ -9371,7 +9371,7 @@ function bepaalAlgemeneZoekgroep(
       quickFinishResult.innerHTML = "";
 
       quickFinishStatus.textContent =
-        "Tekla Common → Finish inlezen...";
+        "Tekla Common → Finish op onderdelen inlezen...";
 
       try {
         if (!filterOptionsLoaded) {
@@ -9389,11 +9389,13 @@ function bepaalAlgemeneZoekgroep(
         quickFinishSelectors = [];
         quickFinishMarkupIds = [];
 
-        const groepen =
+        /*
+         * Stap 1:
+         * Verzamel alle onderdelen waarop Tekla Common → Finish staat.
+         * Per Finish bewaren we de runtime-ID's per model.
+         */
+        const finishBronnen =
           new Map();
-
-        const ontbrekendeFinishDetails =
-          [];
 
         objectPropertiesCache.forEach(
           function(
@@ -9412,6 +9414,10 @@ function bepaalAlgemeneZoekgroep(
                 finishWaarde ?? ""
               ).trim();
 
+            if (!finish) {
+              return;
+            }
+
             const detail =
               maakDetailUitCacheSleutel(
                 cacheKey
@@ -9421,64 +9427,428 @@ function bepaalAlgemeneZoekgroep(
               return;
             }
 
-            if (!finish) {
-              ontbrekendeFinishDetails.push(
-                detail
-              );
-
-              return;
-            }
-
-            const sleutel =
+            const finishSleutel =
               normaliseerAlgemeneZoektekst(
                 finish
               );
 
-            if (!groepen.has(sleutel)) {
-              groepen.set(
-                sleutel,
+            if (!finishBronnen.has(finishSleutel)) {
+              finishBronnen.set(
+                finishSleutel,
                 {
                   naam: finish,
-                  details: []
+                  perModel:
+                    new Map()
                 }
               );
             }
 
-            groepen
-              .get(sleutel)
-              .details
-              .push(detail);
+            const bron =
+              finishBronnen.get(
+                finishSleutel
+              );
+
+            const modelSleutel =
+              String(detail.modelId);
+
+            if (!bron.perModel.has(modelSleutel)) {
+              bron.perModel.set(
+                modelSleutel,
+                {
+                  modelId:
+                    detail.modelId,
+                  runtimeIds:
+                    []
+                }
+              );
+            }
+
+            bron.perModel
+              .get(modelSleutel)
+              .runtimeIds
+              .push(detail.runtimeId);
           }
         );
 
-        const groepLijst =
-          Array.from(
-            groepen.values()
-          ).sort(
-            function(a, b) {
-              return (
-                b.details.length -
-                a.details.length
-              );
-            }
-          );
-
-        if (groepLijst.length === 0) {
+        if (finishBronnen.size === 0) {
           quickFinishStatus.textContent =
             "Geen waarden gevonden onder Tekla Common → Finish.";
 
           return;
         }
 
+        /*
+         * Stap 2:
+         * Koppel ieder Finish-resultaat aan de bovenliggende assembly.
+         * haalAssembliesVoorModel gebruikt de Trimble-hiërarchie en
+         * zoekt daarna Cast Unit Mark op de gevonden ouders.
+         */
+        const finishGroepen =
+          new Map();
+
+        const toegewezenAssemblySleutels =
+          new Set();
+
+        const volledigeAssemblyCache =
+          new Map();
+
+        async function haalVolledigeAssemblyDetails(
+          modelId,
+          mark,
+          fallbackRuntimeId
+        ) {
+          const sleutel =
+            String(modelId) +
+            "|" +
+            normaliseerMarkZoektekst(
+              mark
+            );
+
+          if (
+            volledigeAssemblyCache.has(
+              sleutel
+            )
+          ) {
+            return volledigeAssemblyCache.get(
+              sleutel
+            );
+          }
+
+          let details = [];
+
+          try {
+            const resultaten =
+              await zoekVolledigeAssemblySelectie(
+                modelId,
+                mark
+              );
+
+            if (Array.isArray(resultaten)) {
+              resultaten.forEach(
+                function(modelResultaat) {
+                  const resultaatModelId =
+                    modelResultaat.modelId ??
+                    modelId;
+
+                  haalObjecten(
+                    modelResultaat
+                  ).forEach(
+                    function(object) {
+                      const runtimeId =
+                        haalRuntimeId(object);
+
+                      if (
+                        runtimeId !== null &&
+                        runtimeId !== undefined
+                      ) {
+                        details.push({
+                          modelId:
+                            resultaatModelId,
+                          runtimeId:
+                            runtimeId
+                        });
+                      }
+                    }
+                  );
+                }
+              );
+            }
+          } catch (error) {
+            console.warn(
+              "Volledige assemblyselectie ophalen mislukt voor " +
+              mark +
+              ":",
+              error
+            );
+          }
+
+          if (
+            details.length === 0 &&
+            fallbackRuntimeId !== null &&
+            fallbackRuntimeId !== undefined
+          ) {
+            details = [
+              {
+                modelId:
+                  modelId,
+                runtimeId:
+                  fallbackRuntimeId
+              }
+            ];
+          }
+
+          const uniekeDetails =
+            [];
+
+          const gebruikteObjecten =
+            new Set();
+
+          details.forEach(
+            function(detail) {
+              const objectSleutel =
+                maakObjectSleutel(
+                  detail.modelId,
+                  detail.runtimeId
+                );
+
+              if (
+                gebruikteObjecten.has(
+                  objectSleutel
+                )
+              ) {
+                return;
+              }
+
+              gebruikteObjecten.add(
+                objectSleutel
+              );
+
+              uniekeDetails.push(
+                detail
+              );
+            }
+          );
+
+          volledigeAssemblyCache.set(
+            sleutel,
+            uniekeDetails
+          );
+
+          return uniekeDetails;
+        }
+
+        let finishIndex = 0;
+
+        for (
+          const bron of finishBronnen.values()
+        ) {
+          quickFinishStatus.textContent =
+            "Assemblies koppelen aan afwerking " +
+            bron.naam +
+            "...";
+
+          const groep = {
+            naam:
+              bron.naam,
+            details: [],
+            marks:
+              new Set(),
+            objectKeys:
+              new Set()
+          };
+
+          for (
+            const modelBron of bron.perModel.values()
+          ) {
+            const assemblies =
+              await haalAssembliesVoorModel(
+                modelBron.modelId,
+                Array.from(
+                  new Set(
+                    modelBron.runtimeIds
+                  )
+                )
+              );
+
+            for (
+              const assembly of assemblies
+            ) {
+              const assemblySleutel =
+                String(assembly.modelId) +
+                "|" +
+                normaliseerMarkZoektekst(
+                  assembly.mark
+                );
+
+              /*
+               * Eén assembly krijgt één afwerkingsgroep.
+               * Dit voorkomt dat dezelfde assembly later door een andere
+               * kleur wordt overschreven.
+               */
+              if (
+                toegewezenAssemblySleutels.has(
+                  assemblySleutel
+                )
+              ) {
+                continue;
+              }
+
+              toegewezenAssemblySleutels.add(
+                assemblySleutel
+              );
+
+              groep.marks.add(
+                String(
+                  assembly.mark
+                ).trim()
+              );
+
+              const assemblyDetails =
+                await haalVolledigeAssemblyDetails(
+                  assembly.modelId,
+                  assembly.mark,
+                  assembly.runtimeId
+                );
+
+              assemblyDetails.forEach(
+                function(detail) {
+                  const objectSleutel =
+                    maakObjectSleutel(
+                      detail.modelId,
+                      detail.runtimeId
+                    );
+
+                  if (
+                    groep.objectKeys.has(
+                      objectSleutel
+                    )
+                  ) {
+                    return;
+                  }
+
+                  groep.objectKeys.add(
+                    objectSleutel
+                  );
+
+                  groep.details.push(
+                    detail
+                  );
+                }
+              );
+            }
+          }
+
+          if (
+            groep.details.length > 0
+          ) {
+            finishGroepen.set(
+              normaliseerAlgemeneZoektekst(
+                groep.naam
+              ),
+              groep
+            );
+          }
+
+          finishIndex++;
+        }
+
+        const groepLijst =
+          Array.from(
+            finishGroepen.values()
+          ).sort(
+            function(a, b) {
+              return (
+                b.marks.size -
+                a.marks.size
+              );
+            }
+          );
+
+        if (groepLijst.length === 0) {
+          quickFinishStatus.textContent =
+            "Finishwaarden werden gevonden, maar konden niet aan assemblies/Cast Unit Marks worden gekoppeld.";
+
+          return;
+        }
+
+        /*
+         * Stap 3:
+         * Bouw een lijst van alle assemblies die in de cache voorkomen.
+         * Alleen assemblies die aan geen enkele Finish gekoppeld zijn,
+         * komen in de vaste systeem-/ghostgroep.
+         */
+        const alleAssemblies =
+          new Map();
+
+        objectPropertiesCache.forEach(
+          function(
+            objectProperties,
+            cacheKey
+          ) {
+            const mark =
+              String(
+                haalCastUnitMarkUitProperties(
+                  objectProperties
+                ) || ""
+              ).trim();
+
+            if (!mark) {
+              return;
+            }
+
+            const detail =
+              maakDetailUitCacheSleutel(
+                cacheKey
+              );
+
+            if (!detail) {
+              return;
+            }
+
+            const assemblySleutel =
+              String(detail.modelId) +
+              "|" +
+              normaliseerMarkZoektekst(
+                mark
+              );
+
+            if (!alleAssemblies.has(assemblySleutel)) {
+              alleAssemblies.set(
+                assemblySleutel,
+                {
+                  modelId:
+                    detail.modelId,
+                  runtimeId:
+                    detail.runtimeId,
+                  mark:
+                    mark
+                }
+              );
+            }
+          }
+        );
+
+        const ontbrekendeFinishDetails =
+          [];
+
+        for (
+          const [
+            assemblySleutel,
+            assembly
+          ] of alleAssemblies
+        ) {
+          if (
+            toegewezenAssemblySleutels.has(
+              assemblySleutel
+            )
+          ) {
+            continue;
+          }
+
+          const details =
+            await haalVolledigeAssemblyDetails(
+              assembly.modelId,
+              assembly.mark,
+              assembly.runtimeId
+            );
+
+          ontbrekendeFinishDetails.push(
+            ...details
+          );
+        }
+
         const componentGroepen =
           groepLijst.map(
             function(groep, index) {
               return {
-                value: groep.naam,
-                elementen: groep.details,
+                value:
+                  groep.naam,
+                elementen:
+                  groep.details,
                 color:
                   GROUP_COLORS[
-                    index % GROUP_COLORS.length
+                    index %
+                    GROUP_COLORS.length
                   ],
                 propertyNames:
                   new Set([
@@ -9488,8 +9858,41 @@ function bepaalAlgemeneZoekgroep(
                   new Set([
                     "parameterName"
                   ]),
-                isSystemRemainder: false,
-                isHidden: false
+                isSystemRemainder:
+                  false,
+                isHidden:
+                  false,
+                _merkGroepen:
+                  Array.from(
+                    groep.marks
+                  ).map(
+                    function(mark) {
+                      return {
+                        mark:
+                          mark,
+                        details:
+                          groep.details.filter(
+                            function(detail) {
+                              const properties =
+                                haalPropertiesVoorDetail(
+                                  detail
+                                );
+
+                              return (
+                                normaliseerMarkZoektekst(
+                                  haalCastUnitMarkUitProperties(
+                                    properties
+                                  ) || ""
+                                ) ===
+                                normaliseerMarkZoektekst(
+                                  mark
+                                )
+                              );
+                            }
+                          )
+                      };
+                    }
+                  )
               };
             }
           );
@@ -9498,11 +9901,43 @@ function bepaalAlgemeneZoekgroep(
           ontbrekendeFinishDetails.length >
           0
         ) {
+          const uniekeOntbrekende =
+            [];
+
+          const ontbrekendeObjectKeys =
+            new Set();
+
+          ontbrekendeFinishDetails.forEach(
+            function(detail) {
+              const objectSleutel =
+                maakObjectSleutel(
+                  detail.modelId,
+                  detail.runtimeId
+                );
+
+              if (
+                ontbrekendeObjectKeys.has(
+                  objectSleutel
+                )
+              ) {
+                return;
+              }
+
+              ontbrekendeObjectKeys.add(
+                objectSleutel
+              );
+
+              uniekeOntbrekende.push(
+                detail
+              );
+            }
+          );
+
           componentGroepen.push({
             value:
               "Niet ingevuld / parameter ontbreekt",
             elementen:
-              ontbrekendeFinishDetails,
+              uniekeOntbrekende,
             color: {
               r: 160,
               g: 160,
@@ -9518,8 +9953,10 @@ function bepaalAlgemeneZoekgroep(
               new Set([
                 "missing"
               ]),
-            isSystemRemainder: true,
-            isHidden: false
+            isSystemRemainder:
+              true,
+            isHidden:
+              false
           });
         }
 
@@ -9530,14 +9967,20 @@ function bepaalAlgemeneZoekgroep(
           componentGroepen,
           {
             objectAantal:
-              componentGroepen.reduce(
-                function(totaal, groep) {
-                  return totaal +
-                    groep.elementen.length;
+              groepLijst.reduce(
+                function(
+                  totaal,
+                  groep
+                ) {
+                  return (
+                    totaal +
+                    groep.marks.size
+                  );
                 },
                 0
               ),
-            toonElementDetails: false,
+            toonElementDetails:
+              false,
             statusTekst:
               "Groepen worden automatisch gekleurd en gelabeld."
           }
@@ -9565,8 +10008,10 @@ function bepaalAlgemeneZoekgroep(
 
         quickFinishStatus.textContent =
           groepLijst.length +
-          " afwerkingsgroep(en) ingekleurd met labels buiten het model. " +
-          "Objecten zonder Finish staan grijs en transparant.";
+          " afwerkingsgroep(en) met " +
+          toegewezenAssemblySleutels.size +
+          " merk(en) correct gekoppeld en ingekleurd. " +
+          "Alleen assemblies zonder gevonden Finish staan grijs en transparant.";
 
         quickFinishResetButton.disabled =
           false;
@@ -9579,7 +10024,8 @@ function bepaalAlgemeneZoekgroep(
         quickFinishStatus.textContent =
           "Kleur op afwerking is mislukt: " +
           (
-            error && error.message
+            error &&
+            error.message
               ? error.message
               : "onbekende fout"
           );
