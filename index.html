@@ -796,7 +796,7 @@
         <span class="module-eyebrow">Altez Tools</span>
         <h2>Kies een module</h2>
         <p class="module-subtitle">
-          Eén centrale toolbox voor zoeken, modelanalyse en calculatie in Trimble Connect.
+          Eén centrale toolbox voor zoeken en data verrijken in Trimble Connect.
         </p>
       </div>
 
@@ -809,15 +809,6 @@
           </span>
           <span class="tool-card-tag">Beschikbaar</span>
         </button>
-
-        <button id="open-analysis-module-button" class="tool-card" type="button">
-          <span class="tool-card-title">Analyse</span>
-          <span class="tool-card-description">
-            Controleer modeleigenschappen, ontbrekende informatie, afwijkingen en
-            algemene modelkwaliteit.
-          </span>
-          <span class="tool-card-tag">Basisstructuur</span>
-        </button>
         <button id="open-data-module-button" class="tool-card" type="button">
           <span class="tool-card-title">Data verrijken</span>
           <span class="tool-card-description">
@@ -825,16 +816,6 @@
             en bereid aangepaste eigenschappen voor.
           </span>
           <span class="tool-card-tag">Nieuwe module</span>
-        </button>
-
-
-        <button id="open-calculation-module-button" class="tool-card" type="button">
-          <span class="tool-card-title">Calculatie</span>
-          <span class="tool-card-description">
-            Bereken hoeveelheden, lengtes en gewichten en bereid resultaten voor
-            op export.
-          </span>
-          <span class="tool-card-tag">Basisstructuur</span>
         </button>
       </div>
     </div>
@@ -878,57 +859,6 @@
             Open, hergebruik of verwijder eerder opgeslagen parameterzoekopdrachten.
           </span>
         </button>
-      </div>
-    </div>
-  </section>
-
-  <section id="analysis-menu-view" class="view">
-    <button id="back-from-analysis-menu" class="secondary back-button" type="button">
-      Terug naar Altez Tools
-    </button>
-
-    <div class="panel">
-      <div class="module-header">
-        <span class="module-eyebrow">Module</span>
-        <h2>Analyse</h2>
-        <p class="module-subtitle">
-          Een centrale plaats voor modelkwaliteit, eigenschappen en overzicht.
-        </p>
-      </div>
-
-      <div class="tool-card-grid">
-        <div class="tool-card disabled-card">
-          <span class="tool-card-title">Eigenschappenanalyse</span>
-          <span class="tool-card-description">
-            Analyseer aanwezige propertysets, meest gebruikte waarden, ontbrekende
-            waarden en afwijkende schrijfwijzen.
-          </span>
-          <span class="tool-card-tag">Volgende stap</span>
-        </div>
-
-        <div class="tool-card disabled-card">
-          <span class="tool-card-title">Modelcontrole</span>
-          <span class="tool-card-description">
-            Controleer ontbrekende merknummers en gewichten, dubbele marks,
-            objecten zonder assembly en andere Altez-afspraken.
-          </span>
-          <span class="tool-card-tag">Volgende stap</span>
-        </div>
-
-        <div class="tool-card disabled-card">
-          <span class="tool-card-title">Modeloverzicht</span>
-          <span class="tool-card-description">
-            Bekijk aantallen, assemblies, totaalgewicht en verdelingen per profiel,
-            materiaal of afwerking.
-          </span>
-          <span class="tool-card-tag">Volgende stap</span>
-        </div>
-      </div>
-
-      <div class="placeholder-panel module-section">
-        De analysemodule is alvast structureel voorzien. De eerstvolgende logische
-        functie is Eigenschappenanalyse: aanwezige parameters inventariseren,
-        ontbrekende waarden tonen en doorklikken naar de betreffende objecten.
       </div>
     </div>
   </section>
@@ -1076,57 +1006,6 @@
           Zonder die adapter kun je de gekoppelde CSV downloaden en via de bestaande
           importworkflow gebruiken.
         </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="calculation-menu-view" class="view">
-    <button id="back-from-calculation-menu" class="secondary back-button" type="button">
-      Terug naar Altez Tools
-    </button>
-
-    <div class="panel">
-      <div class="module-header">
-        <span class="module-eyebrow">Module</span>
-        <h2>Calculatie</h2>
-        <p class="module-subtitle">
-          Bereken modelhoeveelheden en groepeer ze volgens de uitvoering.
-        </p>
-      </div>
-
-      <div class="tool-card-grid">
-        <div class="tool-card disabled-card">
-          <span class="tool-card-title">Hoeveelheden</span>
-          <span class="tool-card-description">
-            Aantallen, totale lengtes en oppervlaktes groeperen per profiel,
-            materiaal, afwerking, fase of bouwdeel.
-          </span>
-          <span class="tool-card-tag">Volgende stap</span>
-        </div>
-
-        <div class="tool-card disabled-card">
-          <span class="tool-card-title">Gewicht</span>
-          <span class="tool-card-description">
-            Bereken gewicht per assembly, merk, profielgroep of materiaal en
-            signaleer ontbrekende gewichten.
-          </span>
-          <span class="tool-card-tag">Volgende stap</span>
-        </div>
-
-        <div class="tool-card disabled-card">
-          <span class="tool-card-title">Export</span>
-          <span class="tool-card-description">
-            Bereid berekeningsresultaten voor als overzichtelijke CSV- of
-            Excel-lijst voor calculatie, bestelling of productie.
-          </span>
-          <span class="tool-card-tag">Volgende stap</span>
-        </div>
-      </div>
-
-      <div class="placeholder-panel module-section">
-        De calculatiemodule is voorbereid als apart onderdeel. Bestaande zoek- en
-        groepslogica kan later rechtstreeks worden hergebruikt als filter voor
-        aantallen, lengtes en gewichten.
       </div>
     </div>
   </section>
@@ -1483,12 +1362,6 @@
     const searchMenuView =
       document.getElementById("search-menu-view");
 
-    const analysisMenuView =
-      document.getElementById("analysis-menu-view");
-
-    const calculationMenuView =
-      document.getElementById("calculation-menu-view");
-
     const dataMenuView =
       document.getElementById("data-menu-view");
 
@@ -1569,6 +1442,9 @@
 
     const materialStatusElement =
       document.getElementById("material-status");
+
+    const refreshElementOptionsButton =
+      document.getElementById("refresh-element-options-button");
 
     const elementLengthInput =
       document.getElementById("element-length");
@@ -1839,6 +1715,7 @@
         updateDataModelIndexButtonState();
         modelParameterSearchButton.disabled = false;
         elementSearchButton.disabled = false;
+        refreshElementOptionsButton.disabled = false;
       } catch (error) {
         console.error(
           "Verbinding mislukt:",
@@ -5365,12 +5242,26 @@ function bepaalAlgemeneZoekgroep(
         (toestand ? " " + toestand : "");
     }
 
-    async function haalAlleModelObjecten() {
-      if (cachedAllObjects) {
+    async function haalAlleModelObjecten(forceRefresh = false) {
+      if (
+        !forceRefresh &&
+        Array.isArray(cachedAllObjects) &&
+        cachedAllObjects.length > 0
+      ) {
         return cachedAllObjects;
       }
 
-      cachedAllObjects = await API.viewer.getObjects();
+      const resultaat =
+        await API.viewer.getObjects();
+
+      cachedAllObjects =
+        Array.isArray(resultaat)
+          ? resultaat
+          : resultaat &&
+              Array.isArray(resultaat.models)
+            ? resultaat.models
+            : [];
+
       return cachedAllObjects;
     }
 
@@ -5576,6 +5467,47 @@ function bepaalAlgemeneZoekgroep(
         })();
 
       return filterOptionsLoadingPromise;
+    }
+
+    async function vernieuwElementKeuzelijsten() {
+      filterOptionsLoaded = false;
+      filterOptionsLoadingPromise = null;
+
+      beschikbareProfielen = [];
+      beschikbareAfwerkingen = [];
+      beschikbareMaterialen = [];
+
+      profileOptionsElement.innerHTML = "";
+      finishOptionsElement.innerHTML = "";
+      materialOptionsElement.innerHTML = "";
+
+      zetFilterStatus(
+        profileStatusElement,
+        "Aanwezige profielen inlezen...",
+        "loading"
+      );
+      zetFilterStatus(
+        finishStatusElement,
+        "Aanwezige afwerkingen inlezen...",
+        "loading"
+      );
+      zetFilterStatus(
+        materialStatusElement,
+        "Aanwezige staalklassen inlezen...",
+        "loading"
+      );
+
+      cachedAllObjects = null;
+
+      try {
+        await haalAlleModelObjecten(true);
+        await laadBeschikbareFilterWaarden();
+      } catch (error) {
+        console.error(
+          "Keuzelijsten opnieuw inlezen mislukt:",
+          error
+        );
+      }
     }
 
     function leesLengteInMillimeter(waarde) {
@@ -7582,25 +7514,138 @@ function bepaalAlgemeneZoekgroep(
         );
     }
 
+    function normaliseerModelResultaat(resultaat) {
+      if (Array.isArray(resultaat)) {
+        return resultaat;
+      }
+
+      if (resultaat && Array.isArray(resultaat.models)) {
+        return resultaat.models;
+      }
+
+      if (resultaat && Array.isArray(resultaat.loadedModels)) {
+        return resultaat.loadedModels;
+      }
+
+      return [];
+    }
+
+    function haalModelId(model) {
+      return (
+        model.modelId ??
+        model.id ??
+        model.runtimeId ??
+        model.fileId ??
+        null
+      );
+    }
+
+    function haalModelNaam(model, index) {
+      return String(
+        model.name ??
+        model.modelName ??
+        model.title ??
+        model.fileName ??
+        model.displayName ??
+        ("Model " + (index + 1))
+      );
+    }
+
     async function laadGeladenModellenVoorDataImport() {
       dataModelSelect.disabled = true;
       dataModelSelect.innerHTML =
         '<option value="">Geladen modellen worden ingelezen...</option>';
 
       try {
-        const modellen =
-          await haalAlleModelObjecten();
+        let modellen = [];
+
+        if (
+          API.viewer &&
+          typeof API.viewer.getModels === "function"
+        ) {
+          modellen =
+            normaliseerModelResultaat(
+              await API.viewer.getModels()
+            );
+        }
+
+        if (modellen.length === 0) {
+          const objectModellen =
+            await haalAlleModelObjecten();
+
+          const uniek =
+            new Map();
+
+          objectModellen.forEach(
+            function(model, index) {
+              const modelId =
+                haalModelId(model);
+
+              if (
+                modelId === null ||
+                modelId === undefined
+              ) {
+                return;
+              }
+
+              const sleutel =
+                String(modelId);
+
+              if (!uniek.has(sleutel)) {
+                uniek.set(
+                  sleutel,
+                  {
+                    ...model,
+                    modelId: modelId,
+                    name:
+                      haalModelNaam(
+                        model,
+                        index
+                      )
+                  }
+                );
+              }
+            }
+          );
+
+          modellen =
+            Array.from(
+              uniek.values()
+            );
+        }
 
         loadedDataModels =
-          Array.isArray(modellen)
-            ? modellen
-            : [];
+          modellen
+            .map(
+              function(model, index) {
+                return {
+                  ...model,
+                  modelId:
+                    haalModelId(model),
+                  name:
+                    haalModelNaam(
+                      model,
+                      index
+                    )
+                };
+              }
+            )
+            .filter(
+              function(model) {
+                return (
+                  model.modelId !== null &&
+                  model.modelId !== undefined &&
+                  model.loaded !== false &&
+                  model.isLoaded !== false
+                );
+              }
+            );
 
         dataModelSelect.innerHTML =
           '<option value="">Kies een geladen model</option>';
 
         loadedDataModels.forEach(
-          function(model, index) {
+          function(model) {
             const option =
               document.createElement("option");
 
@@ -7608,13 +7653,7 @@ function bepaalAlgemeneZoekgroep(
               String(model.modelId);
 
             option.textContent =
-              String(
-                model.name ||
-                model.modelName ||
-                model.title ||
-                model.fileName ||
-                ("Model " + (index + 1))
-              );
+              model.name;
 
             dataModelSelect.appendChild(
               option
@@ -7649,7 +7688,12 @@ function bepaalAlgemeneZoekgroep(
           '<option value="">Modellen konden niet worden ingelezen</option>';
 
         dataModelIndexStatus.textContent =
-          "De geladen modellen konden niet worden ingelezen.";
+          "De geladen modellen konden niet worden ingelezen: " +
+          (
+            error && error.message
+              ? error.message
+              : "onbekende fout"
+          );
       }
     }
 
@@ -7786,7 +7830,7 @@ function bepaalAlgemeneZoekgroep(
         return;
       }
 
-      const model =
+      const gekozenModelMeta =
         loadedDataModels.find(
           function(item) {
             return (
@@ -7796,9 +7840,29 @@ function bepaalAlgemeneZoekgroep(
           }
         );
 
-      if (!model) {
+      if (!gekozenModelMeta) {
         dataModelIndexStatus.textContent =
           "Het gekozen model is niet meer beschikbaar. Lees de modellen opnieuw in.";
+        return;
+      }
+
+      const objectModellen =
+        await haalAlleModelObjecten();
+
+      const model =
+        objectModellen.find(
+          function(item) {
+            return (
+              String(
+                haalModelId(item)
+              ) === gekozenModelId
+            );
+          }
+        );
+
+      if (!model) {
+        dataModelIndexStatus.textContent =
+          "Het gekozen model is geladen, maar de modelobjecten konden niet worden opgehaald.";
         return;
       }
 
@@ -8598,8 +8662,6 @@ function bepaalAlgemeneZoekgroep(
       const views = [
         menuView,
         searchMenuView,
-        analysisMenuView,
-        calculationMenuView,
         dataMenuView,
         savedSearchesView,
         generalView,
@@ -8617,19 +8679,9 @@ function bepaalAlgemeneZoekgroep(
         return;
       }
 
-      if (viewNaam === "analysis-menu") {
-        analysisMenuView.classList.add("active");
-        return;
-      }
-
 
       if (viewNaam === "data-menu") {
         dataMenuView.classList.add("active");
-        return;
-      }
-
-      if (viewNaam === "calculation-menu") {
-        calculationMenuView.classList.add("active");
         return;
       }
 
@@ -8792,6 +8844,11 @@ function bepaalAlgemeneZoekgroep(
 
 
 
+    refreshElementOptionsButton.addEventListener(
+      "click",
+      vernieuwElementKeuzelijsten
+    );
+
     elementSearchButton.addEventListener(
       "click",
       zoekElementen
@@ -8890,16 +8947,6 @@ function bepaalAlgemeneZoekgroep(
         toonView("search-menu");
       });
 
-    document.getElementById("open-analysis-module-button")
-      .addEventListener("click", function() {
-        toonView("analysis-menu");
-      });
-
-    document.getElementById("open-calculation-module-button")
-      .addEventListener("click", function() {
-        toonView("calculation-menu");
-      });
-
     document.getElementById("open-data-module-button")
       .addEventListener("click", function() {
         toonView("data-menu");
@@ -8915,25 +8962,23 @@ function bepaalAlgemeneZoekgroep(
         toonView("menu");
       });
 
-    document.getElementById("back-from-analysis-menu")
-      .addEventListener("click", function() {
-        toonView("menu");
-      });
-
-    document.getElementById("back-from-calculation-menu")
-      .addEventListener("click", function() {
-        toonView("menu");
-      });
-
     document.getElementById("open-general-button")
       .addEventListener("click", function() {
         toonView("general");
       });
 
     document.getElementById("open-elements-button")
-      .addEventListener("click", function() {
+      .addEventListener("click", async function() {
         toonView("elements");
         markInput.focus();
+
+        if (
+          API &&
+          !filterOptionsLoaded &&
+          !filterOptionsLoadingPromise
+        ) {
+          await vernieuwElementKeuzelijsten();
+        }
       });
 
     document.getElementById("open-saved-searches-button")
