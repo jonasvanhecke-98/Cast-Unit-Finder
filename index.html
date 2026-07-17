@@ -4478,8 +4478,9 @@ function bepaalAlgemeneZoekgroep(
     }
 
     const merkLabelGeometryCache = new Map();
-    const MERK_LABEL_MAX_OBJECTEN = 120;
-    const MERK_LABEL_PARALLEL = 4;
+    const merkLabelObjectGeometryCache = new Map();
+    const MERK_LABEL_BOX_BATCH_SIZE = 500;
+    const MERK_LABEL_MAX_OBJECTEN = 160;
 
     function maakMerkLabelCacheSleutel(merk) {
       const details =
@@ -4530,11 +4531,159 @@ function bepaalAlgemeneZoekgroep(
       });
     }
 
-    async function haalMerkLabelGeometryEnDoel(merk) {
-      if (!merk) {
+    function normaliseerBoundingBoxItem(
+      item,
+      modelId,
+      fallbackRuntimeId
+    ) {
+      const box = item && item.boundingBox;
+
+      if (!box || !box.min || !box.max) {
         return null;
       }
 
+      const runtimeId =
+        item.objectRuntimeId ??
+        item.runtimeId ??
+        item.id ??
+        fallbackRuntimeId;
+
+      return {
+        x: (box.min.x + box.max.x) / 2,
+        y: (box.min.y + box.max.y) / 2,
+        z: (box.min.z + box.max.z) / 2,
+        modelId: modelId,
+        objectId: runtimeId,
+        box: box
+      };
+    }
+
+    async function laadMerkLabelObjectGeometrie(
+      merken,
+      status
+    ) {
+      const ontbrekendPerModel = new Map();
+      let totaalOntbrekend = 0;
+
+      merken.forEach(function(merk) {
+        const details = beperkMerkLabelDetails(
+          merk.details
+        );
+
+        merk._labelDetails = details;
+
+        details.forEach(function(detail) {
+          const sleutel = maakObjectSleutel(
+            detail.modelId,
+            detail.runtimeId
+          );
+
+          if (merkLabelObjectGeometryCache.has(sleutel)) {
+            return;
+          }
+
+          if (!ontbrekendPerModel.has(detail.modelId)) {
+            ontbrekendPerModel.set(detail.modelId, new Map());
+          }
+
+          const modelMap = ontbrekendPerModel.get(detail.modelId);
+
+          if (!modelMap.has(String(detail.runtimeId))) {
+            modelMap.set(String(detail.runtimeId), detail.runtimeId);
+            totaalOntbrekend++;
+          }
+        });
+      });
+
+      if (totaalOntbrekend === 0) {
+        status.textContent =
+          "Labelgeometrie uit de snelle modelcache laden...";
+        return;
+      }
+
+      let verwerkt = 0;
+      const modelEntries = Array.from(
+        ontbrekendPerModel.entries()
+      );
+
+      for (
+        let modelIndex = 0;
+        modelIndex < modelEntries.length;
+        modelIndex++
+      ) {
+        const modelId = modelEntries[modelIndex][0];
+        const runtimeIds = Array.from(
+          modelEntries[modelIndex][1].values()
+        );
+        const batches = verdeelInGroepen(
+          runtimeIds,
+          MERK_LABEL_BOX_BATCH_SIZE
+        );
+
+        for (
+          let batchIndex = 0;
+          batchIndex < batches.length;
+          batchIndex++
+        ) {
+          const batch = batches[batchIndex];
+
+          status.textContent =
+            "Labelposities ophalen: " +
+            verwerkt +
+            " van " +
+            totaalOntbrekend +
+            " objecten...";
+
+          try {
+            const boxes =
+              await API.viewer.getObjectBoundingBoxes(
+                modelId,
+                batch
+              );
+
+            if (Array.isArray(boxes)) {
+              boxes.forEach(function(item, index) {
+                const geometrie =
+                  normaliseerBoundingBoxItem(
+                    item,
+                    modelId,
+                    batch[index]
+                  );
+
+                if (!geometrie) {
+                  return;
+                }
+
+                merkLabelObjectGeometryCache.set(
+                  maakObjectSleutel(
+                    modelId,
+                    geometrie.objectId
+                  ),
+                  geometrie
+                );
+              });
+            }
+          } catch (error) {
+            console.warn(
+              "Gebundeld ophalen van labelgeometrie mislukt:",
+              error
+            );
+          }
+
+          verwerkt += batch.length;
+          status.textContent =
+            "Labelposities ophalen: " +
+            Math.min(verwerkt, totaalOntbrekend) +
+            " van " +
+            totaalOntbrekend +
+            " objecten...";
+
+          await geefBrowserAdemruimte();
+        }
+      }
+    }
+
+    function berekenMerkLabelGeometryUitCache(merk) {
       const cacheSleutel =
         maakMerkLabelCacheSleutel(merk);
 
@@ -4542,103 +4691,33 @@ function bepaalAlgemeneZoekgroep(
         return merkLabelGeometryCache.get(cacheSleutel);
       }
 
-      /*
-       * Gebruik uitsluitend de reeds aan dit Cast Unit Mark gekoppelde
-       * objecten. Zo vermijden we een volledige cache-scan per label.
-       */
-      let details = beperkMerkLabelDetails(
-        merk.details
-      );
+      const details =
+        Array.isArray(merk._labelDetails)
+          ? merk._labelDetails
+          : beperkMerkLabelDetails(merk.details);
 
-      if (details.length === 0) {
-        const assembly = merk.assembly || null;
-
-        if (
-          assembly &&
-          assembly.modelId !== null &&
-          assembly.modelId !== undefined &&
-          assembly.runtimeId !== null &&
-          assembly.runtimeId !== undefined
-        ) {
-          details = [{
-            modelId: assembly.modelId,
-            runtimeId: assembly.runtimeId
-          }];
-        }
-      }
-
-      if (details.length === 0) {
-        return null;
-      }
-
-      const perModel = new Map();
+      const centers = [];
+      let totaleBox = null;
 
       details.forEach(function(detail) {
-        if (!perModel.has(detail.modelId)) {
-          perModel.set(detail.modelId, []);
+        const geometrie =
+          merkLabelObjectGeometryCache.get(
+            maakObjectSleutel(
+              detail.modelId,
+              detail.runtimeId
+            )
+          );
+
+        if (!geometrie) {
+          return;
         }
 
-        perModel.get(detail.modelId).push(
-          detail.runtimeId
+        centers.push(geometrie);
+        totaleBox = mergeBox(
+          totaleBox,
+          geometrie.box
         );
       });
-
-      let totaleBox = null;
-      const centers = [];
-
-      for (const entry of perModel.entries()) {
-        const modelId = entry[0];
-        const runtimeIds = Array.from(
-          new Set(entry[1])
-        );
-
-        try {
-          const boxes =
-            await API.viewer.getObjectBoundingBoxes(
-              modelId,
-              runtimeIds
-            );
-
-          if (!Array.isArray(boxes)) {
-            continue;
-          }
-
-          boxes.forEach(function(item, index) {
-            const box =
-              item && item.boundingBox;
-
-            if (!box || !box.min || !box.max) {
-              return;
-            }
-
-            totaleBox = mergeBox(
-              totaleBox,
-              box
-            );
-
-            const runtimeId =
-              item.objectRuntimeId ??
-              item.runtimeId ??
-              item.id ??
-              runtimeIds[index];
-
-            centers.push({
-              x: (box.min.x + box.max.x) / 2,
-              y: (box.min.y + box.max.y) / 2,
-              z: (box.min.z + box.max.z) / 2,
-              modelId: modelId,
-              objectId: runtimeId,
-              box: box
-            });
-          });
-        } catch (error) {
-          console.warn(
-            "Bounding boxes voor merklabel ophalen mislukt:",
-            merk.mark,
-            error
-          );
-        }
-      }
 
       if (!totaleBox || centers.length === 0) {
         return null;
@@ -4650,29 +4729,98 @@ function bepaalAlgemeneZoekgroep(
         z: (totaleBox.min.z + totaleBox.max.z) / 2
       };
 
-      centers.sort(function(a, b) {
-        const afstandA =
-          Math.pow(a.x - midden.x, 2) +
-          Math.pow(a.y - midden.y, 2) +
-          Math.pow(a.z - midden.z, 2);
+      let target = centers[0];
+      let besteAfstand = Infinity;
 
-        const afstandB =
-          Math.pow(b.x - midden.x, 2) +
-          Math.pow(b.y - midden.y, 2) +
-          Math.pow(b.z - midden.z, 2);
+      centers.forEach(function(center) {
+        const afstand =
+          Math.pow(center.x - midden.x, 2) +
+          Math.pow(center.y - midden.y, 2) +
+          Math.pow(center.z - midden.z, 2);
 
-        return afstandA - afstandB;
+        if (afstand < besteAfstand) {
+          besteAfstand = afstand;
+          target = center;
+        }
       });
 
       const resultaat = {
         box: totaleBox,
-        target: centers[0]
+        target: target
       };
 
       merkLabelGeometryCache.set(
         cacheSleutel,
         resultaat
       );
+
+      return resultaat;
+    }
+
+    function voorkomLabelOverlapMetRechteLijnen(
+      items,
+      minimumAfstandY,
+      hoogteTolerantie
+    ) {
+      const niveaus = [];
+
+      items
+        .slice()
+        .sort(function(a, b) {
+          if (b.merk.target.z !== a.merk.target.z) {
+            return b.merk.target.z - a.merk.target.z;
+          }
+
+          return b.merk.target.y - a.merk.target.y;
+        })
+        .forEach(function(item) {
+          let niveau = niveaus.find(function(groep) {
+            return Math.abs(
+              groep.z - item.merk.target.z
+            ) <= hoogteTolerantie;
+          });
+
+          if (!niveau) {
+            niveau = {
+              z: item.merk.target.z,
+              items: []
+            };
+            niveaus.push(niveau);
+          }
+
+          niveau.items.push(item);
+        });
+
+      const resultaat = [];
+
+      niveaus.forEach(function(niveau) {
+        const gesorteerd = niveau.items.sort(
+          function(a, b) {
+            return b.merk.target.y - a.merk.target.y;
+          }
+        );
+
+        let vorigeY = null;
+
+        gesorteerd.forEach(function(item) {
+          let labelY = item.merk.target.y;
+
+          if (
+            vorigeY !== null &&
+            vorigeY - labelY < minimumAfstandY
+          ) {
+            labelY = vorigeY - minimumAfstandY;
+          }
+
+          vorigeY = labelY;
+
+          resultaat.push({
+            ...item,
+            labelY: labelY,
+            labelZ: item.merk.target.z
+          });
+        });
+      });
 
       return resultaat;
     }
@@ -4701,7 +4849,7 @@ function bepaalAlgemeneZoekgroep(
 
       (Array.isArray(groepen) ? groepen : [])
         .forEach(function(groep) {
-          let merken =
+          const merken =
             Array.isArray(groep._merkGroepen)
               ? groep._merkGroepen
               : groepeerDetailsPerCastUnitMark(
@@ -4773,76 +4921,43 @@ function bepaalAlgemeneZoekgroep(
 
       status.textContent =
         alleMerken.length +
-        " merklabel(s) voorbereiden en uitlijnen...";
+        " merklabel(s) voorbereiden...";
+
+      /*
+       * Belangrijkste versnelling:
+       * alle ontbrekende bounding boxes worden per model in grote batches
+       * opgehaald. Niet langer één trage API-oproep per Cast Unit Mark.
+       */
+      await laadMerkLabelObjectGeometrie(
+        alleMerken,
+        status
+      );
 
       let overallBox = null;
       const geldigeMerken = [];
-      let volgendeMerkIndex = 0;
-      let verwerkteMerken = 0;
 
-      async function verwerkMerkWorker() {
-        while (true) {
-          const merkIndex = volgendeMerkIndex++;
+      alleMerken.forEach(function(merk) {
+        const labelInfo =
+          berekenMerkLabelGeometryUitCache(
+            merk
+          );
 
-          if (merkIndex >= alleMerken.length) {
-            return;
-          }
-
-          const merk = alleMerken[merkIndex];
-          const labelInfo =
-            await haalMerkLabelGeometryEnDoel(
-              merk
-            );
-
-          verwerkteMerken++;
-
-          if (
-            verwerkteMerken === 1 ||
-            verwerkteMerken % 10 === 0 ||
-            verwerkteMerken === alleMerken.length
-          ) {
-            status.textContent =
-              "Merklabels voorbereiden: " +
-              verwerkteMerken +
-              " van " +
-              alleMerken.length +
-              "...";
-          }
-
-          if (
-            !labelInfo ||
-            !labelInfo.box ||
-            !labelInfo.target
-          ) {
-            continue;
-          }
-
-          merk.geometry = {
-            box: labelInfo.box
-          };
-          merk.target = labelInfo.target;
-          geldigeMerken.push(merk);
+        if (
+          !labelInfo ||
+          !labelInfo.box ||
+          !labelInfo.target
+        ) {
+          return;
         }
-      }
 
-      await Promise.all(
-        Array.from(
-          {
-            length: Math.min(
-              MERK_LABEL_PARALLEL,
-              alleMerken.length
-            )
-          },
-          function() {
-            return verwerkMerkWorker();
-          }
-        )
-      );
-
-      geldigeMerken.forEach(function(merk) {
+        merk.geometry = {
+          box: labelInfo.box
+        };
+        merk.target = labelInfo.target;
+        geldigeMerken.push(merk);
         overallBox = mergeBox(
           overallBox,
-          merk.geometry.box
+          labelInfo.box
         );
       });
 
@@ -4854,6 +4969,9 @@ function bepaalAlgemeneZoekgroep(
           "De Cast Unit Marks zijn gevonden, maar de labelposities konden niet worden bepaald.";
         return;
       }
+
+      status.textContent =
+        "Labels uitlijnen op de werkelijke objecthoogtes...";
 
       const width = Math.max(
         Math.abs(
@@ -4885,12 +5003,6 @@ function bepaalAlgemeneZoekgroep(
           overallBox.max.x
         ) / 2;
 
-      const modelCenterY =
-        (
-          overallBox.min.y +
-          overallBox.max.y
-        ) / 2;
-
       const outsideMargin = Math.max(
         width * 0.30,
         height * 0.12,
@@ -4906,39 +5018,25 @@ function bepaalAlgemeneZoekgroep(
         overallBox.max.x +
         outsideMargin;
 
-      const topY =
-        overallBox.max.y +
-        Math.max(height * 0.12, 1);
-
-      const bottomY =
-        overallBox.min.y -
-        Math.max(height * 0.12, 1);
-
-      const minimumSpacing = Math.max(
-        height * 0.025,
-        0.55
-      );
-
-      /*
-       * Verdeel de merken over een linker- en rechterkolom.
-       * Een merk gaat naar de dichtstbijzijnde modelzijde. Daardoor zijn
-       * de leaderlijnen korter en lopen ze minder door het model.
-       */
       const links = [];
       const rechts = [];
 
       geldigeMerken.forEach(function(merk) {
+        const item = {
+          merk: merk,
+          labelX:
+            merk.target.x < modelCenterX
+              ? leftLabelX
+              : rightLabelX
+        };
+
         if (merk.target.x < modelCenterX) {
-          links.push(merk);
+          links.push(item);
         } else {
-          rechts.push(merk);
+          rechts.push(item);
         }
       });
 
-      /*
-       * Wanneer alles toevallig aan één zijde ligt, verdelen we de lijst
-       * toch over twee kolommen. Dat houdt grote labelsets overzichtelijk.
-       */
       if (
         geldigeMerken.length > 8 &&
         (links.length === 0 || rechts.length === 0)
@@ -4946,6 +5044,10 @@ function bepaalAlgemeneZoekgroep(
         const alles =
           geldigeMerken.slice().sort(
             function(a, b) {
+              if (b.target.z !== a.target.z) {
+                return b.target.z - a.target.z;
+              }
+
               return b.target.y - a.target.y;
             }
           );
@@ -4954,96 +5056,45 @@ function bepaalAlgemeneZoekgroep(
         rechts.length = 0;
 
         alles.forEach(function(merk, index) {
-          (index % 2 === 0 ? links : rechts)
-            .push(merk);
+          const isLinks = index % 2 === 0;
+          (isLinks ? links : rechts).push({
+            merk: merk,
+            labelX:
+              isLinks
+                ? leftLabelX
+                : rightLabelX
+          });
         });
       }
 
-      function bouwKolomLayout(
-        merken,
-        zijde
-      ) {
-        if (merken.length === 0) {
-          return [];
-        }
+      /*
+       * Labels blijven op dezelfde Z-hoogte als het concrete doelobject.
+       * Daardoor loopt de leaderlijn in hoofdzaak recht naar buiten.
+       * Alleen labels die op bijna exact dezelfde hoogte én positie zouden
+       * overlappen, krijgen een kleine verschuiving in Y.
+       */
+      const minimumAfstandY = Math.max(
+        height * 0.018,
+        0.40
+      );
 
-        /*
-         * Zelfde volgorde aan objectzijde en labelzijde voorkomt dat
-         * leaderlijnen binnen dezelfde kolom elkaar kruisen.
-         */
-        const gesorteerd =
-          merken.slice().sort(
-            function(a, b) {
-              if (b.target.y !== a.target.y) {
-                return b.target.y - a.target.y;
-              }
-
-              return String(a.mark).localeCompare(
-                String(b.mark),
-                "nl-BE",
-                {
-                  numeric: true,
-                  sensitivity: "base"
-                }
-              );
-            }
-          );
-
-        const natuurlijkeSpacing =
-          gesorteerd.length > 1
-            ? (
-                topY - bottomY
-              ) /
-              Math.max(
-                gesorteerd.length - 1,
-                1
-              )
-            : 0;
-
-        const spacing = Math.max(
-          natuurlijkeSpacing,
-          minimumSpacing
-        );
-
-        const kolomTop =
-          modelCenterY +
-          spacing *
-          Math.max(
-            gesorteerd.length - 1,
-            0
-          ) / 2;
-
-        return gesorteerd.map(
-          function(merk, index) {
-            return {
-              merk: merk,
-              labelX:
-                zijde === "links"
-                  ? leftLabelX
-                  : rightLabelX,
-              labelY:
-                gesorteerd.length > 1
-                  ? kolomTop -
-                    index * spacing
-                  : modelCenterY,
-              labelZ:
-                (
-                  merk.geometry.box.min.z +
-                  merk.geometry.box.max.z
-                ) / 2
-            };
-          }
-        );
-      }
+      const hoogteTolerantie = Math.max(
+        depth * 0.008,
+        0.20
+      );
 
       const layout =
-        bouwKolomLayout(links, "links")
-          .concat(
-            bouwKolomLayout(
-              rechts,
-              "rechts"
-            )
-          );
+        voorkomLabelOverlapMetRechteLijnen(
+          links,
+          minimumAfstandY,
+          hoogteTolerantie
+        ).concat(
+          voorkomLabelOverlapMetRechteLijnen(
+            rechts,
+            minimumAfstandY,
+            hoogteTolerantie
+          )
+        );
 
       const markups = layout.map(
         function(item) {
@@ -5078,6 +5129,10 @@ function bepaalAlgemeneZoekgroep(
       );
 
       try {
+        status.textContent =
+          markups.length +
+          " merklabel(s) in de viewer plaatsen...";
+
         const result =
           await API.markup.addTextMarkup(
             markups
@@ -5104,7 +5159,7 @@ function bepaalAlgemeneZoekgroep(
 
         status.textContent =
           markups.length +
-          " merklabel(s) uitgelijnd in twee kolommen. De volgorde volgt de objectpositie om kruisende leaderlijnen te beperken.";
+          " merklabel(s) geplaatst. Labels volgen de werkelijke objecthoogte; de leaderlijnen lopen daardoor vrijwel recht en de geometrie blijft gecachet voor volgende keren.";
       } catch (error) {
         console.error(
           "Merklabels plaatsen mislukt:",
