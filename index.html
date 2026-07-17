@@ -4558,203 +4558,151 @@ function bepaalAlgemeneZoekgroep(
       };
     }
 
-    async function laadMerkLabelObjectGeometrie(
-      merken,
-      status
-    ) {
-      const ontbrekendPerModel = new Map();
-      let totaalOntbrekend = 0;
+    function kiesSnelMerkLabelDoelDetail(merk) {
+      const assembly = merk && merk.assembly;
 
-      merken.forEach(function(merk) {
-        const details = beperkMerkLabelDetails(
-          merk.details
-        );
-
-        merk._labelDetails = details;
-
-        details.forEach(function(detail) {
-          const sleutel = maakObjectSleutel(
-            detail.modelId,
-            detail.runtimeId
-          );
-
-          if (merkLabelObjectGeometryCache.has(sleutel)) {
-            return;
-          }
-
-          if (!ontbrekendPerModel.has(detail.modelId)) {
-            ontbrekendPerModel.set(detail.modelId, new Map());
-          }
-
-          const modelMap = ontbrekendPerModel.get(detail.modelId);
-
-          if (!modelMap.has(String(detail.runtimeId))) {
-            modelMap.set(String(detail.runtimeId), detail.runtimeId);
-            totaalOntbrekend++;
-          }
-        });
-      });
-
-      if (totaalOntbrekend === 0) {
-        status.textContent =
-          "Labelgeometrie uit de snelle modelcache laden...";
-        return;
-      }
-
-      let verwerkt = 0;
-      const modelEntries = Array.from(
-        ontbrekendPerModel.entries()
-      );
-
-      for (
-        let modelIndex = 0;
-        modelIndex < modelEntries.length;
-        modelIndex++
+      if (
+        assembly &&
+        assembly.modelId !== null &&
+        assembly.modelId !== undefined &&
+        assembly.runtimeId !== null &&
+        assembly.runtimeId !== undefined
       ) {
-        const modelId = modelEntries[modelIndex][0];
-        const runtimeIds = Array.from(
-          modelEntries[modelIndex][1].values()
-        );
-        const batches = verdeelInGroepen(
-          runtimeIds,
-          MERK_LABEL_BOX_BATCH_SIZE
-        );
-
-        for (
-          let batchIndex = 0;
-          batchIndex < batches.length;
-          batchIndex++
-        ) {
-          const batch = batches[batchIndex];
-
-          status.textContent =
-            "Labelposities ophalen: " +
-            verwerkt +
-            " van " +
-            totaalOntbrekend +
-            " objecten...";
-
-          try {
-            const boxes =
-              await API.viewer.getObjectBoundingBoxes(
-                modelId,
-                batch
-              );
-
-            if (Array.isArray(boxes)) {
-              boxes.forEach(function(item, index) {
-                const geometrie =
-                  normaliseerBoundingBoxItem(
-                    item,
-                    modelId,
-                    batch[index]
-                  );
-
-                if (!geometrie) {
-                  return;
-                }
-
-                merkLabelObjectGeometryCache.set(
-                  maakObjectSleutel(
-                    modelId,
-                    geometrie.objectId
-                  ),
-                  geometrie
-                );
-              });
-            }
-          } catch (error) {
-            console.warn(
-              "Gebundeld ophalen van labelgeometrie mislukt:",
-              error
-            );
-          }
-
-          verwerkt += batch.length;
-          status.textContent =
-            "Labelposities ophalen: " +
-            Math.min(verwerkt, totaalOntbrekend) +
-            " van " +
-            totaalOntbrekend +
-            " objecten...";
-
-          await geefBrowserAdemruimte();
-        }
+        return {
+          modelId: assembly.modelId,
+          runtimeId: assembly.runtimeId
+        };
       }
+
+      const details =
+        Array.isArray(merk && merk.details)
+          ? merk.details.filter(function(detail) {
+              return (
+                detail &&
+                detail.modelId !== null &&
+                detail.modelId !== undefined &&
+                detail.runtimeId !== null &&
+                detail.runtimeId !== undefined
+              );
+            })
+          : [];
+
+      if (details.length === 0) {
+        return null;
+      }
+
+      /*
+       * Neem een object uit het midden van de merklijst. Dit voorkomt dat
+       * systematisch altijd het eerste object aan een uiterste zijde wordt
+       * gekozen, zonder bijkomende viewer-opvragingen te veroorzaken.
+       */
+      return details[Math.floor(details.length / 2)];
     }
 
-    function berekenMerkLabelGeometryUitCache(merk) {
-      const cacheSleutel =
-        maakMerkLabelCacheSleutel(merk);
+    async function berekenMerkLabelGeometrySnel(merk) {
+      const cacheSleutel = maakMerkLabelCacheSleutel(merk);
 
       if (merkLabelGeometryCache.has(cacheSleutel)) {
         return merkLabelGeometryCache.get(cacheSleutel);
       }
 
-      const details =
-        Array.isArray(merk._labelDetails)
-          ? merk._labelDetails
-          : beperkMerkLabelDetails(merk.details);
+      const doelDetail = kiesSnelMerkLabelDoelDetail(merk);
 
-      const centers = [];
-      let totaleBox = null;
-
-      details.forEach(function(detail) {
-        const geometrie =
-          merkLabelObjectGeometryCache.get(
-            maakObjectSleutel(
-              detail.modelId,
-              detail.runtimeId
-            )
-          );
-
-        if (!geometrie) {
-          return;
-        }
-
-        centers.push(geometrie);
-        totaleBox = mergeBox(
-          totaleBox,
-          geometrie.box
-        );
-      });
-
-      if (!totaleBox || centers.length === 0) {
+      if (!doelDetail) {
         return null;
       }
 
-      const midden = {
-        x: (totaleBox.min.x + totaleBox.max.x) / 2,
-        y: (totaleBox.min.y + totaleBox.max.y) / 2,
-        z: (totaleBox.min.z + totaleBox.max.z) / 2
-      };
+      /*
+       * Twee betrouwbare aanvragen per merk, gelijktijdig uitgevoerd:
+       * 1. de groepsbbox van uitsluitend dit Cast Unit Mark;
+       * 2. de bbox van één werkelijk object van datzelfde merk.
+       *
+       * We bundelen dus nooit objecten van verschillende merken in één
+       * bbox-aanvraag. Daarmee blijft elk label op zijn eigen positie en
+       * niveau staan, terwijl de verwerking toch snel blijft.
+       */
+      const resultaten = await Promise.all([
+        getGroupBoundingBox({
+          elementen: merk.details
+        }),
+        getDetailBoundingCenter(doelDetail)
+      ]);
 
-      let target = centers[0];
-      let besteAfstand = Infinity;
+      const geometry = resultaten[0];
+      const target = resultaten[1];
 
-      centers.forEach(function(center) {
-        const afstand =
-          Math.pow(center.x - midden.x, 2) +
-          Math.pow(center.y - midden.y, 2) +
-          Math.pow(center.z - midden.z, 2);
-
-        if (afstand < besteAfstand) {
-          besteAfstand = afstand;
-          target = center;
-        }
-      });
+      if (!target) {
+        return null;
+      }
 
       const resultaat = {
-        box: totaleBox,
+        box:
+          geometry && geometry.box
+            ? geometry.box
+            : target.box,
         target: target
       };
 
-      merkLabelGeometryCache.set(
-        cacheSleutel,
-        resultaat
+      if (!resultaat.box) {
+        return null;
+      }
+
+      merkLabelGeometryCache.set(cacheSleutel, resultaat);
+      return resultaat;
+    }
+
+    async function laadMerkLabelGeometrieParallel(
+      merken,
+      status
+    ) {
+      const resultaten = new Array(merken.length);
+      let volgendeIndex = 0;
+      let klaar = 0;
+      const gelijktijdig = Math.min(4, merken.length);
+
+      async function worker() {
+        while (true) {
+          const index = volgendeIndex++;
+
+          if (index >= merken.length) {
+            return;
+          }
+
+          const merk = merken[index];
+          const cacheSleutel = maakMerkLabelCacheSleutel(merk);
+          const uitCache = merkLabelGeometryCache.has(cacheSleutel);
+
+          try {
+            resultaten[index] =
+              await berekenMerkLabelGeometrySnel(merk);
+          } catch (error) {
+            console.warn(
+              "Labelgeometrie voor merk " + merk.mark + " mislukt:",
+              error
+            );
+            resultaten[index] = null;
+          }
+
+          klaar++;
+          status.textContent =
+            "Merklabels voorbereiden: " +
+            klaar +
+            " van " +
+            merken.length +
+            (uitCache ? " uit cache" : " berekend") +
+            "...";
+
+          await geefBrowserAdemruimte();
+        }
+      }
+
+      await Promise.all(
+        Array.from({ length: gelijktijdig }, function() {
+          return worker();
+        })
       );
 
-      return resultaat;
+      return resultaten;
     }
 
     function voorkomLabelOverlapMetRechteLijnen(
@@ -4924,23 +4872,22 @@ function bepaalAlgemeneZoekgroep(
         " merklabel(s) voorbereiden...";
 
       /*
-       * Belangrijkste versnelling:
-       * alle ontbrekende bounding boxes worden per model in grote batches
-       * opgehaald. Niet langer één trage API-oproep per Cast Unit Mark.
+       * Snel én betrouwbaar: ieder merk krijgt zijn eigen geometrie-aanvraag.
+       * Maximaal vier merken worden tegelijk verwerkt en ieder resultaat wordt
+       * gecachet. Daardoor kunnen objecten van verschillende merken nooit meer
+       * dezelfde bbox of hetzelfde leaderlijndoel krijgen.
        */
-      await laadMerkLabelObjectGeometrie(
-        alleMerken,
-        status
-      );
+      const geometrieResultaten =
+        await laadMerkLabelGeometrieParallel(
+          alleMerken,
+          status
+        );
 
       let overallBox = null;
       const geldigeMerken = [];
 
-      alleMerken.forEach(function(merk) {
-        const labelInfo =
-          berekenMerkLabelGeometryUitCache(
-            merk
-          );
+      alleMerken.forEach(function(merk, index) {
+        const labelInfo = geometrieResultaten[index];
 
         if (
           !labelInfo ||
@@ -5159,7 +5106,7 @@ function bepaalAlgemeneZoekgroep(
 
         status.textContent =
           markups.length +
-          " merklabel(s) geplaatst. Labels volgen de werkelijke objecthoogte; de leaderlijnen lopen daardoor vrijwel recht en de geometrie blijft gecachet voor volgende keren.";
+          " merklabel(s) geplaatst. Elk label gebruikt de eigen merkgeometrie en het eigen objectniveau. De geometrie blijft gecachet voor volgende keren.";
       } catch (error) {
         console.error(
           "Merklabels plaatsen mislukt:",
