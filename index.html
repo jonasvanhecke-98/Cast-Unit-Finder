@@ -4243,14 +4243,60 @@ function bepaalAlgemeneZoekgroep(
 
       await removeGroupLabels();
 
-      const merken =
-        groepeerDetailsPerCastUnitMark(
-          groep.elementen
-        );
+      /*
+       * Gebruik eerst de reeds correct gekoppelde merken van de groep.
+       * Deze structuur wordt opgebouwd tijdens de Finishgroepering en
+       * bevat exact de Cast Unit Marks die ook in de resultatenlijst staan.
+       */
+      let merken =
+        Array.isArray(groep._merkGroepen)
+          ? groep._merkGroepen
+              .map(function(merk) {
+                const details =
+                  Array.isArray(merk.details)
+                    ? merk.details.filter(
+                        function(detail) {
+                          return (
+                            detail &&
+                            detail.modelId !== null &&
+                            detail.modelId !== undefined &&
+                            detail.runtimeId !== null &&
+                            detail.runtimeId !== undefined
+                          );
+                        }
+                      )
+                    : [];
+
+                return {
+                  mark:
+                    String(merk.mark || "").trim(),
+                  details: details,
+                  assembly:
+                    merk.assembly || null
+                };
+              })
+              .filter(function(merk) {
+                return (
+                  merk.mark &&
+                  merk.details.length > 0
+                );
+              })
+          : [];
+
+      /*
+       * Fallback voor oudere zoekresultaten die nog geen _merkGroepen
+       * bevatten. De bestaande directe groepering blijft dan bruikbaar.
+       */
+      if (merken.length === 0) {
+        merken =
+          groepeerDetailsPerCastUnitMark(
+            groep.elementen
+          );
+      }
 
       if (merken.length === 0) {
         status.textContent =
-          "In deze groep werden geen Cast Unit Marks gevonden.";
+          "Er staan wel elementen in deze groep, maar er konden geen gekoppelde Cast Unit Marks voor labels worden gevonden.";
         return;
       }
 
@@ -4259,40 +4305,60 @@ function bepaalAlgemeneZoekgroep(
         " merklabel(s) voorbereiden...";
 
       let overallBox = null;
+      const geldigeMerken = [];
 
       for (const merk of merken) {
-        merk.geometry =
+        const geometry =
           await getGroupBoundingBox({
             elementen: merk.details
           });
 
         if (
-          merk.geometry &&
-          merk.geometry.box
+          !geometry ||
+          !geometry.box
         ) {
-          overallBox = mergeBox(
-            overallBox,
-            merk.geometry.box
-          );
+          continue;
         }
+
+        merk.geometry = geometry;
+        geldigeMerken.push(merk);
+
+        overallBox = mergeBox(
+          overallBox,
+          geometry.box
+        );
       }
 
-      if (!overallBox) {
+      if (
+        geldigeMerken.length === 0 ||
+        !overallBox
+      ) {
         status.textContent =
-          "Er konden geen labelposities worden bepaald.";
+          "De Cast Unit Marks zijn gevonden, maar de labelposities konden niet worden bepaald.";
         return;
       }
 
       const width = Math.max(
-        Math.abs(overallBox.max.x - overallBox.min.x),
+        Math.abs(
+          overallBox.max.x -
+          overallBox.min.x
+        ),
         1
       );
+
       const height = Math.max(
-        Math.abs(overallBox.max.y - overallBox.min.y),
+        Math.abs(
+          overallBox.max.y -
+          overallBox.min.y
+        ),
         1
       );
+
       const depth = Math.max(
-        Math.abs(overallBox.max.z - overallBox.min.z),
+        Math.abs(
+          overallBox.max.z -
+          overallBox.min.z
+        ),
         1
       );
 
@@ -4307,54 +4373,102 @@ function bepaalAlgemeneZoekgroep(
 
       const topY =
         overallBox.max.y +
-        Math.max(height * 0.15, 1);
+        Math.max(
+          height * 0.15,
+          1
+        );
+
       const bottomY =
         overallBox.min.y -
-        Math.max(height * 0.15, 1);
+        Math.max(
+          height * 0.15,
+          1
+        );
+
+      geldigeMerken.sort(
+        function(a, b) {
+          const ay =
+            (
+              a.geometry.box.min.y +
+              a.geometry.box.max.y
+            ) / 2;
+
+          const by =
+            (
+              b.geometry.box.min.y +
+              b.geometry.box.max.y
+            ) / 2;
+
+          return by - ay;
+        }
+      );
+
       const spacing =
-        merken.length > 1
-          ? (topY - bottomY) /
-            Math.max(merken.length - 1, 1)
+        geldigeMerken.length > 1
+          ? (
+              topY - bottomY
+            ) /
+            Math.max(
+              geldigeMerken.length - 1,
+              1
+            )
           : 0;
 
-      merken.sort(function(a, b) {
-        const ay = a.geometry && a.geometry.box
-          ? (a.geometry.box.min.y + a.geometry.box.max.y) / 2
-          : 0;
-        const by = b.geometry && b.geometry.box
-          ? (b.geometry.box.min.y + b.geometry.box.max.y) / 2
-          : 0;
-        return by - ay;
-      });
+      const color =
+        groep.color || {
+          r: 0,
+          g: 120,
+          b: 140,
+          a: 255
+        };
 
       const markups = [];
       let extraLeaderCount = 0;
 
       for (
         let merkIndex = 0;
-        merkIndex < merken.length;
+        merkIndex < geldigeMerken.length;
         merkIndex++
       ) {
-        const merk = merken[merkIndex];
-        const geometry = merk.geometry;
+        const merk =
+          geldigeMerken[merkIndex];
 
-        if (!geometry || !geometry.box) {
-          continue;
-        }
+        const geometry =
+          merk.geometry;
 
         const labelY =
-          merken.length > 1
-            ? topY - merkIndex * spacing
-            : (overallBox.min.y + overallBox.max.y) / 2;
+          geldigeMerken.length > 1
+            ? topY -
+              merkIndex * spacing
+            : (
+                overallBox.min.y +
+                overallBox.max.y
+              ) / 2;
+
         const labelZ =
-          (geometry.box.min.z + geometry.box.max.z) / 2;
+          (
+            geometry.box.min.z +
+            geometry.box.max.z
+          ) / 2;
 
         const targets = [];
 
-        // Limit prevents extreme markup overload in very large assemblies.
-        for (const detail of merk.details.slice(0, 25)) {
+        /*
+         * Eén zichtbaar merklabel. Wanneer hetzelfde merk meerdere
+         * gekleurde elementen bevat, maken we extra leaderlijnen naar
+         * maximaal 25 verschillende elementen.
+         */
+        for (
+          const detail of merk.details.slice(
+            0,
+            25
+          )
+        ) {
           const center =
-            await getDetailBoundingCenter(detail);
+            await getDetailBoundingCenter(
+              detail
+            );
+
           if (center) {
             targets.push(center);
           }
@@ -4364,58 +4478,63 @@ function bepaalAlgemeneZoekgroep(
           continue;
         }
 
-        const color =
-          groep.color || {
-            r: 0,
-            g: 120,
-            b: 140,
-            a: 255
-          };
+        targets.forEach(
+          function(target, targetIndex) {
+            markups.push({
+              text:
+                targetIndex === 0
+                  ? merk.mark
+                  : "\u00a0",
+              color: {
+                r: color.r,
+                g: color.g,
+                b: color.b,
+                a: 255
+              },
+              start: {
+                positionX:
+                  target.x * 1000,
+                positionY:
+                  target.y * 1000,
+                positionZ:
+                  target.z * 1000,
+                modelId:
+                  target.modelId,
+                objectId:
+                  target.objectId
+              },
+              end: {
+                positionX:
+                  labelX * 1000,
+                positionY:
+                  labelY * 1000,
+                positionZ:
+                  labelZ * 1000,
+                modelId:
+                  geometry.modelId,
+                objectId:
+                  geometry.objectId
+              }
+            });
 
-        targets.forEach(function(target, targetIndex) {
-          markups.push({
-            // Only the first leader shows text. Extra markups create
-            // additional leader lines to objects with the same mark.
-            text: targetIndex === 0
-              ? merk.mark
-              : " ",
-            color: {
-              r: color.r,
-              g: color.g,
-              b: color.b,
-              a: 255
-            },
-            start: {
-              positionX: target.x * 1000,
-              positionY: target.y * 1000,
-              positionZ: target.z * 1000,
-              modelId: target.modelId,
-              objectId: target.objectId
-            },
-            end: {
-              positionX: labelX * 1000,
-              positionY: labelY * 1000,
-              positionZ: labelZ * 1000,
-              modelId: geometry.modelId,
-              objectId: geometry.objectId
+            if (targetIndex > 0) {
+              extraLeaderCount++;
             }
-          });
-
-          if (targetIndex > 0) {
-            extraLeaderCount++;
           }
-        });
+        );
       }
 
       if (markups.length === 0) {
         status.textContent =
-          "Er konden geen merklabels worden geplaatst.";
+          "De merken zijn gevonden, maar er konden geen merklabels in de 3D-viewer worden geplaatst.";
         return;
       }
 
       try {
         const result =
-          await API.markup.addTextMarkup(markups);
+          await API.markup.addTextMarkup(
+            markups
+          );
 
         createdMarkupIds =
           Array.isArray(result)
@@ -4424,19 +4543,23 @@ function bepaalAlgemeneZoekgroep(
                   return item.id;
                 })
                 .filter(function(id) {
-                  return id !== null &&
-                    id !== undefined;
+                  return (
+                    id !== null &&
+                    id !== undefined
+                  );
                 })
             : [];
 
         status.textContent =
-          merken.length +
+          geldigeMerken.length +
           " merklabel(s) geplaatst" +
-          (extraLeaderCount > 0
-            ? " met " +
-              extraLeaderCount +
-              " extra leaderlijn(en)."
-            : ".");
+          (
+            extraLeaderCount > 0
+              ? " met " +
+                extraLeaderCount +
+                " extra leaderlijn(en)."
+              : "."
+          );
       } catch (error) {
         console.error(
           "Merklabels plaatsen mislukt:",
@@ -4444,7 +4567,12 @@ function bepaalAlgemeneZoekgroep(
         );
 
         status.textContent =
-          "Merklabels plaatsen is mislukt.";
+          "Merklabels plaatsen is mislukt: " +
+          (
+            error && error.message
+              ? error.message
+              : "onbekende fout"
+          );
       }
     }
 
