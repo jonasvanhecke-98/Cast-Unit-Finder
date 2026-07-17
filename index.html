@@ -831,6 +831,48 @@
     .error {
       color: #b42318 !important;
     }
+
+    .diagnostic-grid {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .diagnostic-item {
+      display: grid;
+      grid-template-columns: 22px minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+      padding: 9px 10px;
+      background: #fff;
+      border: 1px solid #e1e8ea;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+
+    .diagnostic-icon {
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .diagnostic-item.pending .diagnostic-icon { color: #7b8790; }
+    .diagnostic-item.ok .diagnostic-icon { color: #147a4b; }
+    .diagnostic-item.warning .diagnostic-icon { color: #a15c00; }
+    .diagnostic-item.error .diagnostic-icon { color: #b42318; }
+
+    .diagnostic-title {
+      display: block;
+      font-weight: 700;
+      color: #365963;
+    }
+
+    .diagnostic-detail {
+      display: block;
+      margin-top: 2px;
+      color: #718087;
+      line-height: 1.45;
+    }
+
       .legend-panel,
     .legend-title,
     .legend-item,
@@ -856,7 +898,7 @@
         <span class="module-eyebrow">Altez Tools</span>
         <h2>Kies een module</h2>
         <p class="module-subtitle">
-          Eén centrale toolbox voor zoeken, snelacties en data verrijken in Trimble Connect.
+          Eén centrale toolbox voor zoeken, snelacties en data import in Trimble Connect.
         </p>
       </div>
 
@@ -870,7 +912,7 @@
           <span class="tool-card-tag">Beschikbaar</span>
         </button>
         <button id="open-data-module-button" class="tool-card" type="button">
-          <span class="tool-card-title">Data verrijken</span>
+          <span class="tool-card-title">Data Import</span>
           <span class="tool-card-description">
             Importeer Excelgegevens, koppel ze via Cast Unit Mark aan model-GUID's
             en bereid aangepaste eigenschappen voor.
@@ -914,7 +956,7 @@
         </button>
 
         <button id="open-general-button" class="tool-card" type="button">
-          <span class="tool-card-title">Parameter zoeken</span>
+          <span class="tool-card-title">Op op parameter zoeken</span>
           <span class="tool-card-description">
             Zoek in alle properties of kies een specifieke parameter. Groepeer,
             kleur, focus, verberg, isoleer en label de resultaten.
@@ -1034,11 +1076,45 @@
     <div class="panel">
       <div class="module-header">
         <span class="module-eyebrow">Module</span>
-        <h2>Data verrijken</h2>
+        <h2>Data Import</h2>
         <p class="module-subtitle">
           Importeer een Excelbestand met Cast Unit Mark en Vrachtnummer.
           Altez Tools koppelt de regels aan de GUID's uit het geladen model.
         </p>
+      </div>
+
+      <div class="import-step">
+        <h3>0. Trimble Connect-diagnose</h3>
+        <p class="small-info">
+          Controleert de Workspace API, het project, het access token en de
+          beschikbare Property Set-schrijfkoppeling. De controle wijzigt geen modeldata.
+        </p>
+        <button id="run-property-diagnostics-button" type="button">
+          Controle Property Service en schrijfrechten
+        </button>
+        <div id="property-diagnostics" class="diagnostic-grid">
+          <div class="diagnostic-item pending" data-check="workspace">
+            <div class="diagnostic-icon">…</div>
+            <div><span class="diagnostic-title">Workspace API</span><span class="diagnostic-detail">Nog niet gecontroleerd.</span></div>
+          </div>
+          <div class="diagnostic-item pending" data-check="project">
+            <div class="diagnostic-icon">…</div>
+            <div><span class="diagnostic-title">Projectcontext</span><span class="diagnostic-detail">Nog niet gecontroleerd.</span></div>
+          </div>
+          <div class="diagnostic-item pending" data-check="token">
+            <div class="diagnostic-icon">…</div>
+            <div><span class="diagnostic-title">Access token</span><span class="diagnostic-detail">Nog niet gecontroleerd.</span></div>
+          </div>
+          <div class="diagnostic-item pending" data-check="pset">
+            <div class="diagnostic-icon">…</div>
+            <div><span class="diagnostic-title">Property Set-integratie</span><span class="diagnostic-detail">Nog niet gecontroleerd.</span></div>
+          </div>
+          <div class="diagnostic-item pending" data-check="write">
+            <div class="diagnostic-icon">…</div>
+            <div><span class="diagnostic-title">Schrijven</span><span class="diagnostic-detail">Nog niet gecontroleerd.</span></div>
+          </div>
+        </div>
+        <div id="property-diagnostics-summary" class="organizer-status"></div>
       </div>
 
       <div class="import-step">
@@ -1170,11 +1246,9 @@
 
         <div class="api-warning">
           Doel: <strong>ALTEZ_UITVOERING → U01. Vrachtnummer</strong>.
-          De Excel- en modelkoppeling werkt volledig in deze extensie.
-          Het rechtstreeks aanmaken en schrijven van de propertyset vereist een
-          geregistreerde Trimble Property Set-integratie met de juiste API-toegang.
-          Zonder die adapter kun je de gekoppelde CSV downloaden en via de bestaande
-          importworkflow gebruiken.
+          De extensie vraagt zelf een Trimble access token aan en gebruikt daarna de
+          aanwezige Property Set-schrijfkoppeling. Wanneer Trimble de toegang of het
+          schrijfrecht weigert, toont de diagnose exact welke stap ontbreekt.
         </div>
       </div>
     </div>
@@ -1248,7 +1322,7 @@
     </button>
 
     <section class="panel">
-      <h2>Parameter zoeken</h2>
+      <h2>Op op parameter zoeken</h2>
 
       <p class="small-info">
         Zoek in alle modeleigenschappen of kies een specifieke parameter. De bestaande resultaatwerkbalk blijft beschikbaar voor kleuren, labels, focus, verbergen en isoleren.
@@ -1309,7 +1383,7 @@
       </button>
 
       <section class="result-panel general-result-panel">
-        <div class="result-panel-header">Resultaat parameter zoeken</div>
+        <div class="result-panel-header">Resultaat op parameter zoeken</div>
         <div id="general-result" class="result-content">
           Nog geen parameterzoekopdracht uitgevoerd.
         </div>
@@ -1584,6 +1658,15 @@
     const dataImportWriteStatus =
       document.getElementById("data-import-write-status");
 
+    const runPropertyDiagnosticsButton =
+      document.getElementById("run-property-diagnostics-button");
+
+    const propertyDiagnosticsElement =
+      document.getElementById("property-diagnostics");
+
+    const propertyDiagnosticsSummary =
+      document.getElementById("property-diagnostics-summary");
+
     const savedSearchesView =
       document.getElementById("saved-searches-view");
 
@@ -1700,6 +1783,9 @@ const profileOptionsElement =
     let dataWorkbook = null;
     let dataWorksheetRows = [];
     let dataImportResult = [];
+    let currentAccessToken = null;
+    let currentProject = null;
+    let propertyDiagnosticsCompleted = false;
 
     let currentGeneralQuery = "";
     let currentGeneralGroups = [];
@@ -1861,6 +1947,167 @@ const profileOptionsElement =
       };
     }
 
+    function updateDiagnosticCheck(check, state, detail) {
+      if (!propertyDiagnosticsElement) return;
+      const item = propertyDiagnosticsElement.querySelector(
+        '[data-check="' + check + '"]'
+      );
+      if (!item) return;
+
+      item.classList.remove("pending", "ok", "warning", "error");
+      item.classList.add(state);
+
+      const icon = item.querySelector(".diagnostic-icon");
+      const detailElement = item.querySelector(".diagnostic-detail");
+      if (icon) {
+        icon.textContent =
+          state === "ok" ? "✓" :
+          state === "warning" ? "!" :
+          state === "error" ? "×" : "…";
+      }
+      if (detailElement) detailElement.textContent = detail || "";
+    }
+
+    function haalTokenUitPermissionResult(resultaat) {
+      if (!resultaat) return null;
+      if (typeof resultaat === "string") {
+        const tekst = resultaat.trim();
+        if (tekst && !["pending", "denied", "granted"].includes(tekst.toLowerCase())) {
+          return tekst;
+        }
+        return null;
+      }
+      return resultaat.accessToken || resultaat.token || resultaat.data || null;
+    }
+
+    async function vraagTrimbleAccessToken() {
+      if (currentAccessToken) return currentAccessToken;
+      if (!API || !API.extension) {
+        throw new Error("Workspace Extension API is niet beschikbaar.");
+      }
+
+      const request =
+        typeof API.extension.requestPermission === "function"
+          ? API.extension.requestPermission.bind(API.extension)
+          : typeof API.extension.getPermission === "function"
+            ? API.extension.getPermission.bind(API.extension)
+            : null;
+
+      if (!request) {
+        throw new Error("Deze Workspace API-versie kan geen access token aanvragen.");
+      }
+
+      const resultaat = await request("accesstoken");
+      const token = haalTokenUitPermissionResult(resultaat);
+      if (token) {
+        currentAccessToken = token;
+        return token;
+      }
+
+      const status = String(resultaat || "pending").toLowerCase();
+      if (status.includes("denied")) {
+        throw new Error("De gebruiker heeft toegang tot het Trimble access token geweigerd.");
+      }
+
+      throw new Error(
+        "Toestemming is aangevraagd. Bevestig de Trimble-melding en voer de diagnose daarna opnieuw uit."
+      );
+    }
+
+    async function runPropertyDiagnostics() {
+      if (runPropertyDiagnosticsButton) runPropertyDiagnosticsButton.disabled = true;
+      propertyDiagnosticsSummary.textContent = "Trimble Connect-mogelijkheden controleren...";
+
+      ["workspace", "project", "token", "pset", "write"].forEach(function(check) {
+        updateDiagnosticCheck(check, "pending", "Controleren...");
+      });
+
+      let allesGoed = true;
+      try {
+        if (API && API.viewer && API.project && API.extension) {
+          updateDiagnosticCheck("workspace", "ok", "Workspace API is verbonden.");
+        } else {
+          allesGoed = false;
+          updateDiagnosticCheck("workspace", "error", "Workspace API is niet volledig beschikbaar.");
+          throw new Error("Geen bruikbare Workspace API-verbinding.");
+        }
+
+        try {
+          currentProject = await API.project.getProject();
+          if (currentProject && currentProject.id) {
+            updateDiagnosticCheck("project", "ok", "Project gevonden: " + (currentProject.name || currentProject.id));
+          } else {
+            throw new Error("Project-id ontbreekt.");
+          }
+        } catch (error) {
+          allesGoed = false;
+          updateDiagnosticCheck("project", "error", error.message || "Project kon niet worden gelezen.");
+        }
+
+        try {
+          const token = await vraagTrimbleAccessToken();
+          updateDiagnosticCheck("token", "ok", "Access token ontvangen.");
+          currentAccessToken = token;
+        } catch (error) {
+          allesGoed = false;
+          updateDiagnosticCheck("token", "warning", error.message || "Geen access token ontvangen.");
+        }
+
+        const adapter = window.ALTEZ_PSET_ADAPTER;
+        if (adapter && typeof adapter.write === "function") {
+          updateDiagnosticCheck("pset", "ok", "Property Set-schrijfkoppeling is geladen.");
+
+          if (typeof adapter.diagnose === "function" && currentAccessToken && currentProject) {
+            try {
+              const resultaat = await adapter.diagnose({
+                api: API,
+                accessToken: currentAccessToken,
+                project: currentProject,
+                propertySetName: DATA_PSET_NAME,
+                propertyName: DATA_PROPERTY_NAME
+              });
+              if (resultaat && resultaat.canWrite === false) {
+                allesGoed = false;
+                updateDiagnosticCheck("write", "error", resultaat.message || "Geen schrijfrecht.");
+              } else {
+                updateDiagnosticCheck("write", "ok", (resultaat && resultaat.message) || "Schrijfroute is beschikbaar.");
+              }
+            } catch (error) {
+              allesGoed = false;
+              updateDiagnosticCheck("write", "error", error.message || "Schrijftest mislukt.");
+            }
+          } else if (currentAccessToken) {
+            updateDiagnosticCheck("write", "ok", "Schrijfadapter en token zijn beschikbaar; definitieve controle gebeurt bij import.");
+          } else {
+            allesGoed = false;
+            updateDiagnosticCheck("write", "warning", "Schrijfadapter aanwezig, maar nog geen access token.");
+          }
+        } else {
+          allesGoed = false;
+          updateDiagnosticCheck(
+            "pset",
+            "error",
+            "Geen ALTEZ_PSET_ADAPTER geladen. De Workspace API alleen bevat geen Property Set-schrijfmethoden."
+          );
+          updateDiagnosticCheck(
+            "write",
+            "error",
+            "Schrijven kan pas nadat de geregistreerde Property Set-integratie is gekoppeld."
+          );
+        }
+
+        propertyDiagnosticsCompleted = true;
+        propertyDiagnosticsSummary.textContent = allesGoed
+          ? "Diagnose geslaagd. Data kan naar Trimble Connect worden geschreven."
+          : "Diagnose afgerond. Bekijk de gemarkeerde stap(pen) hierboven.";
+      } catch (error) {
+        propertyDiagnosticsSummary.textContent =
+          "Diagnose kon niet volledig worden uitgevoerd: " + (error.message || "onbekende fout");
+      } finally {
+        if (runPropertyDiagnosticsButton) runPropertyDiagnosticsButton.disabled = false;
+      }
+    }
+
     async function connectToTrimble() {
       try {
         API = await TrimbleConnectWorkspace.connect(
@@ -1871,11 +2118,21 @@ const profileOptionsElement =
               event,
               data
             );
+
+            if (event === "extension.accessToken") {
+              const token = haalTokenUitPermissionResult(data);
+              if (token) {
+                currentAccessToken = token;
+                updateDiagnosticCheck("token", "ok", "Access token ontvangen of vernieuwd.");
+              }
+            }
           }
         );
 
         const project =
           await API.project.getProject();
+
+        currentProject = project;
 
         statusElement.textContent =
           "Verbonden met project: " +
@@ -10008,8 +10265,8 @@ function bepaalAlgemeneZoekgroep(
           "function"
       ) {
         dataImportWriteStatus.textContent =
-          "De Excel-koppeling is klaar, maar de Trimble Property Set-schrijfadapter " +
-          "is nog niet geconfigureerd. Download voorlopig de gekoppelde CSV.";
+          "Schrijven is nog niet beschikbaar: de geregistreerde Trimble Property Set-" +
+          "schrijfkoppeling (ALTEZ_PSET_ADAPTER) is niet geladen. Voer de diagnose uit.";
 
         return;
       }
@@ -10022,11 +10279,10 @@ function bepaalAlgemeneZoekgroep(
 
       try {
         const token =
-          await API.extension.requestPermission(
-            "accesstoken"
-          );
+          await vraagTrimbleAccessToken();
 
         const project =
+          currentProject ||
           await API.project.getProject();
 
         dataImportWriteStatus.textContent =
@@ -11913,8 +12169,11 @@ function bepaalAlgemeneZoekgroep(
       });
 
     document.getElementById("open-data-module-button")
-      .addEventListener("click", function() {
+      .addEventListener("click", async function() {
         toonView("data-menu");
+        if (!propertyDiagnosticsCompleted && API) {
+          await runPropertyDiagnostics();
+        }
       });
 
     document.getElementById("open-quick-module-button")
@@ -12086,6 +12345,11 @@ function bepaalAlgemeneZoekgroep(
     writeDataImportButton.addEventListener(
       "click",
       schrijfDataNaarTrimble
+    );
+
+    runPropertyDiagnosticsButton.addEventListener(
+      "click",
+      runPropertyDiagnostics
     );
 
     quickFinishColorButton.addEventListener(
