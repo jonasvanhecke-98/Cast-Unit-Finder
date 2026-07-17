@@ -4662,8 +4662,8 @@ function bepaalAlgemeneZoekgroep(
       return centers[0];
     }
 
-    async function showMerkLabelsForGroup(
-      groep,
+    async function showMerkLabelsForGroups(
+      groepen,
       status,
       labelsEerstWissen = true
     ) {
@@ -4681,86 +4681,110 @@ function bepaalAlgemeneZoekgroep(
         await removeGroupLabels();
       }
 
-      /*
-       * Gebruik eerst de reeds correct gekoppelde merken van de groep.
-       * Deze structuur wordt opgebouwd tijdens de Finishgroepering en
-       * bevat exact de Cast Unit Marks die ook in de resultatenlijst staan.
-       */
-      let merken =
-        Array.isArray(groep._merkGroepen)
-          ? groep._merkGroepen
-              .map(function(merk) {
-                const details =
-                  Array.isArray(merk.details)
-                    ? merk.details.filter(
-                        function(detail) {
-                          return (
-                            detail &&
-                            detail.modelId !== null &&
-                            detail.modelId !== undefined &&
-                            detail.runtimeId !== null &&
-                            detail.runtimeId !== undefined
-                          );
-                        }
-                      )
-                    : [];
+      const alleMerken = [];
+      const uniekeMerkObjecten = new Set();
 
-                return {
-                  mark:
-                    String(merk.mark || "").trim(),
-                  details: details,
-                  assembly:
-                    merk.assembly || null
-                };
-              })
-              .filter(function(merk) {
-                return (
-                  merk.mark &&
-                  merk.details.length > 0
+      (Array.isArray(groepen) ? groepen : [])
+        .forEach(function(groep) {
+          let merken =
+            Array.isArray(groep._merkGroepen)
+              ? groep._merkGroepen
+              : groepeerDetailsPerCastUnitMark(
+                  groep.elementen
                 );
-              })
-          : [];
 
-      /*
-       * Fallback voor oudere zoekresultaten die nog geen _merkGroepen
-       * bevatten. De bestaande directe groepering blijft dan bruikbaar.
-       */
-      if (merken.length === 0) {
-        merken =
-          groepeerDetailsPerCastUnitMark(
-            groep.elementen
-          );
-      }
+          merken.forEach(function(merk) {
+            const mark =
+              String(merk.mark || "").trim();
 
-      if (merken.length === 0) {
+            const details =
+              Array.isArray(merk.details)
+                ? merk.details.filter(
+                    function(detail) {
+                      return (
+                        detail &&
+                        detail.modelId !== null &&
+                        detail.modelId !== undefined &&
+                        detail.runtimeId !== null &&
+                        detail.runtimeId !== undefined
+                      );
+                    }
+                  )
+                : [];
+
+            if (!mark || details.length === 0) {
+              return;
+            }
+
+            const sleutel =
+              normaliseerMarkZoektekst(mark) +
+              "|" +
+              details
+                .map(function(detail) {
+                  return maakObjectSleutel(
+                    detail.modelId,
+                    detail.runtimeId
+                  );
+                })
+                .sort()
+                .join(",");
+
+            if (uniekeMerkObjecten.has(sleutel)) {
+              return;
+            }
+
+            uniekeMerkObjecten.add(sleutel);
+
+            alleMerken.push({
+              mark: mark,
+              details: details,
+              assembly: merk.assembly || null,
+              color:
+                groep.color || {
+                  r: 0,
+                  g: 120,
+                  b: 140,
+                  a: 255
+                }
+            });
+          });
+        });
+
+      if (alleMerken.length === 0) {
         status.textContent =
-          "Er staan wel elementen in deze groep, maar er konden geen gekoppelde Cast Unit Marks voor labels worden gevonden.";
+          "Er konden geen gekoppelde Cast Unit Marks voor labels worden gevonden.";
         return;
       }
 
       status.textContent =
-        merken.length +
-        " merklabel(s) voorbereiden...";
+        alleMerken.length +
+        " merklabel(s) voorbereiden en uitlijnen...";
 
       let overallBox = null;
       const geldigeMerken = [];
 
-      for (const merk of merken) {
+      for (const merk of alleMerken) {
         const geometry =
           await getGroupBoundingBox({
             elementen: merk.details
           });
 
-        if (
-          !geometry ||
-          !geometry.box
-        ) {
+        if (!geometry || !geometry.box) {
+          continue;
+        }
+
+        const target =
+          await haalConcreetMerkLabelDoel(
+            merk
+          );
+
+        if (!target) {
           continue;
         }
 
         merk.geometry = geometry;
+        merk.target = target;
         geldigeMerken.push(merk);
-
         overallBox = mergeBox(
           overallBox,
           geometry.box
@@ -4800,178 +4824,203 @@ function bepaalAlgemeneZoekgroep(
         1
       );
 
-      const labelX =
+      const modelCenterX =
+        (
+          overallBox.min.x +
+          overallBox.max.x
+        ) / 2;
+
+      const modelCenterY =
+        (
+          overallBox.min.y +
+          overallBox.max.y
+        ) / 2;
+
+      const outsideMargin = Math.max(
+        width * 0.30,
+        height * 0.12,
+        depth * 0.12,
+        3
+      );
+
+      const leftLabelX =
+        overallBox.min.x -
+        outsideMargin;
+
+      const rightLabelX =
         overallBox.max.x +
-        Math.max(
-          width * 0.35,
-          height * 0.15,
-          depth * 0.15,
-          3
-        );
+        outsideMargin;
 
       const topY =
         overallBox.max.y +
-        Math.max(
-          height * 0.15,
-          1
-        );
+        Math.max(height * 0.12, 1);
 
       const bottomY =
         overallBox.min.y -
-        Math.max(
-          height * 0.15,
-          1
-        );
+        Math.max(height * 0.12, 1);
 
-      geldigeMerken.sort(
-        function(a, b) {
-          const ay =
-            (
-              a.geometry.box.min.y +
-              a.geometry.box.max.y
-            ) / 2;
-
-          const by =
-            (
-              b.geometry.box.min.y +
-              b.geometry.box.max.y
-            ) / 2;
-
-          return by - ay;
-        }
+      const minimumSpacing = Math.max(
+        height * 0.025,
+        0.55
       );
 
       /*
-       * Houd altijd voldoende verticale ruimte tussen de teksten.
-       * Wanneer er veel merken zijn, groeit de labelkolom automatisch.
+       * Verdeel de merken over een linker- en rechterkolom.
+       * Een merk gaat naar de dichtstbijzijnde modelzijde. Daardoor zijn
+       * de leaderlijnen korter en lopen ze minder door het model.
        */
-      const minimumLabelSpacing =
-        Math.max(
-          height * 0.025,
-          0.55
-        );
+      const links = [];
+      const rechts = [];
 
-      const natuurlijkeSpacing =
-        geldigeMerken.length > 1
-          ? (
-              topY - bottomY
-            ) /
-            Math.max(
-              geldigeMerken.length - 1,
-              1
-            )
-          : 0;
+      geldigeMerken.forEach(function(merk) {
+        if (merk.target.x < modelCenterX) {
+          links.push(merk);
+        } else {
+          rechts.push(merk);
+        }
+      });
 
-      const spacing =
-        Math.max(
-          natuurlijkeSpacing,
-          minimumLabelSpacing
-        );
-
-      const labelKolomMidden =
-        (
-          topY + bottomY
-        ) / 2;
-
-      const effectieveTopY =
-        labelKolomMidden +
-        spacing *
-        Math.max(
-          geldigeMerken.length - 1,
-          0
-        ) / 2;
-
-      const color =
-        groep.color || {
-          r: 0,
-          g: 120,
-          b: 140,
-          a: 255
-        };
-
-      const markups = [];
-
-      for (
-        let merkIndex = 0;
-        merkIndex < geldigeMerken.length;
-        merkIndex++
+      /*
+       * Wanneer alles toevallig aan één zijde ligt, verdelen we de lijst
+       * toch over twee kolommen. Dat houdt grote labelsets overzichtelijk.
+       */
+      if (
+        geldigeMerken.length > 8 &&
+        (links.length === 0 || rechts.length === 0)
       ) {
-        const merk =
-          geldigeMerken[merkIndex];
-
-        const geometry =
-          merk.geometry;
-
-        const labelY =
-          geldigeMerken.length > 1
-            ? effectieveTopY -
-              merkIndex * spacing
-            : (
-                overallBox.min.y +
-                overallBox.max.y
-              ) / 2;
-
-        const labelZ =
-          (
-            geometry.box.min.z +
-            geometry.box.max.z
-          ) / 2;
-
-        /*
-         * Exact één label en één leaderlijn per Cast Unit Mark.
-         * Het doelpunt wordt rechtstreeks gezocht binnen de volledige
-         * objectselectie van dit specifieke merk.
-         */
-        const target =
-          await haalConcreetMerkLabelDoel(
-            merk
+        const alles =
+          geldigeMerken.slice().sort(
+            function(a, b) {
+              return b.target.y - a.target.y;
+            }
           );
 
-        if (!target) {
-          continue;
-        }
+        links.length = 0;
+        rechts.length = 0;
 
-        markups.push({
-          text:
-            merk.mark,
-          color: {
-            r: color.r,
-            g: color.g,
-            b: color.b,
-            a: 255
-          },
-          start: {
-            positionX:
-              target.x * 1000,
-            positionY:
-              target.y * 1000,
-            positionZ:
-              target.z * 1000,
-            modelId:
-              target.modelId,
-            objectId:
-              target.objectId
-          },
-          end: {
-            positionX:
-              labelX * 1000,
-            positionY:
-              labelY * 1000,
-            positionZ:
-              labelZ * 1000,
-            modelId:
-              target.modelId,
-            objectId:
-              target.objectId
-          }
+        alles.forEach(function(merk, index) {
+          (index % 2 === 0 ? links : rechts)
+            .push(merk);
         });
       }
 
-      if (markups.length === 0) {
-        status.textContent =
-          "De merken zijn gevonden, maar er konden geen merklabels in de 3D-viewer worden geplaatst.";
-        return;
+      function bouwKolomLayout(
+        merken,
+        zijde
+      ) {
+        if (merken.length === 0) {
+          return [];
+        }
+
+        /*
+         * Zelfde volgorde aan objectzijde en labelzijde voorkomt dat
+         * leaderlijnen binnen dezelfde kolom elkaar kruisen.
+         */
+        const gesorteerd =
+          merken.slice().sort(
+            function(a, b) {
+              if (b.target.y !== a.target.y) {
+                return b.target.y - a.target.y;
+              }
+
+              return String(a.mark).localeCompare(
+                String(b.mark),
+                "nl-BE",
+                {
+                  numeric: true,
+                  sensitivity: "base"
+                }
+              );
+            }
+          );
+
+        const natuurlijkeSpacing =
+          gesorteerd.length > 1
+            ? (
+                topY - bottomY
+              ) /
+              Math.max(
+                gesorteerd.length - 1,
+                1
+              )
+            : 0;
+
+        const spacing = Math.max(
+          natuurlijkeSpacing,
+          minimumSpacing
+        );
+
+        const kolomTop =
+          modelCenterY +
+          spacing *
+          Math.max(
+            gesorteerd.length - 1,
+            0
+          ) / 2;
+
+        return gesorteerd.map(
+          function(merk, index) {
+            return {
+              merk: merk,
+              labelX:
+                zijde === "links"
+                  ? leftLabelX
+                  : rightLabelX,
+              labelY:
+                gesorteerd.length > 1
+                  ? kolomTop -
+                    index * spacing
+                  : modelCenterY,
+              labelZ:
+                (
+                  merk.geometry.box.min.z +
+                  merk.geometry.box.max.z
+                ) / 2
+            };
+          }
+        );
       }
+
+      const layout =
+        bouwKolomLayout(links, "links")
+          .concat(
+            bouwKolomLayout(
+              rechts,
+              "rechts"
+            )
+          );
+
+      const markups = layout.map(
+        function(item) {
+          const merk = item.merk;
+          const target = merk.target;
+          const color = merk.color;
+
+          return {
+            text: merk.mark,
+            color: {
+              r: color.r,
+              g: color.g,
+              b: color.b,
+              a: 255
+            },
+            start: {
+              positionX: target.x * 1000,
+              positionY: target.y * 1000,
+              positionZ: target.z * 1000,
+              modelId: target.modelId,
+              objectId: target.objectId
+            },
+            end: {
+              positionX: item.labelX * 1000,
+              positionY: item.labelY * 1000,
+              positionZ: item.labelZ * 1000,
+              modelId: target.modelId,
+              objectId: target.objectId
+            }
+          };
+        }
+      );
 
       try {
         const result =
@@ -4999,8 +5048,8 @@ function bepaalAlgemeneZoekgroep(
           );
 
         status.textContent =
-          geldigeMerken.length +
-          " merklabel(s) geplaatst, elk met één leaderlijn.";
+          markups.length +
+          " merklabel(s) uitgelijnd in twee kolommen. De volgorde volgt de objectpositie om kruisende leaderlijnen te beperken.";
       } catch (error) {
         console.error(
           "Merklabels plaatsen mislukt:",
@@ -5015,6 +5064,18 @@ function bepaalAlgemeneZoekgroep(
               : "onbekende fout"
           );
       }
+    }
+
+    async function showMerkLabelsForGroup(
+      groep,
+      status,
+      labelsEerstWissen = true
+    ) {
+      return showMerkLabelsForGroups(
+        [groep],
+        status,
+        labelsEerstWissen
+      );
     }
 
     function renderGroepsComponent(
@@ -11104,13 +11165,11 @@ function bepaalAlgemeneZoekgroep(
             }
           );
 
-        for (const groep of gewichtLabelGroepen) {
-          await showMerkLabelsForGroup(
-            groep,
-            quickWeightStatus,
-            false
-          );
-        }
+        await showMerkLabelsForGroups(
+          gewichtLabelGroepen,
+          quickWeightStatus,
+          false
+        );
 
         quickWeightResetButton.disabled =
           false;
