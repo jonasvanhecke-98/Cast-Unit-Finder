@@ -4407,15 +4407,95 @@ function bepaalAlgemeneZoekgroep(
       return kandidaten[0];
     }
 
+    function zoekExacteMerkDetailsInCache(
+      mark,
+      voorkeursModelId = null
+    ) {
+      const gezochteMark =
+        normaliseerMarkZoektekst(mark);
+
+      if (!gezochteMark) {
+        return [];
+      }
+
+      const resultaten = [];
+      const gebruikteObjecten = new Set();
+
+      objectPropertiesCache.forEach(
+        function(objectProperties, cacheKey) {
+          const gevondenMark =
+            String(
+              haalCastUnitMarkUitProperties(
+                objectProperties
+              ) || ""
+            ).trim();
+
+          if (
+            normaliseerMarkZoektekst(
+              gevondenMark
+            ) !== gezochteMark
+          ) {
+            return;
+          }
+
+          const detail =
+            maakDetailUitCacheSleutel(
+              cacheKey
+            );
+
+          if (!detail) {
+            return;
+          }
+
+          if (
+            voorkeursModelId !== null &&
+            voorkeursModelId !== undefined &&
+            String(detail.modelId) !==
+              String(voorkeursModelId)
+          ) {
+            return;
+          }
+
+          const objectSleutel =
+            maakObjectSleutel(
+              detail.modelId,
+              detail.runtimeId
+            );
+
+          if (gebruikteObjecten.has(objectSleutel)) {
+            return;
+          }
+
+          gebruikteObjecten.add(objectSleutel);
+          resultaten.push({
+            ...detail,
+            objectProperties: objectProperties
+          });
+        }
+      );
+
+      return resultaten;
+    }
+
     async function haalConcreetMerkLabelDoel(merk) {
       if (!merk) {
         return null;
       }
 
-      const mark = String(merk.mark || "").trim();
-      const assembly = merk.assembly || null;
-      const modelId =
-        assembly && assembly.modelId !== undefined
+      const mark =
+        String(merk.mark || "").trim();
+
+      if (!mark) {
+        return null;
+      }
+
+      const assembly =
+        merk.assembly || null;
+
+      const voorkeursModelId =
+        assembly &&
+        assembly.modelId !== null &&
+        assembly.modelId !== undefined
           ? assembly.modelId
           : (
               Array.isArray(merk.details) &&
@@ -4425,94 +4505,167 @@ function bepaalAlgemeneZoekgroep(
             );
 
       /*
-       * Zoek eerst rechtstreeks alle objecten die bij deze Cast Unit Mark
-       * horen. Daardoor krijgt elk label een doelobject van zijn eigen merk
-       * en kan het nooit terugvallen op de gezamenlijke parametergroep.
+       * Belangrijk: gebruik geen algemene getObjects-query als labeldoel.
+       * Sommige viewer-versies geven bij zo'n propertyquery steeds hetzelfde
+       * eerste object terug. Daarom zoeken we uitsluitend in de lokale
+       * propertycache naar objecten waarvan Cast Unit Mark exact overeenkomt.
        */
-      if (modelId !== null && modelId !== undefined && mark) {
-        try {
-          const resultaten =
-            await zoekVolledigeAssemblySelectie(
-              modelId,
-              mark
-            );
+      let exacteDetails =
+        zoekExacteMerkDetailsInCache(
+          mark,
+          voorkeursModelId
+        );
 
-          if (Array.isArray(resultaten)) {
-            for (const modelResultaat of resultaten) {
-              if (!modelResultaat) {
-                continue;
-              }
-
-              const resultaatModelId =
-                modelResultaat.modelId !== undefined
-                  ? modelResultaat.modelId
-                  : modelId;
-
-              const objecten =
-                Array.isArray(modelResultaat.objects)
-                  ? modelResultaat.objects
-                  : [];
-
-              for (const object of objecten) {
-                const runtimeId =
-                  object &&
-                  (
-                    object.id ??
-                    object.runtimeId ??
-                    object.objectRuntimeId
-                  );
-
-                if (
-                  runtimeId === null ||
-                  runtimeId === undefined
-                ) {
-                  continue;
-                }
-
-                const center =
-                  await getDetailBoundingCenter({
-                    modelId: resultaatModelId,
-                    runtimeId: runtimeId
-                  });
-
-                if (center) {
-                  return center;
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.warn(
-            "Concreet labeldoel voor merk zoeken mislukt:",
+      if (
+        exacteDetails.length === 0 &&
+        voorkeursModelId !== null &&
+        voorkeursModelId !== undefined
+      ) {
+        exacteDetails =
+          zoekExacteMerkDetailsInCache(
             mark,
-            error
+            null
           );
-        }
       }
 
       /*
-       * Fallback: gebruik één werkelijk gevonden detail van dit merk.
+       * Tweede bron: details die reeds aan dit merk gekoppeld zijn, maar alleen
+       * wanneer hun eigen properties exact hetzelfde Cast Unit Mark bevatten.
        */
-      const details =
+      const gekoppeldeDetails =
         Array.isArray(merk.details)
-          ? merk.details
+          ? merk.details.filter(
+              function(detail) {
+                const properties =
+                  haalPropertiesVoorDetail(
+                    detail
+                  );
+
+                const detailMark =
+                  String(
+                    haalCastUnitMarkUitProperties(
+                      properties
+                    ) || ""
+                  ).trim();
+
+                return (
+                  detail &&
+                  detail.modelId !== null &&
+                  detail.modelId !== undefined &&
+                  detail.runtimeId !== null &&
+                  detail.runtimeId !== undefined &&
+                  normaliseerMarkZoektekst(
+                    detailMark
+                  ) ===
+                    normaliseerMarkZoektekst(
+                      mark
+                    )
+                );
+              }
+            )
           : [];
 
-      for (const detail of details) {
+      const kandidaten = [];
+      const kandidaatSleutels = new Set();
+
+      exacteDetails
+        .concat(gekoppeldeDetails)
+        .forEach(function(detail) {
+          const sleutel =
+            maakObjectSleutel(
+              detail.modelId,
+              detail.runtimeId
+            );
+
+          if (kandidaatSleutels.has(sleutel)) {
+            return;
+          }
+
+          kandidaatSleutels.add(sleutel);
+          kandidaten.push(detail);
+        });
+
+      /*
+       * Alleen wanneer er nergens properties voor dit merk beschikbaar zijn,
+       * gebruiken we het assembly-object zelf als laatste veilige fallback.
+       */
+      if (
+        kandidaten.length === 0 &&
+        assembly &&
+        assembly.modelId !== null &&
+        assembly.modelId !== undefined &&
+        assembly.runtimeId !== null &&
+        assembly.runtimeId !== undefined
+      ) {
+        kandidaten.push({
+          modelId: assembly.modelId,
+          runtimeId: assembly.runtimeId
+        });
+      }
+
+      if (kandidaten.length === 0) {
+        return null;
+      }
+
+      /*
+       * Bepaal het midden van alleen dit merk en kies vervolgens een werkelijk
+       * object van datzelfde merk dat het dichtst bij dit midden ligt.
+       */
+      const centers = [];
+
+      for (const detail of kandidaten) {
         const center =
-          await getDetailBoundingCenter(detail);
+          await getDetailBoundingCenter(
+            detail
+          );
 
         if (center) {
-          return center;
+          centers.push(center);
         }
       }
 
-      return null;
+      if (centers.length === 0) {
+        return null;
+      }
+
+      const gemiddelde =
+        centers.reduce(
+          function(acc, center) {
+            acc.x += center.x;
+            acc.y += center.y;
+            acc.z += center.z;
+            return acc;
+          },
+          { x: 0, y: 0, z: 0 }
+        );
+
+      gemiddelde.x /= centers.length;
+      gemiddelde.y /= centers.length;
+      gemiddelde.z /= centers.length;
+
+      centers.sort(
+        function(a, b) {
+          const afstandA =
+            Math.pow(a.x - gemiddelde.x, 2) +
+            Math.pow(a.y - gemiddelde.y, 2) +
+            Math.pow(a.z - gemiddelde.z, 2);
+
+          const afstandB =
+            Math.pow(b.x - gemiddelde.x, 2) +
+            Math.pow(b.y - gemiddelde.y, 2) +
+            Math.pow(b.z - gemiddelde.z, 2);
+
+          return afstandA - afstandB;
+        }
+      );
+
+      return centers[0];
     }
 
     async function showMerkLabelsForGroup(
       groep,
-      status
+      status,
+      labelsEerstWissen = true
     ) {
       if (
         !API.markup ||
@@ -4524,7 +4677,9 @@ function bepaalAlgemeneZoekgroep(
         return;
       }
 
-      await removeGroupLabels();
+      if (labelsEerstWissen) {
+        await removeGroupLabels();
+      }
 
       /*
        * Gebruik eerst de reeds correct gekoppelde merken van de groep.
@@ -4824,7 +4979,7 @@ function bepaalAlgemeneZoekgroep(
             markups
           );
 
-        createdMarkupIds =
+        const nieuweMarkupIds =
           Array.isArray(result)
             ? result
                 .map(function(item) {
@@ -4837,6 +4992,11 @@ function bepaalAlgemeneZoekgroep(
                   );
                 })
             : [];
+
+        createdMarkupIds =
+          createdMarkupIds.concat(
+            nieuweMarkupIds
+          );
 
         status.textContent =
           geldigeMerken.length +
@@ -10725,7 +10885,8 @@ function bepaalAlgemeneZoekgroep(
                   hex: "#16a34a"
                 },
                 details: [],
-                marks: new Set()
+                marks: new Set(),
+                merkGroepen: []
               }
             ],
             [
@@ -10740,7 +10901,8 @@ function bepaalAlgemeneZoekgroep(
                   hex: "#f59e0b"
                 },
                 details: [],
-                marks: new Set()
+                marks: new Set(),
+                merkGroepen: []
               }
             ],
             [
@@ -10755,7 +10917,8 @@ function bepaalAlgemeneZoekgroep(
                   hex: "#dc2626"
                 },
                 details: [],
-                marks: new Set()
+                marks: new Set(),
+                merkGroepen: []
               }
             ]
           ]);
@@ -10796,6 +10959,22 @@ function bepaalAlgemeneZoekgroep(
             groep.details.push(
               ...assembly.details
             );
+
+            groep.merkGroepen.push({
+              mark: assembly.mark,
+              details: assembly.details.slice(),
+              assembly: {
+                modelId:
+                  assembly.details.length > 0
+                    ? assembly.details[0].modelId
+                    : null,
+                runtimeId:
+                  assembly.details.length > 0
+                    ? assembly.details[0].runtimeId
+                    : null,
+                mark: assembly.mark
+              }
+            });
           }
         );
 
@@ -10824,6 +11003,8 @@ function bepaalAlgemeneZoekgroep(
                     ]),
                   assemblyMarks:
                     Array.from(groep.marks),
+                  _merkGroepen:
+                    groep.merkGroepen,
                   isSystemRemainder: false,
                   isHidden: false
                 };
@@ -10911,10 +11092,25 @@ function bepaalAlgemeneZoekgroep(
 
         await removeGroupLabels();
 
-        await showGroupLabelsOutside(
-          componentGroepen,
-          quickWeightStatus
-        );
+        /*
+         * Gebruik ook bij gewicht exact dezelfde centrale merklabelmethode.
+         * Elk Cast Unit Mark krijgt één label en één leaderlijn naar een
+         * object dat aantoonbaar datzelfde Cast Unit Mark bevat.
+         */
+        const gewichtLabelGroepen =
+          componentGroepen.filter(
+            function(groep) {
+              return !isGeenOvereenkomstGroep(groep);
+            }
+          );
+
+        for (const groep of gewichtLabelGroepen) {
+          await showMerkLabelsForGroup(
+            groep,
+            quickWeightStatus,
+            false
+          );
+        }
 
         quickWeightResetButton.disabled =
           false;
