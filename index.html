@@ -930,7 +930,7 @@
           <span class="tool-card-description">
             Groepeer en kleur automatisch op Tekla Assembly → Cast unit Mark.
             Tekla Assembly → Assembly/Cast unit weight bepaalt de gewichtsklasse:
-            1–5 ton groen, 5–10 ton geel en boven 10 ton rood.
+            < 5 ton groen, 5–10 ton geel en ≥ 10 ton rood.
           </span>
 
           <button
@@ -4403,7 +4403,17 @@ function bepaalAlgemeneZoekgroep(
         }
       );
 
-      const spacing =
+      /*
+       * Houd altijd voldoende verticale ruimte tussen de teksten.
+       * Wanneer er veel merken zijn, groeit de labelkolom automatisch.
+       */
+      const minimumLabelSpacing =
+        Math.max(
+          height * 0.025,
+          0.55
+        );
+
+      const natuurlijkeSpacing =
         geldigeMerken.length > 1
           ? (
               topY - bottomY
@@ -4413,6 +4423,25 @@ function bepaalAlgemeneZoekgroep(
               1
             )
           : 0;
+
+      const spacing =
+        Math.max(
+          natuurlijkeSpacing,
+          minimumLabelSpacing
+        );
+
+      const labelKolomMidden =
+        (
+          topY + bottomY
+        ) / 2;
+
+      const effectieveTopY =
+        labelKolomMidden +
+        spacing *
+        Math.max(
+          geldigeMerken.length - 1,
+          0
+        ) / 2;
 
       const color =
         groep.color || {
@@ -4437,7 +4466,7 @@ function bepaalAlgemeneZoekgroep(
 
         const labelY =
           geldigeMerken.length > 1
-            ? topY -
+            ? effectieveTopY -
               merkIndex * spacing
             : (
                 overallBox.min.y +
@@ -4452,11 +4481,11 @@ function bepaalAlgemeneZoekgroep(
 
         /*
          * Exact één label en één leaderlijn per Cast Unit Mark.
-         * Alle gekleurde elementen van hetzelfde merk worden samengenomen
-         * in één bounding box. De lijn wijst naar het middelpunt van die
-         * volledige merkgeometrie.
+         * De lijn wordt aan een werkelijk object van dit merk gekoppeld.
+         * We kiezen het object waarvan het middelpunt het dichtst bij het
+         * middelpunt van de volledige merkgeometrie ligt.
          */
-        const target = {
+        const merkCenter = {
           x:
             (
               geometry.box.min.x +
@@ -4471,12 +4500,45 @@ function bepaalAlgemeneZoekgroep(
             (
               geometry.box.min.z +
               geometry.box.max.z
-            ) / 2,
-          modelId:
-            geometry.modelId,
-          objectId:
-            geometry.objectId
+            ) / 2
         };
+
+        let target = null;
+        let kleinsteAfstand = Infinity;
+
+        for (const detail of merk.details) {
+          const detailCenter =
+            await getDetailBoundingCenter(
+              detail
+            );
+
+          if (!detailCenter) {
+            continue;
+          }
+
+          const afstand =
+            Math.pow(
+              detailCenter.x - merkCenter.x,
+              2
+            ) +
+            Math.pow(
+              detailCenter.y - merkCenter.y,
+              2
+            ) +
+            Math.pow(
+              detailCenter.z - merkCenter.z,
+              2
+            );
+
+          if (afstand < kleinsteAfstand) {
+            kleinsteAfstand = afstand;
+            target = detailCenter;
+          }
+        }
+
+        if (!target) {
+          continue;
+        }
 
         markups.push({
           text:
@@ -4507,9 +4569,9 @@ function bepaalAlgemeneZoekgroep(
             positionZ:
               labelZ * 1000,
             modelId:
-              geometry.modelId,
+              target.modelId,
             objectId:
-              geometry.objectId
+              target.objectId
           }
         });
       }
@@ -10000,15 +10062,16 @@ function bepaalAlgemeneZoekgroep(
     ) {
       if (
         gewichtKg === null ||
-        gewichtKg < 1000
+        !Number.isFinite(gewichtKg) ||
+        gewichtKg <= 0
       ) {
         return null;
       }
 
-      if (gewichtKg > 10000) {
+      if (gewichtKg >= 10000) {
         return {
-          sleutel: "boven10",
-          naam: "Boven 10 ton",
+          sleutel: "vanaf10",
+          naam: "≥ 10 ton",
           kleur: {
             r: 220,
             g: 38,
@@ -10019,7 +10082,7 @@ function bepaalAlgemeneZoekgroep(
         };
       }
 
-      if (gewichtKg > 5000) {
+      if (gewichtKg >= 5000) {
         return {
           sleutel: "5tot10",
           naam: "5–10 ton",
@@ -10034,8 +10097,8 @@ function bepaalAlgemeneZoekgroep(
       }
 
       return {
-        sleutel: "1tot5",
-        naam: "1–5 ton",
+        sleutel: "onder5",
+        naam: "< 5 ton",
         kleur: {
           r: 22,
           g: 163,
@@ -10295,9 +10358,9 @@ function bepaalAlgemeneZoekgroep(
         const gewichtsgroepen =
           new Map([
             [
-              "1tot5",
+              "onder5",
               {
-                naam: "1–5 ton",
+                naam: "< 5 ton",
                 kleur: {
                   r: 22,
                   g: 163,
@@ -10325,9 +10388,9 @@ function bepaalAlgemeneZoekgroep(
               }
             ],
             [
-              "boven10",
+              "vanaf10",
               {
-                naam: "Boven 10 ton",
+                naam: "≥ 10 ton",
                 kleur: {
                   r: 220,
                   g: 38,
