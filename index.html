@@ -2388,9 +2388,12 @@ const profileOptionsElement =
         return null;
       }
 
-      return nummer > 0 && nummer < 100
-        ? nummer * 1000
-        : nummer;
+      /*
+       * In onze IFC's staat de ruwe waarde in kilogram.
+       * Converteer daarom altijd naar ton-equivalent voor de
+       * gewichtsindeling door door 1000 te delen.
+       */
+      return nummer / 1000;
     }
 
     function parseerGewichtNaarTon(waarde) {
