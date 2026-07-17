@@ -4478,6 +4478,7 @@ function bepaalAlgemeneZoekgroep(
     }
 
     const merkLabelGeometryCache = new Map();
+    const merkLabelReeksStatus = new WeakMap();
     const merkLabelObjectGeometryCache = new Map();
     const MERK_LABEL_BOX_BATCH_SIZE = 500;
     const MERK_LABEL_MAX_OBJECTEN = 160;
@@ -4773,6 +4774,73 @@ function bepaalAlgemeneZoekgroep(
       return resultaat;
     }
 
+    function voorkomOverlapVoorLabels(
+      items,
+      minimumAfstandZ
+    ) {
+      const gesorteerd = items
+        .slice()
+        .sort(function(a, b) {
+          if (b.merk.target.z !== a.merk.target.z) {
+            return b.merk.target.z - a.merk.target.z;
+          }
+          return a.merk.target.x - b.merk.target.x;
+        });
+
+      let vorigeZ = null;
+
+      return gesorteerd.map(function(item) {
+        let labelZ = item.merk.target.z;
+
+        if (
+          vorigeZ !== null &&
+          vorigeZ - labelZ < minimumAfstandZ
+        ) {
+          labelZ = vorigeZ - minimumAfstandZ;
+        }
+
+        vorigeZ = labelZ;
+
+        return {
+          ...item,
+          labelX: item.merk.target.x,
+          labelY: item.labelY,
+          labelZ: labelZ
+        };
+      });
+    }
+
+    function verkrijgMerkGroepenVoorGroep(groep) {
+      return Array.isArray(groep && groep._merkGroepen)
+        ? groep._merkGroepen
+        : groepeerDetailsPerCastUnitMark(
+            groep && Array.isArray(groep.elementen)
+              ? groep.elementen
+              : []
+          );
+    }
+
+    function maakMerkReeksGroep(groep, merken) {
+      const elementen = [];
+      const gezien = new Set();
+
+      (Array.isArray(merken) ? merken : []).forEach(function(merk) {
+        (Array.isArray(merk.details) ? merk.details : []).forEach(function(detail) {
+          const sleutel = maakObjectSleutel(detail.modelId, detail.runtimeId);
+          if (!gezien.has(sleutel)) {
+            gezien.add(sleutel);
+            elementen.push(detail);
+          }
+        });
+      });
+
+      return {
+        ...groep,
+        elementen: elementen,
+        _merkGroepen: merken
+      };
+    }
+
     async function showMerkLabelsForGroups(
       groepen,
       status,
@@ -4961,6 +5029,10 @@ function bepaalAlgemeneZoekgroep(
         overallBox.min.x -
         outsideMargin;
 
+      const frontLabelY =
+        overallBox.min.y -
+        outsideMargin;
+
       const rightLabelX =
         overallBox.max.x +
         outsideMargin;
@@ -4969,15 +5041,18 @@ function bepaalAlgemeneZoekgroep(
       const rechts = [];
 
       geldigeMerken.forEach(function(merk) {
+        const isVoor = merk.target.x < modelCenterX;
         const item = {
           merk: merk,
-          labelX:
-            merk.target.x < modelCenterX
-              ? leftLabelX
-              : rightLabelX
+          labelX: isVoor
+            ? merk.target.x
+            : rightLabelX,
+          labelY: isVoor
+            ? frontLabelY
+            : merk.target.y
         };
 
-        if (merk.target.x < modelCenterX) {
+        if (isVoor) {
           links.push(item);
         } else {
           rechts.push(item);
@@ -5006,10 +5081,12 @@ function bepaalAlgemeneZoekgroep(
           const isLinks = index % 2 === 0;
           (isLinks ? links : rechts).push({
             merk: merk,
-            labelX:
-              isLinks
-                ? leftLabelX
-                : rightLabelX
+            labelX: isLinks
+              ? merk.target.x
+              : rightLabelX,
+            labelY: isLinks
+              ? frontLabelY
+              : merk.target.y
           });
         });
       }
@@ -5031,10 +5108,9 @@ function bepaalAlgemeneZoekgroep(
       );
 
       const layout =
-        voorkomLabelOverlapMetRechteLijnen(
+        voorkomOverlapVoorLabels(
           links,
-          minimumAfstandY,
-          hoogteTolerantie
+          Math.max(depth * 0.018, 0.35)
         ).concat(
           voorkomLabelOverlapMetRechteLijnen(
             rechts,
@@ -5454,26 +5530,243 @@ function bepaalAlgemeneZoekgroep(
             }
           );
 
+          const alleMerkGroepenVoorReeksen =
+            verkrijgMerkGroepenVoorGroep(groep);
+
+          let reeksStatus =
+            merkLabelReeksStatus.get(groep);
+
+          if (!reeksStatus) {
+            reeksStatus = {
+              grootte: 20,
+              index: 0
+            };
+            merkLabelReeksStatus.set(
+              groep,
+              reeksStatus
+            );
+          }
+
+          const reeksBediening =
+            document.createElement("div");
+          reeksBediening.className =
+            "organizer-status";
+          reeksBediening.style.marginTop = "8px";
+          reeksBediening.style.display = "grid";
+          reeksBediening.style.gap = "6px";
+
+          const reeksBovenrij =
+            document.createElement("div");
+          reeksBovenrij.style.display = "flex";
+          reeksBovenrij.style.alignItems = "center";
+          reeksBovenrij.style.gap = "6px";
+          reeksBovenrij.style.flexWrap = "wrap";
+
+          const reeksLabel =
+            document.createElement("span");
+          reeksLabel.textContent =
+            "Merken per reeks:";
+
+          const reeksGrootteSelect =
+            document.createElement("select");
+          [10, 20, 30, "alle"].forEach(
+            function(waarde) {
+              const optie =
+                document.createElement("option");
+              optie.value = String(waarde);
+              optie.textContent =
+                waarde === "alle"
+                  ? "Alle"
+                  : String(waarde);
+              reeksGrootteSelect.appendChild(
+                optie
+              );
+            }
+          );
+          reeksGrootteSelect.value =
+            reeksStatus.grootte === Infinity
+              ? "alle"
+              : String(reeksStatus.grootte);
+
+          const vorigeReeksKnop =
+            document.createElement("button");
+          vorigeReeksKnop.type = "button";
+          vorigeReeksKnop.textContent = "◀";
+
+          const reeksInfo =
+            document.createElement("strong");
+
+          const volgendeReeksKnop =
+            document.createElement("button");
+          volgendeReeksKnop.type = "button";
+          volgendeReeksKnop.textContent = "▶";
+
+          reeksBovenrij.appendChild(reeksLabel);
+          reeksBovenrij.appendChild(
+            reeksGrootteSelect
+          );
+          reeksBovenrij.appendChild(
+            vorigeReeksKnop
+          );
+          reeksBovenrij.appendChild(reeksInfo);
+          reeksBovenrij.appendChild(
+            volgendeReeksKnop
+          );
+
           const merkLabelsKnop =
             document.createElement("button");
           merkLabelsKnop.type = "button";
           merkLabelsKnop.textContent =
-            "Toon merklabels";
+            "Toon labels van deze reeks";
+
+          function verkrijgActieveReeks() {
+            const grootte = reeksStatus.grootte;
+            const totaal =
+              alleMerkGroepenVoorReeksen.length;
+            const paginaAantal =
+              grootte === Infinity
+                ? 1
+                : Math.max(
+                    1,
+                    Math.ceil(totaal / grootte)
+                  );
+
+            reeksStatus.index = Math.min(
+              Math.max(reeksStatus.index, 0),
+              paginaAantal - 1
+            );
+
+            const start =
+              grootte === Infinity
+                ? 0
+                : reeksStatus.index * grootte;
+            const einde =
+              grootte === Infinity
+                ? totaal
+                : Math.min(start + grootte, totaal);
+
+            return {
+              merken:
+                alleMerkGroepenVoorReeksen.slice(
+                  start,
+                  einde
+                ),
+              start: start,
+              einde: einde,
+              totaal: totaal,
+              paginaAantal: paginaAantal
+            };
+          }
+
+          function updateReeksBediening() {
+            const actief =
+              verkrijgActieveReeks();
+
+            reeksInfo.textContent =
+              "Reeks " +
+              (reeksStatus.index + 1) +
+              " / " +
+              actief.paginaAantal +
+              " — " +
+              (actief.totaal === 0
+                ? "0"
+                : actief.start + 1 +
+                  "–" +
+                  actief.einde) +
+              " van " +
+              actief.totaal;
+
+            vorigeReeksKnop.disabled =
+              reeksStatus.index <= 0;
+            volgendeReeksKnop.disabled =
+              reeksStatus.index >=
+              actief.paginaAantal - 1;
+            merkLabelsKnop.disabled =
+              actief.merken.length === 0;
+          }
+
+          reeksGrootteSelect.addEventListener(
+            "change",
+            function(event) {
+              event.stopPropagation();
+              reeksStatus.grootte =
+                reeksGrootteSelect.value === "alle"
+                  ? Infinity
+                  : Number(
+                      reeksGrootteSelect.value
+                    );
+              reeksStatus.index = 0;
+              updateReeksBediening();
+            }
+          );
+
+          vorigeReeksKnop.addEventListener(
+            "click",
+            function(event) {
+              event.stopPropagation();
+              reeksStatus.index--;
+              updateReeksBediening();
+            }
+          );
+
+          volgendeReeksKnop.addEventListener(
+            "click",
+            function(event) {
+              event.stopPropagation();
+              reeksStatus.index++;
+              updateReeksBediening();
+            }
+          );
+
           merkLabelsKnop.addEventListener(
             "click",
             async function(event) {
               event.stopPropagation();
               merkLabelsKnop.disabled = true;
               try {
+                const actief =
+                  verkrijgActieveReeks();
+                const reeksGroep =
+                  maakMerkReeksGroep(
+                    groep,
+                    actief.merken
+                  );
+
+                if (reeksGroep.elementen.length > 0) {
+                  const selector =
+                    maakSelectorVoorDetails(
+                      reeksGroep.elementen
+                    );
+                  await API.viewer.setSelection(
+                    selector,
+                    "set"
+                  );
+                }
+
                 await showMerkLabelsForGroup(
-                  groep,
+                  reeksGroep,
                   status
                 );
+
+                status.textContent +=
+                  " Reeks " +
+                  (reeksStatus.index + 1) +
+                  " van " +
+                  actief.paginaAantal +
+                  " is geselecteerd en gelabeld.";
               } finally {
-                merkLabelsKnop.disabled = false;
+                updateReeksBediening();
               }
             }
           );
+
+          reeksBediening.appendChild(
+            reeksBovenrij
+          );
+          reeksBediening.appendChild(
+            merkLabelsKnop
+          );
+          updateReeksBediening();
 
           if (!isGeenOvereenkomstGroep(groep)) {
             actieGrid.appendChild(
@@ -5488,10 +5781,10 @@ function bepaalAlgemeneZoekgroep(
             actieGrid.appendChild(
               isolerenKnop
             );
-            actieGrid.appendChild(
-              merkLabelsKnop
-            );
             inhoud.appendChild(actieGrid);
+            inhoud.appendChild(
+              reeksBediening
+            );
           } else {
             const systeemInfo =
               document.createElement("div");
