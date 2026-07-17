@@ -2122,7 +2122,8 @@ const profileOptionsElement =
         String(raw)
           .trim()
           .toLocaleLowerCase("nl-BE")
-          .replace(/−/g, "-");
+          .replace(/−/g, "-")
+          .replace(/\u00a0/g, " ");
 
       if (!tekst) {
         return null;
@@ -2131,63 +2132,112 @@ const profileOptionsElement =
       const compact =
         tekst.replace(/\s+/g, "");
 
-      const tonMatch =
-        compact.match(
-          /^([-+]?\d+(?:[.,]\d+)?)?(?:t|ton|tonne|tonnes)$/
+      const isTon =
+        /(?:t|ton|tonne|tonnes)$/.test(
+          compact
         );
 
-      if (tonMatch && tonMatch[1]) {
-        const ton =
-          Number(
-            tonMatch[1].replace(",", ".")
-          );
+      const isKg =
+        /(?:kg|kilogram|kilograms)$/.test(
+          compact
+        );
 
-        return Number.isFinite(ton)
-          ? ton
+      let nummerTekst =
+        compact.replace(
+          /(?:kilograms|kilogram|tonnes|tonne|ton|kg|t)$/,
+          ""
+        );
+
+      if (
+        !/^[-+]?\d[\d.,]*$/.test(
+          nummerTekst
+        )
+      ) {
+        return null;
+      }
+
+      function parseDecimaalGetal(
+        bron,
+        puntIsDuizendtal
+      ) {
+        let getal = String(bron);
+        const heeftPunt =
+          getal.includes(".");
+        const heeftKomma =
+          getal.includes(",");
+
+        if (heeftPunt && heeftKomma) {
+          const laatstePunt =
+            getal.lastIndexOf(".");
+          const laatsteKomma =
+            getal.lastIndexOf(",");
+          const decimaalTeken =
+            laatstePunt > laatsteKomma
+              ? "."
+              : ",";
+          const duizendTeken =
+            decimaalTeken === "."
+              ? ","
+              : ".";
+
+          getal =
+            getal
+              .split(duizendTeken)
+              .join("");
+
+          if (decimaalTeken === ",") {
+            getal = getal.replace(",", ".");
+          }
+        } else if (heeftKomma) {
+          getal = getal.replace(",", ".");
+        } else if (
+          heeftPunt &&
+          puntIsDuizendtal &&
+          /^[-+]?\d{1,3}(?:\.\d{3})+$/.test(
+            getal
+          )
+        ) {
+          getal = getal.replace(/\./g, "");
+        }
+
+        const nummer = Number(getal);
+
+        return Number.isFinite(nummer)
+          ? nummer
           : null;
       }
 
-      const kgMatch =
-        compact.match(
-          /^([-+]?\d+(?:[.,]\d+)?)?(?:kg|kilogram|kilograms)$/
-        );
+      if (isKg) {
+        const kilogram =
+          parseDecimaalGetal(
+            nummerTekst,
+            true
+          );
 
-      if (kgMatch && kgMatch[1]) {
-        let nummerTekst =
-          kgMatch[1];
-
-        if (
-          /^\d{1,3}(?:\.\d{3})+$/.test(
-            nummerTekst
-          )
-        ) {
-          nummerTekst =
-            nummerTekst.replace(/\./g, "");
-        } else {
-          nummerTekst =
-            nummerTekst.replace(",", ".");
-        }
-
-        const kg = Number(nummerTekst);
-
-        return Number.isFinite(kg)
-          ? kg / 1000
+        return kilogram !== null
+          ? kilogram / 1000
           : null;
+      }
+
+      if (isTon) {
+        /*
+         * Bij ton is 4.999 = 4,999 ton en 5.000 = 5 ton.
+         * De punt is hier dus een decimaalteken, geen duizendtalseparator.
+         */
+        return parseDecimaalGetal(
+          nummerTekst,
+          false
+        );
       }
 
       /*
-       * Assembly/Cast unit weight wordt in deze IFC als ton weergegeven.
-       * Wanneer de API alleen het getal zonder eenheid teruggeeft,
-       * behandelen we dit daarom expliciet als ton.
+       * De Tekla-property Assembly/Cast unit weight wordt normaal in ton
+       * aangeleverd. Ontbreekt de eenheid, dan behouden we die conventie.
        */
-      const nummer =
-        Number(
-          compact.replace(",", ".")
-        );
-
-      return Number.isFinite(nummer)
-        ? nummer
-        : null;
+      return parseDecimaalGetal(
+        nummerTekst,
+        false
+      );
     }
 
     function formatteerGewicht(waarde) {
@@ -2754,6 +2804,32 @@ function bepaalAlgemeneZoekgroep(
       );
     }
 
+    function isOntbrekendeParameterGroep(groep) {
+      const waarde =
+        normaliseerAlgemeneZoektekst(
+          groep && groep.value
+        );
+
+      const heeftMissingType =
+        Boolean(
+          groep &&
+          groep.matchTypes &&
+          typeof groep.matchTypes.has ===
+            "function" &&
+          groep.matchTypes.has(
+            "missing"
+          )
+        );
+
+      return (
+        heeftMissingType ||
+        waarde ===
+          normaliseerAlgemeneZoektekst(
+            "Niet ingevuld / parameter ontbreekt"
+          )
+      );
+    }
+
     function bepaalGroepKleur(
       groep,
       index
@@ -2779,7 +2855,8 @@ function bepaalAlgemeneZoekgroep(
       statusElement
     ) {
       if (
-        isGeenOvereenkomstGroep(groep)
+        isGeenOvereenkomstGroep(groep) &&
+        !isOntbrekendeParameterGroep(groep)
       ) {
         statusElement.textContent =
           "Deze systeemgroep blijft altijd grijs en transparant zichtbaar.";
@@ -4407,444 +4484,112 @@ function bepaalAlgemeneZoekgroep(
       return kandidaten[0];
     }
 
-    function zoekExacteMerkDetailsInCache(
-      mark,
-      voorkeursModelId = null
-    ) {
-      const gezochteMark =
-        normaliseerMarkZoektekst(mark);
-
-      if (!gezochteMark) {
-        return [];
+    async function haalConcreetMerkLabelDoel(merk) {
+      if (!merk) {
+        return null;
       }
 
-      const resultaten = [];
-      const gebruikteObjecten = new Set();
-
-      objectPropertiesCache.forEach(
-        function(objectProperties, cacheKey) {
-          const gevondenMark =
-            String(
-              haalCastUnitMarkUitProperties(
-                objectProperties
-              ) || ""
-            ).trim();
-
-          if (
-            normaliseerMarkZoektekst(
-              gevondenMark
-            ) !== gezochteMark
-          ) {
-            return;
-          }
-
-          const detail =
-            maakDetailUitCacheSleutel(
-              cacheKey
+      const mark = String(merk.mark || "").trim();
+      const assembly = merk.assembly || null;
+      const modelId =
+        assembly && assembly.modelId !== undefined
+          ? assembly.modelId
+          : (
+              Array.isArray(merk.details) &&
+              merk.details.length > 0
+                ? merk.details[0].modelId
+                : null
             );
 
-          if (!detail) {
-            return;
-          }
-
-          if (
-            voorkeursModelId !== null &&
-            voorkeursModelId !== undefined &&
-            String(detail.modelId) !==
-              String(voorkeursModelId)
-          ) {
-            return;
-          }
-
-          const objectSleutel =
-            maakObjectSleutel(
-              detail.modelId,
-              detail.runtimeId
+      /*
+       * Zoek eerst rechtstreeks alle objecten die bij deze Cast Unit Mark
+       * horen. Daardoor krijgt elk label een doelobject van zijn eigen merk
+       * en kan het nooit terugvallen op de gezamenlijke parametergroep.
+       */
+      if (modelId !== null && modelId !== undefined && mark) {
+        try {
+          const resultaten =
+            await zoekVolledigeAssemblySelectie(
+              modelId,
+              mark
             );
 
-          if (gebruikteObjecten.has(objectSleutel)) {
-            return;
-          }
+          if (Array.isArray(resultaten)) {
+            for (const modelResultaat of resultaten) {
+              if (!modelResultaat) {
+                continue;
+              }
 
-          gebruikteObjecten.add(objectSleutel);
-          resultaten.push({
-            ...detail,
-            objectProperties: objectProperties
-          });
+              const resultaatModelId =
+                modelResultaat.modelId !== undefined
+                  ? modelResultaat.modelId
+                  : modelId;
+
+              const objecten =
+                Array.isArray(modelResultaat.objects)
+                  ? modelResultaat.objects
+                  : [];
+
+              for (const object of objecten) {
+                const runtimeId =
+                  object &&
+                  (
+                    object.id ??
+                    object.runtimeId ??
+                    object.objectRuntimeId
+                  );
+
+                if (
+                  runtimeId === null ||
+                  runtimeId === undefined
+                ) {
+                  continue;
+                }
+
+                const center =
+                  await getDetailBoundingCenter({
+                    modelId: resultaatModelId,
+                    runtimeId: runtimeId
+                  });
+
+                if (center) {
+                  return center;
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.warn(
+            "Concreet labeldoel voor merk zoeken mislukt:",
+            mark,
+            error
+          );
         }
-      );
+      }
 
-      return resultaten;
-    }
-
-    const merkLabelGeometryCache = new Map();
-    const merkLabelReeksStatus = new WeakMap();
-    const merkLabelObjectGeometryCache = new Map();
-    const MERK_LABEL_BOX_BATCH_SIZE = 500;
-    const MERK_LABEL_MAX_OBJECTEN = 160;
-
-    function maakMerkLabelCacheSleutel(merk) {
+      /*
+       * Fallback: gebruik één werkelijk gevonden detail van dit merk.
+       */
       const details =
-        Array.isArray(merk && merk.details)
+        Array.isArray(merk.details)
           ? merk.details
           : [];
 
-      return (
-        normaliseerMarkZoektekst(
-          merk && merk.mark
-        ) +
-        "|" +
-        details
-          .map(function(detail) {
-            return maakObjectSleutel(
-              detail.modelId,
-              detail.runtimeId
-            );
-          })
-          .sort()
-          .join(",")
-      );
+      for (const detail of details) {
+        const center =
+          await getDetailBoundingCenter(detail);
+
+        if (center) {
+          return center;
+        }
+      }
+
+      return null;
     }
 
-    function beperkMerkLabelDetails(details) {
-      const geldig =
-        (Array.isArray(details) ? details : [])
-          .filter(function(detail) {
-            return (
-              detail &&
-              detail.modelId !== null &&
-              detail.modelId !== undefined &&
-              detail.runtimeId !== null &&
-              detail.runtimeId !== undefined
-            );
-          });
-
-      if (geldig.length <= MERK_LABEL_MAX_OBJECTEN) {
-        return geldig;
-      }
-
-      const stap = Math.ceil(
-        geldig.length / MERK_LABEL_MAX_OBJECTEN
-      );
-
-      return geldig.filter(function(_, index) {
-        return index % stap === 0;
-      });
-    }
-
-    function normaliseerBoundingBoxItem(
-      item,
-      modelId,
-      fallbackRuntimeId
-    ) {
-      const box = item && item.boundingBox;
-
-      if (!box || !box.min || !box.max) {
-        return null;
-      }
-
-      const runtimeId =
-        item.objectRuntimeId ??
-        item.runtimeId ??
-        item.id ??
-        fallbackRuntimeId;
-
-      return {
-        x: (box.min.x + box.max.x) / 2,
-        y: (box.min.y + box.max.y) / 2,
-        z: (box.min.z + box.max.z) / 2,
-        modelId: modelId,
-        objectId: runtimeId,
-        box: box
-      };
-    }
-
-    function kiesSnelMerkLabelDoelDetail(merk) {
-      const assembly = merk && merk.assembly;
-
-      if (
-        assembly &&
-        assembly.modelId !== null &&
-        assembly.modelId !== undefined &&
-        assembly.runtimeId !== null &&
-        assembly.runtimeId !== undefined
-      ) {
-        return {
-          modelId: assembly.modelId,
-          runtimeId: assembly.runtimeId
-        };
-      }
-
-      const details =
-        Array.isArray(merk && merk.details)
-          ? merk.details.filter(function(detail) {
-              return (
-                detail &&
-                detail.modelId !== null &&
-                detail.modelId !== undefined &&
-                detail.runtimeId !== null &&
-                detail.runtimeId !== undefined
-              );
-            })
-          : [];
-
-      if (details.length === 0) {
-        return null;
-      }
-
-      /*
-       * Neem een object uit het midden van de merklijst. Dit voorkomt dat
-       * systematisch altijd het eerste object aan een uiterste zijde wordt
-       * gekozen, zonder bijkomende viewer-opvragingen te veroorzaken.
-       */
-      return details[Math.floor(details.length / 2)];
-    }
-
-    async function berekenMerkLabelGeometrySnel(merk) {
-      const cacheSleutel = maakMerkLabelCacheSleutel(merk);
-
-      if (merkLabelGeometryCache.has(cacheSleutel)) {
-        return merkLabelGeometryCache.get(cacheSleutel);
-      }
-
-      const doelDetail = kiesSnelMerkLabelDoelDetail(merk);
-
-      if (!doelDetail) {
-        return null;
-      }
-
-      /*
-       * Twee betrouwbare aanvragen per merk, gelijktijdig uitgevoerd:
-       * 1. de groepsbbox van uitsluitend dit Cast Unit Mark;
-       * 2. de bbox van één werkelijk object van datzelfde merk.
-       *
-       * We bundelen dus nooit objecten van verschillende merken in één
-       * bbox-aanvraag. Daarmee blijft elk label op zijn eigen positie en
-       * niveau staan, terwijl de verwerking toch snel blijft.
-       */
-      const resultaten = await Promise.all([
-        getGroupBoundingBox({
-          elementen: merk.details
-        }),
-        getDetailBoundingCenter(doelDetail)
-      ]);
-
-      const geometry = resultaten[0];
-      const target = resultaten[1];
-
-      if (!target) {
-        return null;
-      }
-
-      const resultaat = {
-        box:
-          geometry && geometry.box
-            ? geometry.box
-            : target.box,
-        target: target
-      };
-
-      if (!resultaat.box) {
-        return null;
-      }
-
-      merkLabelGeometryCache.set(cacheSleutel, resultaat);
-      return resultaat;
-    }
-
-    async function laadMerkLabelGeometrieParallel(
-      merken,
+    async function showMerkLabelsForGroup(
+      groep,
       status
-    ) {
-      const resultaten = new Array(merken.length);
-      let volgendeIndex = 0;
-      let klaar = 0;
-      const gelijktijdig = Math.min(4, merken.length);
-
-      async function worker() {
-        while (true) {
-          const index = volgendeIndex++;
-
-          if (index >= merken.length) {
-            return;
-          }
-
-          const merk = merken[index];
-          const cacheSleutel = maakMerkLabelCacheSleutel(merk);
-          const uitCache = merkLabelGeometryCache.has(cacheSleutel);
-
-          try {
-            resultaten[index] =
-              await berekenMerkLabelGeometrySnel(merk);
-          } catch (error) {
-            console.warn(
-              "Labelgeometrie voor merk " + merk.mark + " mislukt:",
-              error
-            );
-            resultaten[index] = null;
-          }
-
-          klaar++;
-          status.textContent =
-            "Merklabels voorbereiden: " +
-            klaar +
-            " van " +
-            merken.length +
-            (uitCache ? " uit cache" : " berekend") +
-            "...";
-
-          await geefBrowserAdemruimte();
-        }
-      }
-
-      await Promise.all(
-        Array.from({ length: gelijktijdig }, function() {
-          return worker();
-        })
-      );
-
-      return resultaten;
-    }
-
-    function voorkomLabelOverlapMetRechteLijnen(
-      items,
-      minimumAfstandY,
-      hoogteTolerantie
-    ) {
-      const niveaus = [];
-
-      items
-        .slice()
-        .sort(function(a, b) {
-          if (b.merk.target.z !== a.merk.target.z) {
-            return b.merk.target.z - a.merk.target.z;
-          }
-
-          return b.merk.target.y - a.merk.target.y;
-        })
-        .forEach(function(item) {
-          let niveau = niveaus.find(function(groep) {
-            return Math.abs(
-              groep.z - item.merk.target.z
-            ) <= hoogteTolerantie;
-          });
-
-          if (!niveau) {
-            niveau = {
-              z: item.merk.target.z,
-              items: []
-            };
-            niveaus.push(niveau);
-          }
-
-          niveau.items.push(item);
-        });
-
-      const resultaat = [];
-
-      niveaus.forEach(function(niveau) {
-        const gesorteerd = niveau.items.sort(
-          function(a, b) {
-            return b.merk.target.y - a.merk.target.y;
-          }
-        );
-
-        let vorigeY = null;
-
-        gesorteerd.forEach(function(item) {
-          let labelY = item.merk.target.y;
-
-          if (
-            vorigeY !== null &&
-            vorigeY - labelY < minimumAfstandY
-          ) {
-            labelY = vorigeY - minimumAfstandY;
-          }
-
-          vorigeY = labelY;
-
-          resultaat.push({
-            ...item,
-            labelY: labelY,
-            labelZ: item.merk.target.z
-          });
-        });
-      });
-
-      return resultaat;
-    }
-
-    function voorkomOverlapVoorLabels(
-      items,
-      minimumAfstandZ
-    ) {
-      const gesorteerd = items
-        .slice()
-        .sort(function(a, b) {
-          if (b.merk.target.z !== a.merk.target.z) {
-            return b.merk.target.z - a.merk.target.z;
-          }
-          return a.merk.target.x - b.merk.target.x;
-        });
-
-      let vorigeZ = null;
-
-      return gesorteerd.map(function(item) {
-        let labelZ = item.merk.target.z;
-
-        if (
-          vorigeZ !== null &&
-          vorigeZ - labelZ < minimumAfstandZ
-        ) {
-          labelZ = vorigeZ - minimumAfstandZ;
-        }
-
-        vorigeZ = labelZ;
-
-        return {
-          ...item,
-          labelX: item.merk.target.x,
-          labelY: item.labelY,
-          labelZ: labelZ
-        };
-      });
-    }
-
-    function verkrijgMerkGroepenVoorGroep(groep) {
-      return Array.isArray(groep && groep._merkGroepen)
-        ? groep._merkGroepen
-        : groepeerDetailsPerCastUnitMark(
-            groep && Array.isArray(groep.elementen)
-              ? groep.elementen
-              : []
-          );
-    }
-
-    function maakMerkReeksGroep(groep, merken) {
-      const elementen = [];
-      const gezien = new Set();
-
-      (Array.isArray(merken) ? merken : []).forEach(function(merk) {
-        (Array.isArray(merk.details) ? merk.details : []).forEach(function(detail) {
-          const sleutel = maakObjectSleutel(detail.modelId, detail.runtimeId);
-          if (!gezien.has(sleutel)) {
-            gezien.add(sleutel);
-            elementen.push(detail);
-          }
-        });
-      });
-
-      return {
-        ...groep,
-        elementen: elementen,
-        _merkGroepen: merken
-      };
-    }
-
-    async function showMerkLabelsForGroups(
-      groepen,
-      status,
-      labelsEerstWissen = true
     ) {
       if (
         !API.markup ||
@@ -4856,125 +4601,93 @@ function bepaalAlgemeneZoekgroep(
         return;
       }
 
-      if (labelsEerstWissen) {
-        await removeGroupLabels();
+      await removeGroupLabels();
+
+      /*
+       * Gebruik eerst de reeds correct gekoppelde merken van de groep.
+       * Deze structuur wordt opgebouwd tijdens de Finishgroepering en
+       * bevat exact de Cast Unit Marks die ook in de resultatenlijst staan.
+       */
+      let merken =
+        Array.isArray(groep._merkGroepen)
+          ? groep._merkGroepen
+              .map(function(merk) {
+                const details =
+                  Array.isArray(merk.details)
+                    ? merk.details.filter(
+                        function(detail) {
+                          return (
+                            detail &&
+                            detail.modelId !== null &&
+                            detail.modelId !== undefined &&
+                            detail.runtimeId !== null &&
+                            detail.runtimeId !== undefined
+                          );
+                        }
+                      )
+                    : [];
+
+                return {
+                  mark:
+                    String(merk.mark || "").trim(),
+                  details: details,
+                  assembly:
+                    merk.assembly || null
+                };
+              })
+              .filter(function(merk) {
+                return (
+                  merk.mark &&
+                  merk.details.length > 0
+                );
+              })
+          : [];
+
+      /*
+       * Fallback voor oudere zoekresultaten die nog geen _merkGroepen
+       * bevatten. De bestaande directe groepering blijft dan bruikbaar.
+       */
+      if (merken.length === 0) {
+        merken =
+          groepeerDetailsPerCastUnitMark(
+            groep.elementen
+          );
       }
 
-      const alleMerken = [];
-      const uniekeMerkObjecten = new Set();
-
-      (Array.isArray(groepen) ? groepen : [])
-        .forEach(function(groep) {
-          const merken =
-            Array.isArray(groep._merkGroepen)
-              ? groep._merkGroepen
-              : groepeerDetailsPerCastUnitMark(
-                  groep.elementen
-                );
-
-          merken.forEach(function(merk) {
-            const mark =
-              String(merk.mark || "").trim();
-
-            const details =
-              Array.isArray(merk.details)
-                ? merk.details.filter(
-                    function(detail) {
-                      return (
-                        detail &&
-                        detail.modelId !== null &&
-                        detail.modelId !== undefined &&
-                        detail.runtimeId !== null &&
-                        detail.runtimeId !== undefined
-                      );
-                    }
-                  )
-                : [];
-
-            if (!mark || details.length === 0) {
-              return;
-            }
-
-            const sleutel =
-              normaliseerMarkZoektekst(mark) +
-              "|" +
-              details
-                .map(function(detail) {
-                  return maakObjectSleutel(
-                    detail.modelId,
-                    detail.runtimeId
-                  );
-                })
-                .sort()
-                .join(",");
-
-            if (uniekeMerkObjecten.has(sleutel)) {
-              return;
-            }
-
-            uniekeMerkObjecten.add(sleutel);
-
-            alleMerken.push({
-              mark: mark,
-              details: details,
-              assembly: merk.assembly || null,
-              color:
-                groep.color || {
-                  r: 0,
-                  g: 120,
-                  b: 140,
-                  a: 255
-                }
-            });
-          });
-        });
-
-      if (alleMerken.length === 0) {
+      if (merken.length === 0) {
         status.textContent =
-          "Er konden geen gekoppelde Cast Unit Marks voor labels worden gevonden.";
+          "Er staan wel elementen in deze groep, maar er konden geen gekoppelde Cast Unit Marks voor labels worden gevonden.";
         return;
       }
 
       status.textContent =
-        alleMerken.length +
+        merken.length +
         " merklabel(s) voorbereiden...";
-
-      /*
-       * Snel én betrouwbaar: ieder merk krijgt zijn eigen geometrie-aanvraag.
-       * Maximaal vier merken worden tegelijk verwerkt en ieder resultaat wordt
-       * gecachet. Daardoor kunnen objecten van verschillende merken nooit meer
-       * dezelfde bbox of hetzelfde leaderlijndoel krijgen.
-       */
-      const geometrieResultaten =
-        await laadMerkLabelGeometrieParallel(
-          alleMerken,
-          status
-        );
 
       let overallBox = null;
       const geldigeMerken = [];
 
-      alleMerken.forEach(function(merk, index) {
-        const labelInfo = geometrieResultaten[index];
+      for (const merk of merken) {
+        const geometry =
+          await getGroupBoundingBox({
+            elementen: merk.details
+          });
 
         if (
-          !labelInfo ||
-          !labelInfo.box ||
-          !labelInfo.target
+          !geometry ||
+          !geometry.box
         ) {
-          return;
+          continue;
         }
 
-        merk.geometry = {
-          box: labelInfo.box
-        };
-        merk.target = labelInfo.target;
+        merk.geometry = geometry;
         geldigeMerken.push(merk);
+
         overallBox = mergeBox(
           overallBox,
-          labelInfo.box
+          geometry.box
         );
-      });
+      }
 
       if (
         geldigeMerken.length === 0 ||
@@ -4984,9 +4697,6 @@ function bepaalAlgemeneZoekgroep(
           "De Cast Unit Marks zijn gevonden, maar de labelposities konden niet worden bepaald.";
         return;
       }
-
-      status.textContent =
-        "Labels uitlijnen op de werkelijke objecthoogtes...";
 
       const width = Math.max(
         Math.abs(
@@ -5012,156 +4722,186 @@ function bepaalAlgemeneZoekgroep(
         1
       );
 
-      const modelCenterX =
-        (
-          overallBox.min.x +
-          overallBox.max.x
-        ) / 2;
+      const labelX =
+        overallBox.max.x +
+        Math.max(
+          width * 0.35,
+          height * 0.15,
+          depth * 0.15,
+          3
+        );
 
-      const outsideMargin = Math.max(
-        width * 0.30,
-        height * 0.12,
-        depth * 0.12,
-        3
+      const topY =
+        overallBox.max.y +
+        Math.max(
+          height * 0.15,
+          1
+        );
+
+      const bottomY =
+        overallBox.min.y -
+        Math.max(
+          height * 0.15,
+          1
+        );
+
+      geldigeMerken.sort(
+        function(a, b) {
+          const ay =
+            (
+              a.geometry.box.min.y +
+              a.geometry.box.max.y
+            ) / 2;
+
+          const by =
+            (
+              b.geometry.box.min.y +
+              b.geometry.box.max.y
+            ) / 2;
+
+          return by - ay;
+        }
       );
 
-      const leftLabelX =
-        overallBox.min.x -
-        outsideMargin;
+      /*
+       * Houd altijd voldoende verticale ruimte tussen de teksten.
+       * Wanneer er veel merken zijn, groeit de labelkolom automatisch.
+       */
+      const minimumLabelSpacing =
+        Math.max(
+          height * 0.025,
+          0.55
+        );
 
-      const frontLabelY =
-        overallBox.min.y -
-        outsideMargin;
+      const natuurlijkeSpacing =
+        geldigeMerken.length > 1
+          ? (
+              topY - bottomY
+            ) /
+            Math.max(
+              geldigeMerken.length - 1,
+              1
+            )
+          : 0;
 
-      const rightLabelX =
-        overallBox.max.x +
-        outsideMargin;
+      const spacing =
+        Math.max(
+          natuurlijkeSpacing,
+          minimumLabelSpacing
+        );
 
-      const links = [];
-      const rechts = [];
+      const labelKolomMidden =
+        (
+          topY + bottomY
+        ) / 2;
 
-      geldigeMerken.forEach(function(merk) {
-        const isVoor = merk.target.x < modelCenterX;
-        const item = {
-          merk: merk,
-          labelX: isVoor
-            ? merk.target.x
-            : rightLabelX,
-          labelY: isVoor
-            ? frontLabelY
-            : merk.target.y
+      const effectieveTopY =
+        labelKolomMidden +
+        spacing *
+        Math.max(
+          geldigeMerken.length - 1,
+          0
+        ) / 2;
+
+      const color =
+        groep.color || {
+          r: 0,
+          g: 120,
+          b: 140,
+          a: 255
         };
 
-        if (isVoor) {
-          links.push(item);
-        } else {
-          rechts.push(item);
-        }
-      });
+      const markups = [];
 
-      if (
-        geldigeMerken.length > 8 &&
-        (links.length === 0 || rechts.length === 0)
+      for (
+        let merkIndex = 0;
+        merkIndex < geldigeMerken.length;
+        merkIndex++
       ) {
-        const alles =
-          geldigeMerken.slice().sort(
-            function(a, b) {
-              if (b.target.z !== a.target.z) {
-                return b.target.z - a.target.z;
-              }
+        const merk =
+          geldigeMerken[merkIndex];
 
-              return b.target.y - a.target.y;
-            }
+        const geometry =
+          merk.geometry;
+
+        const labelY =
+          geldigeMerken.length > 1
+            ? effectieveTopY -
+              merkIndex * spacing
+            : (
+                overallBox.min.y +
+                overallBox.max.y
+              ) / 2;
+
+        const labelZ =
+          (
+            geometry.box.min.z +
+            geometry.box.max.z
+          ) / 2;
+
+        /*
+         * Exact één label en één leaderlijn per Cast Unit Mark.
+         * Het doelpunt wordt rechtstreeks gezocht binnen de volledige
+         * objectselectie van dit specifieke merk.
+         */
+        const target =
+          await haalConcreetMerkLabelDoel(
+            merk
           );
 
-        links.length = 0;
-        rechts.length = 0;
+        if (!target) {
+          continue;
+        }
 
-        alles.forEach(function(merk, index) {
-          const isLinks = index % 2 === 0;
-          (isLinks ? links : rechts).push({
-            merk: merk,
-            labelX: isLinks
-              ? merk.target.x
-              : rightLabelX,
-            labelY: isLinks
-              ? frontLabelY
-              : merk.target.y
-          });
+        markups.push({
+          text:
+            merk.mark,
+          color: {
+            r: color.r,
+            g: color.g,
+            b: color.b,
+            a: 255
+          },
+          start: {
+            positionX:
+              target.x * 1000,
+            positionY:
+              target.y * 1000,
+            positionZ:
+              target.z * 1000,
+            modelId:
+              target.modelId,
+            objectId:
+              target.objectId
+          },
+          end: {
+            positionX:
+              labelX * 1000,
+            positionY:
+              labelY * 1000,
+            positionZ:
+              labelZ * 1000,
+            modelId:
+              target.modelId,
+            objectId:
+              target.objectId
+          }
         });
       }
 
-      /*
-       * Labels blijven op dezelfde Z-hoogte als het concrete doelobject.
-       * Daardoor loopt de leaderlijn in hoofdzaak recht naar buiten.
-       * Alleen labels die op bijna exact dezelfde hoogte én positie zouden
-       * overlappen, krijgen een kleine verschuiving in Y.
-       */
-      const minimumAfstandY = Math.max(
-        height * 0.018,
-        0.40
-      );
-
-      const hoogteTolerantie = Math.max(
-        depth * 0.008,
-        0.20
-      );
-
-      const layout =
-        voorkomOverlapVoorLabels(
-          links,
-          Math.max(depth * 0.018, 0.35)
-        ).concat(
-          voorkomLabelOverlapMetRechteLijnen(
-            rechts,
-            minimumAfstandY,
-            hoogteTolerantie
-          )
-        );
-
-      const markups = layout.map(
-        function(item) {
-          const merk = item.merk;
-          const target = merk.target;
-          const color = merk.color;
-
-          return {
-            text: merk.mark,
-            color: {
-              r: color.r,
-              g: color.g,
-              b: color.b,
-              a: 255
-            },
-            start: {
-              positionX: target.x * 1000,
-              positionY: target.y * 1000,
-              positionZ: target.z * 1000,
-              modelId: target.modelId,
-              objectId: target.objectId
-            },
-            end: {
-              positionX: item.labelX * 1000,
-              positionY: item.labelY * 1000,
-              positionZ: item.labelZ * 1000,
-              modelId: target.modelId,
-              objectId: target.objectId
-            }
-          };
-        }
-      );
+      if (markups.length === 0) {
+        status.textContent =
+          "De merken zijn gevonden, maar er konden geen merklabels in de 3D-viewer worden geplaatst.";
+        return;
+      }
 
       try {
-        status.textContent =
-          markups.length +
-          " merklabel(s) in de viewer plaatsen...";
-
         const result =
           await API.markup.addTextMarkup(
             markups
           );
 
-        const nieuweMarkupIds =
+        createdMarkupIds =
           Array.isArray(result)
             ? result
                 .map(function(item) {
@@ -5175,14 +4915,9 @@ function bepaalAlgemeneZoekgroep(
                 })
             : [];
 
-        createdMarkupIds =
-          createdMarkupIds.concat(
-            nieuweMarkupIds
-          );
-
         status.textContent =
-          markups.length +
-          " merklabel(s) geplaatst. Elk label gebruikt de eigen merkgeometrie en het eigen objectniveau. De geometrie blijft gecachet voor volgende keren.";
+          geldigeMerken.length +
+          " merklabel(s) geplaatst, elk met één leaderlijn.";
       } catch (error) {
         console.error(
           "Merklabels plaatsen mislukt:",
@@ -5197,18 +4932,6 @@ function bepaalAlgemeneZoekgroep(
               : "onbekende fout"
           );
       }
-    }
-
-    async function showMerkLabelsForGroup(
-      groep,
-      status,
-      labelsEerstWissen = true
-    ) {
-      return showMerkLabelsForGroups(
-        [groep],
-        status,
-        labelsEerstWissen
-      );
     }
 
     function renderGroepsComponent(
@@ -5530,245 +5253,31 @@ function bepaalAlgemeneZoekgroep(
             }
           );
 
-          const alleMerkGroepenVoorReeksen =
-            verkrijgMerkGroepenVoorGroep(groep);
-
-          let reeksStatus =
-            merkLabelReeksStatus.get(groep);
-
-          if (!reeksStatus) {
-            reeksStatus = {
-              grootte: 20,
-              index: 0
-            };
-            merkLabelReeksStatus.set(
-              groep,
-              reeksStatus
-            );
-          }
-
-          const reeksBediening =
-            document.createElement("div");
-          reeksBediening.className =
-            "organizer-status";
-          reeksBediening.style.marginTop = "8px";
-          reeksBediening.style.display = "grid";
-          reeksBediening.style.gap = "6px";
-
-          const reeksBovenrij =
-            document.createElement("div");
-          reeksBovenrij.style.display = "flex";
-          reeksBovenrij.style.alignItems = "center";
-          reeksBovenrij.style.gap = "6px";
-          reeksBovenrij.style.flexWrap = "wrap";
-
-          const reeksLabel =
-            document.createElement("span");
-          reeksLabel.textContent =
-            "Merken per reeks:";
-
-          const reeksGrootteSelect =
-            document.createElement("select");
-          [10, 20, 30, "alle"].forEach(
-            function(waarde) {
-              const optie =
-                document.createElement("option");
-              optie.value = String(waarde);
-              optie.textContent =
-                waarde === "alle"
-                  ? "Alle"
-                  : String(waarde);
-              reeksGrootteSelect.appendChild(
-                optie
-              );
-            }
-          );
-          reeksGrootteSelect.value =
-            reeksStatus.grootte === Infinity
-              ? "alle"
-              : String(reeksStatus.grootte);
-
-          const vorigeReeksKnop =
-            document.createElement("button");
-          vorigeReeksKnop.type = "button";
-          vorigeReeksKnop.textContent = "◀";
-
-          const reeksInfo =
-            document.createElement("strong");
-
-          const volgendeReeksKnop =
-            document.createElement("button");
-          volgendeReeksKnop.type = "button";
-          volgendeReeksKnop.textContent = "▶";
-
-          reeksBovenrij.appendChild(reeksLabel);
-          reeksBovenrij.appendChild(
-            reeksGrootteSelect
-          );
-          reeksBovenrij.appendChild(
-            vorigeReeksKnop
-          );
-          reeksBovenrij.appendChild(reeksInfo);
-          reeksBovenrij.appendChild(
-            volgendeReeksKnop
-          );
-
           const merkLabelsKnop =
             document.createElement("button");
           merkLabelsKnop.type = "button";
           merkLabelsKnop.textContent =
-            "Toon labels van deze reeks";
-
-          function verkrijgActieveReeks() {
-            const grootte = reeksStatus.grootte;
-            const totaal =
-              alleMerkGroepenVoorReeksen.length;
-            const paginaAantal =
-              grootte === Infinity
-                ? 1
-                : Math.max(
-                    1,
-                    Math.ceil(totaal / grootte)
-                  );
-
-            reeksStatus.index = Math.min(
-              Math.max(reeksStatus.index, 0),
-              paginaAantal - 1
-            );
-
-            const start =
-              grootte === Infinity
-                ? 0
-                : reeksStatus.index * grootte;
-            const einde =
-              grootte === Infinity
-                ? totaal
-                : Math.min(start + grootte, totaal);
-
-            return {
-              merken:
-                alleMerkGroepenVoorReeksen.slice(
-                  start,
-                  einde
-                ),
-              start: start,
-              einde: einde,
-              totaal: totaal,
-              paginaAantal: paginaAantal
-            };
-          }
-
-          function updateReeksBediening() {
-            const actief =
-              verkrijgActieveReeks();
-
-            reeksInfo.textContent =
-              "Reeks " +
-              (reeksStatus.index + 1) +
-              " / " +
-              actief.paginaAantal +
-              " — " +
-              (actief.totaal === 0
-                ? "0"
-                : actief.start + 1 +
-                  "–" +
-                  actief.einde) +
-              " van " +
-              actief.totaal;
-
-            vorigeReeksKnop.disabled =
-              reeksStatus.index <= 0;
-            volgendeReeksKnop.disabled =
-              reeksStatus.index >=
-              actief.paginaAantal - 1;
-            merkLabelsKnop.disabled =
-              actief.merken.length === 0;
-          }
-
-          reeksGrootteSelect.addEventListener(
-            "change",
-            function(event) {
-              event.stopPropagation();
-              reeksStatus.grootte =
-                reeksGrootteSelect.value === "alle"
-                  ? Infinity
-                  : Number(
-                      reeksGrootteSelect.value
-                    );
-              reeksStatus.index = 0;
-              updateReeksBediening();
-            }
-          );
-
-          vorigeReeksKnop.addEventListener(
-            "click",
-            function(event) {
-              event.stopPropagation();
-              reeksStatus.index--;
-              updateReeksBediening();
-            }
-          );
-
-          volgendeReeksKnop.addEventListener(
-            "click",
-            function(event) {
-              event.stopPropagation();
-              reeksStatus.index++;
-              updateReeksBediening();
-            }
-          );
-
+            "Toon merklabels";
           merkLabelsKnop.addEventListener(
             "click",
             async function(event) {
               event.stopPropagation();
               merkLabelsKnop.disabled = true;
               try {
-                const actief =
-                  verkrijgActieveReeks();
-                const reeksGroep =
-                  maakMerkReeksGroep(
-                    groep,
-                    actief.merken
-                  );
-
-                if (reeksGroep.elementen.length > 0) {
-                  const selector =
-                    maakSelectorVoorDetails(
-                      reeksGroep.elementen
-                    );
-                  await API.viewer.setSelection(
-                    selector,
-                    "set"
-                  );
-                }
-
                 await showMerkLabelsForGroup(
-                  reeksGroep,
+                  groep,
                   status
                 );
-
-                status.textContent +=
-                  " Reeks " +
-                  (reeksStatus.index + 1) +
-                  " van " +
-                  actief.paginaAantal +
-                  " is geselecteerd en gelabeld.";
               } finally {
-                updateReeksBediening();
+                merkLabelsKnop.disabled = false;
               }
             }
           );
 
-          reeksBediening.appendChild(
-            reeksBovenrij
-          );
-          reeksBediening.appendChild(
-            merkLabelsKnop
-          );
-          updateReeksBediening();
-
-          if (!isGeenOvereenkomstGroep(groep)) {
+          if (
+            !isGeenOvereenkomstGroep(groep) ||
+            isOntbrekendeParameterGroep(groep)
+          ) {
             actieGrid.appendChild(
               selecteerKnop
             );
@@ -5781,10 +5290,30 @@ function bepaalAlgemeneZoekgroep(
             actieGrid.appendChild(
               isolerenKnop
             );
+
+            /*
+             * Voor gewone resultaatgroepen blijven merklabels beschikbaar.
+             * De groep zonder ingevulde parameter krijgt bewust alleen de
+             * gevraagde controlefuncties: selecteren, focus, verbergen en
+             * isoleren.
+             */
+            if (!isOntbrekendeParameterGroep(groep)) {
+              actieGrid.appendChild(
+                merkLabelsKnop
+              );
+            }
+
             inhoud.appendChild(actieGrid);
-            inhoud.appendChild(
-              reeksBediening
-            );
+
+            if (isOntbrekendeParameterGroep(groep)) {
+              const ontbrekendInfo =
+                document.createElement("div");
+              ontbrekendInfo.className =
+                "organizer-status";
+              ontbrekendInfo.textContent =
+                "Objecten zonder ingevulde parameter. Deze groep kan worden geselecteerd, gefocust, verborgen of geïsoleerd.";
+              inhoud.appendChild(ontbrekendInfo);
+            }
           } else {
             const systeemInfo =
               document.createElement("div");
@@ -11268,7 +10797,8 @@ function bepaalAlgemeneZoekgroep(
               if (
                 gewichtTon !== null &&
                 Number.isFinite(gewichtTon) &&
-                gewichtTon > 0
+                gewichtTon > 0 &&
+                assembly.gewichtTon === null
               ) {
                 assembly.gewichtTon =
                   gewichtTon;
@@ -11296,8 +10826,7 @@ function bepaalAlgemeneZoekgroep(
                   hex: "#16a34a"
                 },
                 details: [],
-                marks: new Set(),
-                merkGroepen: []
+                marks: new Set()
               }
             ],
             [
@@ -11312,8 +10841,7 @@ function bepaalAlgemeneZoekgroep(
                   hex: "#f59e0b"
                 },
                 details: [],
-                marks: new Set(),
-                merkGroepen: []
+                marks: new Set()
               }
             ],
             [
@@ -11328,8 +10856,7 @@ function bepaalAlgemeneZoekgroep(
                   hex: "#dc2626"
                 },
                 details: [],
-                marks: new Set(),
-                merkGroepen: []
+                marks: new Set()
               }
             ]
           ]);
@@ -11370,22 +10897,6 @@ function bepaalAlgemeneZoekgroep(
             groep.details.push(
               ...assembly.details
             );
-
-            groep.merkGroepen.push({
-              mark: assembly.mark,
-              details: assembly.details.slice(),
-              assembly: {
-                modelId:
-                  assembly.details.length > 0
-                    ? assembly.details[0].modelId
-                    : null,
-                runtimeId:
-                  assembly.details.length > 0
-                    ? assembly.details[0].runtimeId
-                    : null,
-                mark: assembly.mark
-              }
-            });
           }
         );
 
@@ -11414,8 +10925,6 @@ function bepaalAlgemeneZoekgroep(
                     ]),
                   assemblyMarks:
                     Array.from(groep.marks),
-                  _merkGroepen:
-                    groep.merkGroepen,
                   isSystemRemainder: false,
                   isHidden: false
                 };
@@ -11504,21 +11013,27 @@ function bepaalAlgemeneZoekgroep(
         await removeGroupLabels();
 
         /*
-         * Gebruik ook bij gewicht exact dezelfde centrale merklabelmethode.
-         * Elk Cast Unit Mark krijgt één label en één leaderlijn naar een
-         * object dat aantoonbaar datzelfde Cast Unit Mark bevat.
+         * Alleen de drie echte gewichtsklassen krijgen een label.
+         * De grijze groep zonder bruikbaar gewicht krijgt bewust geen label.
+         * Hierdoor verschijnen maximaal drie groepslabels.
          */
         const gewichtLabelGroepen =
           componentGroepen.filter(
             function(groep) {
-              return !isGeenOvereenkomstGroep(groep);
+              return (
+                !groep.isSystemRemainder &&
+                (
+                  groep.value === "< 5 ton" ||
+                  groep.value === "5–10 ton" ||
+                  groep.value === "≥ 10 ton"
+                )
+              );
             }
           );
 
-        await showMerkLabelsForGroups(
+        await showGroupLabelsOutside(
           gewichtLabelGroepen,
-          quickWeightStatus,
-          false
+          quickWeightStatus
         );
 
         quickWeightResetButton.disabled =
