@@ -2076,6 +2076,120 @@ const profileOptionsElement =
         : nummer;
     }
 
+    function parseerGewichtNaarTon(waarde) {
+      if (
+        waarde === null ||
+        waarde === undefined
+      ) {
+        return null;
+      }
+
+      let raw = waarde;
+
+      if (
+        raw &&
+        typeof raw === "object"
+      ) {
+        const objectValue =
+          raw.value ??
+          raw.displayValue ??
+          raw.formattedValue ??
+          raw.text ??
+          null;
+
+        const objectUnit =
+          raw.unit ??
+          raw.symbol ??
+          "";
+
+        if (
+          objectValue === null ||
+          objectValue === undefined
+        ) {
+          return null;
+        }
+
+        raw =
+          String(objectValue) +
+          (
+            objectUnit
+              ? " " + String(objectUnit)
+              : ""
+          );
+      }
+
+      const tekst =
+        String(raw)
+          .trim()
+          .toLocaleLowerCase("nl-BE")
+          .replace(/−/g, "-");
+
+      if (!tekst) {
+        return null;
+      }
+
+      const compact =
+        tekst.replace(/\s+/g, "");
+
+      const tonMatch =
+        compact.match(
+          /^([-+]?\d+(?:[.,]\d+)?)?(?:t|ton|tonne|tonnes)$/
+        );
+
+      if (tonMatch && tonMatch[1]) {
+        const ton =
+          Number(
+            tonMatch[1].replace(",", ".")
+          );
+
+        return Number.isFinite(ton)
+          ? ton
+          : null;
+      }
+
+      const kgMatch =
+        compact.match(
+          /^([-+]?\d+(?:[.,]\d+)?)?(?:kg|kilogram|kilograms)$/
+        );
+
+      if (kgMatch && kgMatch[1]) {
+        let nummerTekst =
+          kgMatch[1];
+
+        if (
+          /^\d{1,3}(?:\.\d{3})+$/.test(
+            nummerTekst
+          )
+        ) {
+          nummerTekst =
+            nummerTekst.replace(/\./g, "");
+        } else {
+          nummerTekst =
+            nummerTekst.replace(",", ".");
+        }
+
+        const kg = Number(nummerTekst);
+
+        return Number.isFinite(kg)
+          ? kg / 1000
+          : null;
+      }
+
+      /*
+       * Assembly/Cast unit weight wordt in deze IFC als ton weergegeven.
+       * Wanneer de API alleen het getal zonder eenheid teruggeeft,
+       * behandelen we dit daarom expliciet als ton.
+       */
+      const nummer =
+        Number(
+          compact.replace(",", ".")
+        );
+
+      return Number.isFinite(nummer)
+        ? nummer
+        : null;
+    }
+
     function formatteerGewicht(waarde) {
       const kilogram =
         parseerGewichtNaarKg(waarde);
@@ -3301,100 +3415,80 @@ function bepaalAlgemeneZoekgroep(
 
       const markups = [];
 
-      sortedGroups.forEach(
-        function(item, sortedIndex) {
-          const group =
-            item.group;
+      for (
+        let sortedIndex = 0;
+        sortedIndex < sortedGroups.length;
+        sortedIndex++
+      ) {
+        const item = sortedGroups[sortedIndex];
+        const group = item.group;
+        const result = group._labelGeometry;
+        const box = result.box;
 
-          const result =
-            group._labelGeometry;
+        const currentLabelY =
+          labelGroups.length > 1
+            ? topY -
+              sortedIndex *
+              labelSpacing
+            : (
+                overallBox.min.y +
+                overallBox.max.y
+              ) / 2;
 
-          const box =
-            result.box;
+        const labelZ =
+          (
+            box.min.z +
+            box.max.z
+          ) / 2 +
+          (
+            sortedIndex -
+            (sortedGroups.length - 1) / 2
+          ) *
+          Math.max(
+            modelDepth * 0.015,
+            0.15
+          );
 
-          const centerX =
-            (box.min.x + box.max.x) / 2;
+        const color =
+          group.color ||
+          GROUP_COLORS[
+            item.originalIndex %
+            GROUP_COLORS.length
+          ];
 
-          const centerY =
-            (box.min.y + box.max.y) / 2;
+        const target =
+          await haalConcreetGroepLabelDoel(
+            group.elementen
+          );
 
-          const centerZ =
-            (box.min.z + box.max.z) / 2;
-
-          const currentLabelY =
-            labelGroups.length > 1
-              ? topY -
-                sortedIndex *
-                labelSpacing
-              : (
-                  overallBox.min.y +
-                  overallBox.max.y
-                ) / 2;
-
-          /*
-           * Labels krijgen een kleine Z-verschuiving zodat ze niet
-           * allemaal exact op hetzelfde vlak liggen.
-           */
-          const labelZ =
-            centerZ +
-            (
-              sortedIndex -
-              (sortedGroups.length - 1) / 2
-            ) *
-            Math.max(
-              modelDepth * 0.015,
-              0.15
-            );
-
-          const color =
-            group.color ||
-            GROUP_COLORS[
-              item.originalIndex %
-              GROUP_COLORS.length
-            ];
-
-          markups.push({
-            text:
-              group.value,
-            color: {
-              r: color.r,
-              g: color.g,
-              b: color.b,
-              a: 255
-            },
-
-            /*
-             * Bij Trimble TextMarkup is 'start' het punt waar de
-             * aanwijslijn de geometrie raakt en 'end' de positie
-             * waar de tekst buiten het model wordt geplaatst.
-             */
-            start: {
-              positionX:
-                centerX * 1000,
-              positionY:
-                centerY * 1000,
-              positionZ:
-                centerZ * 1000,
-              modelId:
-                result.modelId,
-              objectId:
-                result.objectId
-            },
-            end: {
-              positionX:
-                labelX * 1000,
-              positionY:
-                currentLabelY * 1000,
-              positionZ:
-                labelZ * 1000,
-              modelId:
-                result.modelId,
-              objectId:
-                result.objectId
-            }
-          });
+        if (!target) {
+          continue;
         }
-      );
+
+        markups.push({
+          text: group.value,
+          color: {
+            r: color.r,
+            g: color.g,
+            b: color.b,
+            a: 255
+          },
+          start: {
+            positionX: target.x * 1000,
+            positionY: target.y * 1000,
+            positionZ: target.z * 1000,
+            modelId: target.modelId,
+            objectId: target.objectId
+          },
+          end: {
+            positionX: labelX * 1000,
+            positionY: currentLabelY * 1000,
+            positionZ: labelZ * 1000,
+            modelId: target.modelId,
+            objectId: target.objectId
+          }
+        });
+      }
 
       if (markups.length === 0) {
         status.textContent =
@@ -4083,7 +4177,7 @@ function bepaalAlgemeneZoekgroep(
               zoektekstOrigineel
             : parameterNaam;
 
-        toonAlgemeneZoekresultaten(
+        await toonAlgemeneZoekresultaten(
           titel,
           gevondenDetails
         );
@@ -4225,6 +4319,195 @@ function bepaalAlgemeneZoekgroep(
       } catch (error) {
         return null;
       }
+    }
+
+    async function haalConcreetGroepLabelDoel(details) {
+      const geldigeDetails =
+        Array.isArray(details)
+          ? details.filter(function(detail) {
+              return (
+                detail &&
+                detail.modelId !== null &&
+                detail.modelId !== undefined &&
+                detail.runtimeId !== null &&
+                detail.runtimeId !== undefined
+              );
+            })
+          : [];
+
+      if (geldigeDetails.length === 0) {
+        return null;
+      }
+
+      /*
+       * Gebruik altijd een werkelijk runtime object als leaderlijndoel.
+       * Bij grote groepen beperken we de testset voor de prestaties,
+       * maar het gekozen punt blijft steeds aan een concreet object hangen.
+       */
+      const stap =
+        Math.max(
+          1,
+          Math.ceil(
+            geldigeDetails.length / 40
+          )
+        );
+
+      const kandidaten = [];
+
+      for (
+        let index = 0;
+        index < geldigeDetails.length;
+        index += stap
+      ) {
+        const center =
+          await getDetailBoundingCenter(
+            geldigeDetails[index]
+          );
+
+        if (center) {
+          kandidaten.push(center);
+        }
+      }
+
+      if (kandidaten.length === 0) {
+        return null;
+      }
+
+      const gemiddelde =
+        kandidaten.reduce(
+          function(acc, kandidaat) {
+            acc.x += kandidaat.x;
+            acc.y += kandidaat.y;
+            acc.z += kandidaat.z;
+            return acc;
+          },
+          { x: 0, y: 0, z: 0 }
+        );
+
+      gemiddelde.x /= kandidaten.length;
+      gemiddelde.y /= kandidaten.length;
+      gemiddelde.z /= kandidaten.length;
+
+      kandidaten.sort(
+        function(a, b) {
+          const afstandA =
+            Math.pow(a.x - gemiddelde.x, 2) +
+            Math.pow(a.y - gemiddelde.y, 2) +
+            Math.pow(a.z - gemiddelde.z, 2);
+
+          const afstandB =
+            Math.pow(b.x - gemiddelde.x, 2) +
+            Math.pow(b.y - gemiddelde.y, 2) +
+            Math.pow(b.z - gemiddelde.z, 2);
+
+          return afstandA - afstandB;
+        }
+      );
+
+      return kandidaten[0];
+    }
+
+    async function haalConcreetMerkLabelDoel(merk) {
+      if (!merk) {
+        return null;
+      }
+
+      const mark = String(merk.mark || "").trim();
+      const assembly = merk.assembly || null;
+      const modelId =
+        assembly && assembly.modelId !== undefined
+          ? assembly.modelId
+          : (
+              Array.isArray(merk.details) &&
+              merk.details.length > 0
+                ? merk.details[0].modelId
+                : null
+            );
+
+      /*
+       * Zoek eerst rechtstreeks alle objecten die bij deze Cast Unit Mark
+       * horen. Daardoor krijgt elk label een doelobject van zijn eigen merk
+       * en kan het nooit terugvallen op de gezamenlijke parametergroep.
+       */
+      if (modelId !== null && modelId !== undefined && mark) {
+        try {
+          const resultaten =
+            await zoekVolledigeAssemblySelectie(
+              modelId,
+              mark
+            );
+
+          if (Array.isArray(resultaten)) {
+            for (const modelResultaat of resultaten) {
+              if (!modelResultaat) {
+                continue;
+              }
+
+              const resultaatModelId =
+                modelResultaat.modelId !== undefined
+                  ? modelResultaat.modelId
+                  : modelId;
+
+              const objecten =
+                Array.isArray(modelResultaat.objects)
+                  ? modelResultaat.objects
+                  : [];
+
+              for (const object of objecten) {
+                const runtimeId =
+                  object &&
+                  (
+                    object.id ??
+                    object.runtimeId ??
+                    object.objectRuntimeId
+                  );
+
+                if (
+                  runtimeId === null ||
+                  runtimeId === undefined
+                ) {
+                  continue;
+                }
+
+                const center =
+                  await getDetailBoundingCenter({
+                    modelId: resultaatModelId,
+                    runtimeId: runtimeId
+                  });
+
+                if (center) {
+                  return center;
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.warn(
+            "Concreet labeldoel voor merk zoeken mislukt:",
+            mark,
+            error
+          );
+        }
+      }
+
+      /*
+       * Fallback: gebruik één werkelijk gevonden detail van dit merk.
+       */
+      const details =
+        Array.isArray(merk.details)
+          ? merk.details
+          : [];
+
+      for (const detail of details) {
+        const center =
+          await getDetailBoundingCenter(detail);
+
+        if (center) {
+          return center;
+        }
+      }
+
+      return null;
     }
 
     async function showMerkLabelsForGroup(
@@ -4481,60 +4764,13 @@ function bepaalAlgemeneZoekgroep(
 
         /*
          * Exact één label en één leaderlijn per Cast Unit Mark.
-         * De lijn wordt aan een werkelijk object van dit merk gekoppeld.
-         * We kiezen het object waarvan het middelpunt het dichtst bij het
-         * middelpunt van de volledige merkgeometrie ligt.
+         * Het doelpunt wordt rechtstreeks gezocht binnen de volledige
+         * objectselectie van dit specifieke merk.
          */
-        const merkCenter = {
-          x:
-            (
-              geometry.box.min.x +
-              geometry.box.max.x
-            ) / 2,
-          y:
-            (
-              geometry.box.min.y +
-              geometry.box.max.y
-            ) / 2,
-          z:
-            (
-              geometry.box.min.z +
-              geometry.box.max.z
-            ) / 2
-        };
-
-        let target = null;
-        let kleinsteAfstand = Infinity;
-
-        for (const detail of merk.details) {
-          const detailCenter =
-            await getDetailBoundingCenter(
-              detail
-            );
-
-          if (!detailCenter) {
-            continue;
-          }
-
-          const afstand =
-            Math.pow(
-              detailCenter.x - merkCenter.x,
-              2
-            ) +
-            Math.pow(
-              detailCenter.y - merkCenter.y,
-              2
-            ) +
-            Math.pow(
-              detailCenter.z - merkCenter.z,
-              2
-            );
-
-          if (afstand < kleinsteAfstand) {
-            kleinsteAfstand = afstand;
-            target = detailCenter;
-          }
-        }
+        const target =
+          await haalConcreetMerkLabelDoel(
+            merk
+          );
 
         if (!target) {
           continue;
@@ -4990,9 +5226,11 @@ function bepaalAlgemeneZoekgroep(
 
           if (instellingen.toonElementDetails) {
             const merkGroepen =
-              groepeerDetailsPerCastUnitMark(
-                groep.elementen
-              );
+              Array.isArray(groep._merkGroepen)
+                ? groep._merkGroepen
+                : groepeerDetailsPerCastUnitMark(
+                    groep.elementen
+                  );
 
             merkGroepen.forEach(
               function(merkGroep) {
@@ -5004,12 +5242,7 @@ function bepaalAlgemeneZoekgroep(
                 const merkTitel =
                   document.createElement("div");
                 merkTitel.textContent =
-                  merkGroep.mark +
-                  " — " +
-                  merkGroep.details.length +
-                  (merkGroep.details.length === 1
-                    ? " object"
-                    : " objecten");
+                  merkGroep.mark;
 
                 const merkKnop =
                   document.createElement("button");
@@ -5084,7 +5317,7 @@ function bepaalAlgemeneZoekgroep(
       };
     }
 
-    function toonAlgemeneZoekresultaten(
+    async function toonAlgemeneZoekresultaten(
       zoektekstOrigineel,
       gevondenDetails
     ) {
@@ -5340,6 +5573,152 @@ function bepaalAlgemeneZoekgroep(
         );
       }
 
+      /*
+       * Koppel nu per echte parametergroep de gevonden elementen aan
+       * hun assembly/Cast Unit Mark. Dit is dezelfde werkwijze als bij
+       * de snelactie Kleur op afwerking. De elementgroepen blijven de
+       * basis voor kleuren en selectie; aantallen, lijsten en merklabels
+       * gebruiken de gekoppelde unieke merken.
+       */
+      const teKoppelenGroepen =
+        Array.from(groepen.values()).filter(
+          function(groep) {
+            return (
+              !isGeenOvereenkomstGroep(groep) &&
+              Array.isArray(groep.elementen) &&
+              groep.elementen.length > 0
+            );
+          }
+        );
+
+      for (
+        let groepIndex = 0;
+        groepIndex < teKoppelenGroepen.length;
+        groepIndex++
+      ) {
+        const groep =
+          teKoppelenGroepen[groepIndex];
+
+        generalResultElement.querySelector(
+          ".result-info"
+        ).textContent =
+          "Bijbehorende Cast Unit Marks koppelen: groep " +
+          (groepIndex + 1) +
+          " van " +
+          teKoppelenGroepen.length +
+          "...";
+
+        try {
+          const koppeling =
+            await koppelResultatenAanAssemblies(
+              groep.elementen
+            );
+
+          const uniekeMerken =
+            new Map();
+
+          const assemblies =
+            koppeling &&
+            Array.isArray(koppeling.assemblies)
+              ? koppeling.assemblies
+              : [];
+
+          assemblies.forEach(
+            function(assembly) {
+              const mark =
+                String(assembly.mark || "").trim();
+
+              if (!mark) {
+                return;
+              }
+
+              const markSleutel =
+                normaliseerMarkZoektekst(mark);
+
+              if (!uniekeMerken.has(markSleutel)) {
+                uniekeMerken.set(
+                  markSleutel,
+                  {
+                    mark: mark,
+                    details: [],
+                    objectKeys: new Set(),
+                    assembly: assembly
+                  }
+                );
+              }
+
+              const merkGroep =
+                uniekeMerken.get(markSleutel);
+
+              const passendeOnderdelen =
+                Array.isArray(
+                  assembly.passendeOnderdelen
+                )
+                  ? assembly.passendeOnderdelen
+                  : [];
+
+              passendeOnderdelen.forEach(
+                function(detail) {
+                  const objectSleutel =
+                    maakObjectSleutel(
+                      detail.modelId,
+                      detail.runtimeId
+                    );
+
+                  if (
+                    merkGroep.objectKeys.has(
+                      objectSleutel
+                    )
+                  ) {
+                    return;
+                  }
+
+                  merkGroep.objectKeys.add(
+                    objectSleutel
+                  );
+                  merkGroep.details.push(
+                    detail
+                  );
+                }
+              );
+            }
+          );
+
+          groep._merkGroepen =
+            Array.from(
+              uniekeMerken.values()
+            )
+              .map(function(merkGroep) {
+                return {
+                  mark: merkGroep.mark,
+                  details: merkGroep.details,
+                  assembly: merkGroep.assembly
+                };
+              })
+              .sort(function(a, b) {
+                return String(a.mark).localeCompare(
+                  String(b.mark),
+                  "nl-BE",
+                  {
+                    numeric: true,
+                    sensitivity: "base"
+                  }
+                );
+              });
+        } catch (error) {
+          console.warn(
+            "Merken koppelen aan parametergroep mislukt:",
+            groep.value,
+            error
+          );
+
+          groep._merkGroepen =
+            groepeerDetailsPerCastUnitMark(
+              groep.elementen
+            );
+        }
+      }
+
       const gesorteerdeGroepen =
         Array.from(
           groepen.values()
@@ -5360,8 +5739,8 @@ function bepaalAlgemeneZoekgroep(
             }
 
             return (
-              b.elementen.length -
-              a.elementen.length
+              telUniekeMerken(b) -
+              telUniekeMerken(a)
             );
           }
         );
@@ -5530,7 +5909,7 @@ function bepaalAlgemeneZoekgroep(
           return;
         }
 
-        toonAlgemeneZoekresultaten(
+        await toonAlgemeneZoekresultaten(
           zoektekstOrigineel,
           gevondenDetails
         );
@@ -9418,97 +9797,74 @@ function bepaalAlgemeneZoekgroep(
 
       const markups = [];
 
-      gesorteerd.forEach(
-        function(item, index) {
-          const groep =
-            item.groep;
+      for (
+        let index = 0;
+        index < gesorteerd.length;
+        index++
+      ) {
+        const item = gesorteerd[index];
+        const groep = item.groep;
+        const geometrie = groep._labelGeometry;
+        const box = geometrie.box;
 
-          const geometrie =
-            groep._labelGeometry;
+        const labelY =
+          gesorteerd.length > 1
+            ? bovenY -
+              index *
+              tussenruimte
+            : (
+                totaleBox.min.y +
+                totaleBox.max.y
+              ) / 2;
 
-          const box =
-            geometrie.box;
+        const labelZ =
+          (
+            box.min.z +
+            box.max.z
+          ) / 2 +
+          (
+            index -
+            (gesorteerd.length - 1) / 2
+          ) *
+          Math.max(
+            diepte * 0.015,
+            0.15
+          );
 
-          const centerX =
-            (
-              box.min.x +
-              box.max.x
-            ) / 2;
+        const kleur = groep.color;
+        const target =
+          await haalConcreetGroepLabelDoel(
+            groep.elementen
+          );
 
-          const centerY =
-            (
-              box.min.y +
-              box.max.y
-            ) / 2;
-
-          const centerZ =
-            (
-              box.min.z +
-              box.max.z
-            ) / 2;
-
-          const labelY =
-            gesorteerd.length > 1
-              ? bovenY -
-                index *
-                tussenruimte
-              : (
-                  totaleBox.min.y +
-                  totaleBox.max.y
-                ) / 2;
-
-          const labelZ =
-            centerZ +
-            (
-              index -
-              (
-                gesorteerd.length -
-                1
-              ) / 2
-            ) *
-            Math.max(
-              diepte * 0.015,
-              0.15
-            );
-
-          const kleur =
-            groep.color;
-
-          markups.push({
-            text: groep.value,
-            color: {
-              r: kleur.r,
-              g: kleur.g,
-              b: kleur.b,
-              a: 255
-            },
-            start: {
-              positionX:
-                centerX * 1000,
-              positionY:
-                centerY * 1000,
-              positionZ:
-                centerZ * 1000,
-              modelId:
-                geometrie.modelId,
-              objectId:
-                geometrie.objectId
-            },
-            end: {
-              positionX:
-                labelX * 1000,
-              positionY:
-                labelY * 1000,
-              positionZ:
-                labelZ * 1000,
-              modelId:
-                geometrie.modelId,
-              objectId:
-                geometrie.objectId
-            }
-          });
+        if (!target) {
+          continue;
         }
-      );
+
+        markups.push({
+          text: groep.value,
+          color: {
+            r: kleur.r,
+            g: kleur.g,
+            b: kleur.b,
+            a: 255
+          },
+          start: {
+            positionX: target.x * 1000,
+            positionY: target.y * 1000,
+            positionZ: target.z * 1000,
+            modelId: target.modelId,
+            objectId: target.objectId
+          },
+          end: {
+            positionX: labelX * 1000,
+            positionY: labelY * 1000,
+            positionZ: labelZ * 1000,
+            modelId: target.modelId,
+            objectId: target.objectId
+          }
+        });
+      }
 
       const resultaat =
         await API.markup.addTextMarkup(
@@ -10058,17 +10414,17 @@ function bepaalAlgemeneZoekgroep(
     }
 
     function bepaalGewichtsklasse(
-      gewichtKg
+      gewichtTon
     ) {
       if (
-        gewichtKg === null ||
-        !Number.isFinite(gewichtKg) ||
-        gewichtKg <= 0
+        gewichtTon === null ||
+        !Number.isFinite(gewichtTon) ||
+        gewichtTon <= 0
       ) {
         return null;
       }
 
-      if (gewichtKg >= 10000) {
+      if (gewichtTon >= 10.0) {
         return {
           sleutel: "vanaf10",
           naam: "≥ 10 ton",
@@ -10082,7 +10438,7 @@ function bepaalAlgemeneZoekgroep(
         };
       }
 
-      if (gewichtKg >= 5000) {
+      if (gewichtTon >= 5.0) {
         return {
           sleutel: "5tot10",
           naam: "5–10 ton",
@@ -10308,7 +10664,7 @@ function bepaalAlgemeneZoekgroep(
                   mark: mark,
                   details: [],
                   gewichtBronwaarden: [],
-                  gewichtKg: null,
+                  gewichtTon: null,
                   klasse: null
                 }
               );
@@ -10329,8 +10685,8 @@ function bepaalAlgemeneZoekgroep(
               gewichtWaarde !== undefined &&
               String(gewichtWaarde).trim() !== ""
             ) {
-              const gewichtKg =
-                parseerGewichtNaarKg(
+              const gewichtTon =
+                parseerGewichtNaarTon(
                   gewichtWaarde
                 );
 
@@ -10339,16 +10695,16 @@ function bepaalAlgemeneZoekgroep(
               );
 
               if (
-                gewichtKg !== null &&
-                Number.isFinite(gewichtKg) &&
-                gewichtKg > 0
+                gewichtTon !== null &&
+                Number.isFinite(gewichtTon) &&
+                gewichtTon > 0
               ) {
-                assembly.gewichtKg =
-                  gewichtKg;
+                assembly.gewichtTon =
+                  gewichtTon;
 
                 assembly.klasse =
                   bepaalGewichtsklasse(
-                    gewichtKg
+                    gewichtTon
                   );
               }
             }
