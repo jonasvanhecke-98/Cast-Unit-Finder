@@ -904,7 +904,7 @@
 
       <div class="tool-card-grid">
         <button id="open-search-module-button" class="tool-card" type="button">
-          <span class="tool-card-title">Zoeken</span>
+          <span class="tool-card-title">Zoeken en groeperen</span>
           <span class="tool-card-description">
             Vind elementen, assemblies en parameterwaarden. Selecteer, kleur, focus,
             verberg of label de resultaten rechtstreeks in het model.
@@ -939,7 +939,7 @@
     <div class="panel">
       <div class="module-header">
         <span class="module-eyebrow">Module</span>
-        <h2>Zoeken</h2>
+        <h2>Zoeken en groeperen</h2>
         <p class="module-subtitle">
           Zoek gericht naar elementen en assemblies of groepeer het model op een
           aanwezige parameter.
@@ -956,7 +956,7 @@
         </button>
 
         <button id="open-general-button" class="tool-card" type="button">
-          <span class="tool-card-title">Op op parameter zoeken</span>
+          <span class="tool-card-title">Op parameter zoeken</span>
           <span class="tool-card-description">
             Zoek in alle properties of kies een specifieke parameter. Groepeer,
             kleur, focus, verberg, isoleer en label de resultaten.
@@ -986,7 +986,7 @@
         <h2>Snelacties</h2>
         <p class="module-subtitle">
           Veelgebruikte modelweergaven zelfstandig met één klik uitvoeren.
-          Deze acties staan volledig los van de module Zoeken.
+          Deze acties staan volledig los van de module Zoeken en groeperen.
         </p>
       </div>
 
@@ -1256,12 +1256,12 @@
 
   <section id="saved-searches-view" class="view">
     <button id="back-from-saved-searches" class="secondary back-button" type="button">
-      Terug naar Zoeken
+      Terug naar Zoeken en groeperen
     </button>
 
     <div class="panel">
       <div class="module-header">
-        <span class="module-eyebrow">Zoeken</span>
+        <span class="module-eyebrow">Zoeken en groeperen</span>
         <h2>Opgeslagen zoekopdrachten</h2>
         <p class="module-subtitle">
           Bewaar de huidige parameterzoekopdracht of open een eerder opgeslagen zoekactie.
@@ -1318,11 +1318,11 @@
 
   <section id="general-view" class="view">
     <button id="back-from-general" class="secondary back-button" type="button">
-      Terug naar Zoeken
+      Terug naar Zoeken en groeperen
     </button>
 
     <section class="panel">
-      <h2>Op op parameter zoeken</h2>
+      <h2>Op parameter zoeken</h2>
 
       <p class="small-info">
         Zoek in alle modeleigenschappen of kies een specifieke parameter. De bestaande resultaatwerkbalk blijft beschikbaar voor kleuren, labels, focus, verbergen en isoleren.
@@ -1339,7 +1339,7 @@
       >
 
       <button id="general-search-button" class="single-button" type="button" disabled>
-        Algemeen zoeken
+        Op parameter zoeken
       </button>
 
       <div class="field-divider"></div>
@@ -1393,7 +1393,7 @@
 
   <section id="elements-view" class="view">
     <button id="back-from-elements" class="secondary back-button" type="button">
-      Terug naar Zoeken
+      Terug naar Zoeken en groeperen
     </button>
 
     <section class="panel cast-unit-card">
@@ -2551,13 +2551,20 @@ const profileOptionsElement =
       }
 
       /*
-       * De Tekla-property Assembly/Cast unit weight wordt normaal in ton
-       * aangeleverd. Ontbreekt de eenheid, dan behouden we die conventie.
+       * Tekla levert Assembly/Cast unit weight in deze modellen zonder
+       * betrouwbare eenheidsmetadata als kilogramwaarde aan. Een kale waarde
+       * 31 betekent dus 31 kg = 0,031 ton. Alleen wanneer de bron expliciet
+       * t/ton vermeldt, behandelen we het getal rechtstreeks als ton.
        */
-      return parseDecimaalGetal(
-        nummerTekst,
-        false
-      );
+      const kilogram =
+        parseDecimaalGetal(
+          nummerTekst,
+          true
+        );
+
+      return kilogram !== null
+        ? kilogram / 1000
+        : null;
     }
 
     function formatteerGewicht(waarde) {
@@ -8068,6 +8075,195 @@ function bepaalAlgemeneZoekgroep(
         });
     }
 
+    async function laadSelectieVoorAssemblies(
+      assemblies,
+      knop = null
+    ) {
+      const alleSelecties = [];
+
+      for (
+        let index = 0;
+        index < assemblies.length;
+        index++
+      ) {
+        if (knop) {
+          knop.textContent =
+            "Assemblies laden " +
+            (index + 1) +
+            "/" +
+            assemblies.length +
+            "...";
+        }
+
+        alleSelecties.push(
+          await laadVolledigeAssemblySelectie(
+            assemblies[index]
+          )
+        );
+
+        if (index % 5 === 0) {
+          await new Promise(function(resolve) {
+            setTimeout(resolve, 0);
+          });
+        }
+      }
+
+      return combineerSelectieResultaten(
+        alleSelecties
+      );
+    }
+
+    async function voerElementResultaatActieUit(
+      assemblies,
+      actie,
+      knop
+    ) {
+      const origineleTekst =
+        knop ? knop.textContent : "";
+
+      try {
+        if (knop) {
+          knop.disabled = true;
+        }
+
+        if (actie === "allesTonen") {
+          const alleObjecten =
+            await haalAlleModelObjecten();
+
+          const allesSelector =
+            maakSelector(alleObjecten);
+
+          await API.viewer.setObjectState(
+            allesSelector,
+            {
+              visible: true,
+              opacity: 1
+            }
+          );
+
+          await wisSelectie();
+
+          if (knop) {
+            knop.textContent = "Volledig model zichtbaar";
+          }
+
+          return;
+        }
+
+        const resultaten =
+          await laadSelectieVoorAssemblies(
+            assemblies,
+            knop
+          );
+
+        const selector =
+          maakSelector(resultaten);
+
+        if (
+          !selector.modelObjectIds ||
+          selector.modelObjectIds.length === 0
+        ) {
+          throw new Error(
+            "De gevonden assembly bevat geen selecteerbare objecten."
+          );
+        }
+
+        if (actie === "isoleren") {
+          const alleObjecten =
+            await haalAlleModelObjecten();
+
+          await API.viewer.setObjectState(
+            maakSelector(alleObjecten),
+            {
+              visible: false
+            }
+          );
+
+          await API.viewer.setObjectState(
+            selector,
+            {
+              visible: true,
+              opacity: 1
+            }
+          );
+        }
+
+        await API.viewer.setSelection(
+          selector,
+          "set"
+        );
+
+        if (
+          actie === "focus" ||
+          actie === "isoleren"
+        ) {
+          await API.viewer.setCamera(
+            selector,
+            {
+              animationTime: 500
+            }
+          );
+        }
+
+        if (knop) {
+          knop.textContent =
+            actie === "selecteren"
+              ? "Geselecteerd"
+              : actie === "focus"
+                ? "Focus toegepast"
+                : "Resultaat geïsoleerd";
+        }
+      } catch (error) {
+        console.error(
+          "Actie op elementzoekresultaat mislukt:",
+          error
+        );
+
+        if (knop) {
+          knop.textContent = "Actie mislukt";
+        }
+      } finally {
+        if (knop) {
+          setTimeout(function() {
+            knop.disabled = false;
+            knop.textContent = origineleTekst;
+          }, 1000);
+        }
+      }
+    }
+
+    function maakElementResultaatActieKnop(
+      tekst,
+      actie,
+      assemblies,
+      secondary = false
+    ) {
+      const knop =
+        document.createElement("button");
+
+      knop.type = "button";
+      knop.textContent = tekst;
+
+      if (secondary) {
+        knop.className = "secondary";
+      }
+
+      knop.addEventListener(
+        "click",
+        async function(event) {
+          event.stopPropagation();
+
+          await voerElementResultaatActieUit(
+            assemblies,
+            actie,
+            knop
+          );
+        }
+      );
+
+      return knop;
+    }
+
     async function selecteerAlleAssemblies(
       assemblies,
       knop
@@ -8212,36 +8408,48 @@ function bepaalAlgemeneZoekgroep(
 
       elementResultElement.appendChild(titel);
 
-      if (assemblies.length > 1) {
-        const selecteerAllesKnop =
-          document.createElement("button");
+      if (assemblies.length > 0) {
+        const alleActies =
+          document.createElement("div");
 
-        selecteerAllesKnop.type = "button";
-        selecteerAllesKnop.className =
-          "single-button";
+        alleActies.className = "button-row";
+        alleActies.style.marginBottom = "12px";
 
-        selecteerAllesKnop.style.marginBottom =
-          "12px";
+        alleActies.appendChild(
+          maakElementResultaatActieKnop(
+            "Alles selecteren",
+            "selecteren",
+            assemblies
+          )
+        );
 
-        selecteerAllesKnop.textContent =
-          "Selecteer alle " +
-          assemblies.length +
-          " resultaten";
+        alleActies.appendChild(
+          maakElementResultaatActieKnop(
+            "Focus op resultaat",
+            "focus",
+            assemblies
+          )
+        );
 
-        selecteerAllesKnop.addEventListener(
-          "click",
-          async function(event) {
-            event.stopPropagation();
+        alleActies.appendChild(
+          maakElementResultaatActieKnop(
+            "Resultaat isoleren",
+            "isoleren",
+            assemblies
+          )
+        );
 
-            await selecteerAlleAssemblies(
-              assemblies,
-              selecteerAllesKnop
-            );
-          }
+        alleActies.appendChild(
+          maakElementResultaatActieKnop(
+            "Alles tonen",
+            "allesTonen",
+            assemblies,
+            true
+          )
         );
 
         elementResultElement.appendChild(
-          selecteerAllesKnop
+          alleActies
         );
       }
 
@@ -8327,27 +8535,48 @@ function bepaalAlgemeneZoekgroep(
           assemblyInfo
         );
 
-        const knop =
-          document.createElement("button");
+        const assemblyActies =
+          document.createElement("div");
 
-        knop.type = "button";
-        knop.textContent =
-          "Selecteer volledige assembly " +
-          assembly.mark;
+        assemblyActies.className =
+          "button-row";
 
-        knop.addEventListener(
-          "click",
-          async function(event) {
-            event.stopPropagation();
-
-            await selecteerVolledigeAssembly(
-              assembly,
-              null
-            );
-          }
+        assemblyActies.appendChild(
+          maakElementResultaatActieKnop(
+            "Selecteren",
+            "selecteren",
+            [assembly]
+          )
         );
 
-        inhoud.appendChild(knop);
+        assemblyActies.appendChild(
+          maakElementResultaatActieKnop(
+            "Focus",
+            "focus",
+            [assembly]
+          )
+        );
+
+        assemblyActies.appendChild(
+          maakElementResultaatActieKnop(
+            "Isoleren",
+            "isoleren",
+            [assembly]
+          )
+        );
+
+        assemblyActies.appendChild(
+          maakElementResultaatActieKnop(
+            "Alles tonen",
+            "allesTonen",
+            [assembly],
+            true
+          )
+        );
+
+        inhoud.appendChild(
+          assemblyActies
+        );
 
         detailsElement.appendChild(summary);
         detailsElement.appendChild(inhoud);
